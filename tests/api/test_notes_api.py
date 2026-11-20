@@ -277,3 +277,70 @@ def test_priority_replaces_or_clears_the_tag_and_goes_with_tags_in_one_commit(cl
     assert client.put("/api/notes/plain", json={"priority": "urgent"}).status_code == 422
     # without `priority`, tags are taken as written
     assert client.put("/api/notes/plain", json={"tags": ["a"]}).json()["tags"] == ["a"]
+
+
+# -- time ------------------------------------------------------------------
+def test_logging_time_through_the_api(client, root):
+    make(client, "Fix login", types=["task"])
+    r = client.put("/api/notes/fix-login/time/2026-11-20", json={"minutes": 90})
+    assert r.status_code == 200
+    assert r.json() == {"id": "fix-login:2026-11-20", "slug": "fix-login", "title": "Fix login", "type": "task",
+                        "project": "", "day": "2026-11-20", "minutes": 90}
+    r = client.post("/api/notes/fix-login/time", json={"day": "2026-11-20", "minutes": 30})
+    assert r.status_code == 201 and r.json()["minutes"] == 120
+    assert client.get("/api/notes/fix-login").json()["time"] == {"2026-11-20": 120}
+    assert "time: {2026-11-20: 120}" in (root / "fix-login.md").read_text()
+    assert client.delete("/api/notes/fix-login/time/2026-11-20").status_code == 204
+    assert client.get("/api/notes/fix-login").json()["time"] == {}
+    assert client.delete("/api/notes/fix-login/time/2026-11-20").status_code == 404
+
+
+def test_logging_time_is_refused_for_bad_input(client):
+    make(client, "Fix login", types=["task"])
+    make(client, "Idea", types=["idea"])
+    assert client.put("/api/notes/idea/time/2026-11-20", json={"minutes": 30}).status_code == 422
+    assert client.put("/api/notes/fix-login/time/soon", json={"minutes": 30}).status_code == 422
+    assert client.put("/api/notes/fix-login/time/2026-11-20", json={"minutes": 0}).status_code == 422
+    assert client.put("/api/notes/fix-login/time/2026-11-20", json={"minutes": 1441}).status_code == 422
+    assert client.put("/api/notes/missing/time/2026-11-20", json={"minutes": 30}).status_code == 404
+
+
+def test_time_entries_lists_rows_with_the_month_totals(client):
+    make(client, "Fix login", types=["task"])
+    make(client, "Standup", types=["meeting"])
+    today = date.today()
+    this_month = today.replace(day=1).isoformat()
+    client.put(f"/api/notes/fix-login/time/{this_month}", json={"minutes": 90})
+    client.put("/api/notes/fix-login/time/2020-01-02", json={"minutes": 60})
+    client.put(f"/api/notes/standup/time/{this_month}", json={"minutes": 15})
+    body = client.get("/api/time-entries").json()
+    assert [(i["slug"], i["day"], i["minutes"]) for i in body["items"]] == [
+        ("fix-login", this_month, 90), ("standup", this_month, 15), ("fix-login", "2020-01-02", 60)]
+    assert {k: body[k] for k in ("total", "total_entries", "total_minutes", "task_minutes", "meeting_minutes",
+                                 "page", "page_size", "total_pages")} == {
+        "total": 3, "total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15,
+        "page": 0, "page_size": 10, "total_pages": 1}
+
+
+def test_time_entries_filters_and_pages(client):
+    make(client, "Fix login", types=["task"])
+    make(client, "Standup", types=["meeting"])
+    for d in range(1, 6):
+        client.put(f"/api/notes/fix-login/time/2026-01-0{d}", json={"minutes": 10 * d})
+    client.put("/api/notes/standup/time/2026-01-03", json={"minutes": 5})
+    assert len(client.get("/api/time-entries", params={"q": "stand"}).json()["items"]) == 1
+    assert len(client.get("/api/time-entries", params={"q": "duration:>=2h"}).json()["items"]) == 0
+    assert len(client.get("/api/time-entries", params={"q": "duration:>=30m"}).json()["items"]) == 3
+    assert len(client.get("/api/time-entries", params={"start": "2026-01-02", "end": "2026-01-03"}).json()["items"]) == 3
+    assert len(client.get("/api/time-entries", params={"note": "standup"}).json()["items"]) == 1
+    p = client.get("/api/time-entries", params={"page": 1, "page_size": 4}).json()
+    assert (len(p["items"]), p["total"], p["total_pages"]) == (2, 6, 2)
+    assert client.get("/api/time-entries", params={"start": "2026-02-01", "end": "2026-01-01"}).status_code == 400
+
+
+def test_time_entries_ignore_notes_that_are_not_tasks_or_meetings(client, root):
+    (root / "idea.md").write_text("---\ntitle: Idea\ntype: idea\ntime: {2026-01-01: 30}\n---\n\n# Idea\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "seed")
+    client.post("/api/reindex")
+    assert client.get("/api/time-entries").json()["items"] == []

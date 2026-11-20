@@ -9,12 +9,14 @@ import threading
 from datetime import date
 from dataclasses import replace
 
+from src.application.notes import time_entries
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Note, NoteVersion
-from src.domain.notes.errors import InvalidTitle, NoteNotFound
+from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
 from src.domain.notes.tasks import is_task, task_status, week_label, with_priority
+from src.domain.notes.time import MAX_MINUTES_PER_DAY, accepts_time, parse_day
 from src.domain.notes.title import extract_h1, set_h1, with_h1
 from src.domain.notes.wiki_links import rewrite_targets
 from src.infrastructure.metrics import Metrics
@@ -66,6 +68,15 @@ class NoteService:
 
     def get(self, slug: str) -> Note:
         return self.repo.get(slug)
+
+    def time_rows(self, *, query: str = "", start: str | None = None, end: str | None = None,
+                  slug: str | None = None) -> list[time_entries.TimeRow]:
+        """Logged time, one row per note and day, newest day first. See `time_entries.select` for the search."""
+        rows = (r for n in self.index.notes.values() for r in time_entries.rows_of(n))
+        return time_entries.select(rows, query=query, start=start, end=end, slug=slug, today=self._today())
+
+    def time_summary(self, rows: list[time_entries.TimeRow]) -> dict:
+        return time_entries.month_summary(rows, self._today())
 
     def recent(self) -> list[Note]:
         """Notes by most recent edit: newest `updated` day first, then newest file modification time."""
@@ -167,6 +178,30 @@ class NoteService:
                 tags=new_tags))
         self.invalidate()
         return note
+
+    def log_time(self, slug: str, day: str, minutes: int, *, add: bool = False) -> time_entries.TimeRow:
+        """Set the minutes spent on a task or meeting note on `day`, or with `add` add them to what is there.
+        One commit; the note's other keys and its body are untouched."""
+        current = self.repo.get(slug)
+        if not accepts_time(current):
+            raise InvalidTime("Time can only be logged on a note of type task or meeting.")
+        iso = parse_day(day)
+        if iso is None:
+            raise InvalidTime(f"{day!r} is not a date (use YYYY-MM-DD).")
+        total = current.time.get(iso, 0) + minutes if add else minutes
+        if not 1 <= total <= MAX_MINUTES_PER_DAY:
+            raise InvalidTime(f"A day holds 1 to {MAX_MINUTES_PER_DAY} minutes, not {total}.")
+        note = self.repo.update(replace(current, time={**current.time, iso: total}))
+        self.invalidate()
+        return next(r for r in time_entries.rows_of(note) if r.day == iso)
+
+    def remove_time(self, slug: str, day: str) -> None:
+        current = self.repo.get(slug)
+        iso = parse_day(day)
+        if iso is None or iso not in current.time:
+            raise NoteNotFound(f"{slug} has no time logged on {day}")
+        self.repo.update(replace(current, time={d: m for d, m in current.time.items() if d != iso}))
+        self.invalidate()
 
     def _relink(self, linking: list[str], old_slug: str, new_slug: str, old_title: str, new_title: str) -> None:
         """Keep `[[old-slug]]` and `[[Old Title]]` links in other notes pointing at the renamed note."""

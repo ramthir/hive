@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import difflib
+from datetime import date
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             ResolvedLink, TaskOut, VersionDetail, VersionOut)
+                             ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, VersionDetail,
+                             VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
 
@@ -50,6 +52,39 @@ def tasks(request: Request):
 def current_week(request: Request) -> dict[str, str]:
     """This week (e.g. 2026-W47) by the server's clock: the default week of the Done column."""
     return {"week": svc(request).current_week()}
+
+
+@router.get("/time-entries", response_model=TimeEntriesOut)
+def time_entries(request: Request, q: str = "", start: date | None = None, end: date | None = None,
+                 note: str | None = None, page: int = Query(0, ge=0), page_size: int = Query(10, ge=1, le=100)):
+    """Logged time (one row per task or meeting note and day), newest first. `q` takes free text (the note title)
+    and `project:`, `task:`, `date:today|yesterday|YYYY-MM-DD`, `duration:>30m` filters. The totals are this
+    month's, over every match, not only the page."""
+    if start and end and start > end:
+        raise HTTPException(status_code=400, detail="start must be on or before end")
+    s = svc(request)
+    rows = s.time_rows(query=q, start=start and start.isoformat(), end=end and end.isoformat(), slug=note)
+    shown = rows[page * page_size:(page + 1) * page_size]
+    return TimeEntriesOut(items=[TimeEntryOut.of(r) for r in shown], total=len(rows), page=page, page_size=page_size,
+                          total_pages=max(1, -(-len(rows) // page_size)), **s.time_summary(rows))
+
+
+@router.post("/notes/{slug}/time", response_model=TimeEntryOut, status_code=201)
+def add_time(request: Request, slug: str, body: TimeAdd):
+    """Add minutes to a day (a new day is created)."""
+    return TimeEntryOut.of(svc(request).log_time(slug, body.day, body.minutes, add=True))
+
+
+@router.put("/notes/{slug}/time/{day}", response_model=TimeEntryOut)
+def set_time(request: Request, slug: str, day: str, body: TimeLog):
+    """Set the minutes of a day, replacing what was there."""
+    return TimeEntryOut.of(svc(request).log_time(slug, day, body.minutes))
+
+
+@router.delete("/notes/{slug}/time/{day}", status_code=204)
+def remove_time(request: Request, slug: str, day: str):
+    svc(request).remove_time(slug, day)
+    return Response(status_code=204)
 
 
 @router.get("/tags", response_model=dict[str, int])

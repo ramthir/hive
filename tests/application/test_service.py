@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from src.application.notes.service import NoteService
-from src.domain.notes.errors import InvalidTitle, NoteNotFound
+from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 
 
@@ -278,3 +278,75 @@ def test_tasks_lists_only_task_notes_newest_first(svc, day):
     day["today"] = date(2026, 11, 2)
     svc.create("Second", types=("task", "urgent"))
     assert [n.slug for n in svc.tasks()] == ["second", "first"]
+
+
+# -- logging time ----------------------------------------------------------
+def _task(svc, title="Fix login", types=("task",)):
+    return svc.create(title, "", types=types)
+
+
+def test_log_time_sets_the_minutes_of_a_day_in_one_commit(svc, root):
+    _task(svc)
+    before = len(git(root, "rev-list", "HEAD").split())
+    r = svc.log_time("fix-login", "2026-11-20", 90)
+    assert (r.id, r.minutes, r.type) == ("fix-login:2026-11-20", 90, "task")
+    assert svc.log_time("fix-login", "2026-11-20", 45).minutes == 45  # set replaces
+    assert svc.get("fix-login").time == {"2026-11-20": 45}
+    assert len(git(root, "rev-list", "HEAD").split()) == before + 2
+    assert "time: {2026-11-20: 45}" in (root / "fix-login.md").read_text()
+
+
+def test_log_time_with_add_adds_to_the_day(svc):
+    _task(svc)
+    svc.log_time("fix-login", "2026-11-20", 60)
+    assert svc.log_time("fix-login", "2026-11-20", 30, add=True).minutes == 90
+    assert svc.log_time("fix-login", "2026-11-21", 30, add=True).minutes == 30
+
+
+def test_log_time_rejects_other_notes_bad_days_and_too_many_minutes(svc):
+    _task(svc)
+    svc.create("Idea", "", types=("idea",))
+    with pytest.raises(InvalidTime):
+        svc.log_time("idea", "2026-11-20", 30)
+    with pytest.raises(InvalidTime):
+        svc.log_time("fix-login", "yesterday", 30)
+    with pytest.raises(InvalidTime):
+        svc.log_time("fix-login", "2026-11-20", 0)
+    svc.log_time("fix-login", "2026-11-20", 1400)
+    with pytest.raises(InvalidTime):
+        svc.log_time("fix-login", "2026-11-20", 100, add=True)
+    assert svc.get("fix-login").time == {"2026-11-20": 1400}
+    with pytest.raises(NoteNotFound):
+        svc.log_time("missing", "2026-11-20", 30)
+
+
+def test_remove_time_drops_the_day_and_the_key_with_the_last_one(svc, root):
+    _task(svc)
+    svc.log_time("fix-login", "2026-11-20", 60)
+    svc.log_time("fix-login", "2026-11-21", 30)
+    svc.remove_time("fix-login", "2026-11-20")
+    assert svc.get("fix-login").time == {"2026-11-21": 30}
+    svc.remove_time("fix-login", "2026-11-21")
+    assert "time" not in (root / "fix-login.md").read_text()
+    with pytest.raises(NoteNotFound):
+        svc.remove_time("fix-login", "2026-11-21")
+
+
+def test_logging_time_does_not_touch_status_week_or_the_body(svc, root):
+    svc.create("Fix login", "body text", types=("task",))
+    svc.update("fix-login", status="DONE")
+    before = svc.get("fix-login")
+    svc.log_time("fix-login", "2026-11-20", 60)
+    after = svc.get("fix-login")
+    assert (after.status, after.week, after.content, after.tags, after.types) == (
+        before.status, before.week, before.content, before.tags, before.types)
+
+
+def test_time_rows_search_every_task_and_meeting(svc):
+    _task(svc, "Fix login")
+    _task(svc, "Standup", ("meeting",))
+    svc.log_time("fix-login", "2026-11-20", 90)
+    svc.log_time("standup", "2026-11-20", 15)
+    assert [(r.title, r.minutes) for r in svc.time_rows()] == [("Fix login", 90), ("Standup", 15)]
+    assert [r.title for r in svc.time_rows(query="stand")] == ["Standup"]
+    assert svc.time_summary(svc.time_rows()) == {"total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15}

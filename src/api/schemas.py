@@ -7,7 +7,9 @@ import re
 
 from pydantic import BaseModel, Field
 
+from src.application.notes.time_entries import TimeRow
 from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.time import MAX_MINUTES_PER_DAY
 from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
@@ -37,12 +39,49 @@ class NoteSummary(BaseModel):
 
 class NoteDetail(NoteSummary):
     content: str
+    time: dict[str, int] = {}  # ISO day -> minutes logged (task and meeting notes)
     extra: dict[str, Any]
 
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), extra=dict(n.extra))
+
+
+class TimeEntryOut(BaseModel):
+    """One note's minutes on one day. `id` is `slug:day`."""
+    id: str
+    slug: str
+    title: str
+    type: Literal["task", "meeting"]
+    project: str
+    day: str
+    minutes: int
+
+    @classmethod
+    def of(cls, r: TimeRow) -> "TimeEntryOut":
+        return cls(id=r.id, slug=r.slug, title=r.title, type=r.type, project=r.project, day=r.day, minutes=r.minutes)
+
+
+class TimeEntriesOut(BaseModel):
+    """A page of entries plus the current month's totals over everything the search matched."""
+    items: list[TimeEntryOut]
+    total: int
+    total_entries: int
+    total_minutes: int
+    task_minutes: int
+    meeting_minutes: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class TimeLog(BaseModel):
+    minutes: int = Field(ge=1, le=MAX_MINUTES_PER_DAY)
+
+
+class TimeAdd(TimeLog):
+    day: str  # YYYY-MM-DD; the service rejects anything else
 
 
 class NoteCreate(BaseModel):

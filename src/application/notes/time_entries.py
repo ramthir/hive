@@ -1,0 +1,119 @@
+"""Logged time as rows (one note on one day), with the search syntax and the month summary of the time page."""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from datetime import date, timedelta
+from typing import Any, Iterable
+
+from src.domain.notes.entities import Note
+from src.domain.notes.time import time_type
+
+
+@dataclass(frozen=True)
+class TimeRow:
+    slug: str
+    title: str
+    type: str  # "task" or "meeting"
+    project: str  # the note's optional `project:` frontmatter, else ""
+    day: str  # ISO day
+    minutes: int
+
+    @property
+    def id(self) -> str:
+        return f"{self.slug}:{self.day}"
+
+
+def rows_of(note: Note) -> list[TimeRow]:
+    kind = time_type(note)
+    if kind is None:
+        return []
+    project = str(note.extra.get("project") or "").strip()
+    return [TimeRow(note.slug, note.title, kind, project, day, minutes) for day, minutes in note.time.items()]
+
+
+_FILTER = re.compile(
+    r"\b(project|task|date|duration)\s*:\s*(\"[^\"]+\"(?=\s|$)|'[^']+'(?=\s|$)|.*?(?=\s+\b(?:project|task|date|duration)\s*:|$))",
+    re.IGNORECASE)
+_AMOUNT = r"(\d+(?:\.\d+)?)(m|h)?"
+
+
+def parse_query(query: str) -> tuple[str, dict[str, str]]:
+    """Split `fix login project:Acme date:today duration:>30m` into the free text and its filters."""
+    filters: dict[str, str] = {}
+    text: list[str] = []
+    cursor = 0
+    for m in _FILTER.finditer(query):
+        text.append(query[cursor:m.start()])
+        filters[m.group(1).lower()] = m.group(2).strip().strip("\"'")
+        cursor = m.end()
+    text.append(query[cursor:])
+    return " ".join(" ".join(text).split()), filters
+
+
+def _minutes(value: str, unit: str | None) -> float:
+    return float(value) * (60 if (unit or "m").lower() == "h" else 1)
+
+
+def _duration_test(spec: str):
+    """`>30m`, `<=2h`, `45` (exactly 45 minutes) or a range `30m-2h`; None when it makes no sense."""
+    spec = spec.replace(" ", "")
+    rng = re.fullmatch(f"{_AMOUNT}-{_AMOUNT}", spec, re.IGNORECASE)
+    if rng:
+        low, high = _minutes(*rng.group(1, 2)), _minutes(*rng.group(3, 4))
+        return lambda m: low <= m <= high
+    cmp = re.fullmatch(rf"(>=|<=|>|<|=)?{_AMOUNT}", spec, re.IGNORECASE)
+    if cmp:
+        limit = _minutes(*cmp.group(2, 3))
+        return {">=": lambda m: m >= limit, "<=": lambda m: m <= limit, ">": lambda m: m > limit,
+                "<": lambda m: m < limit}.get(cmp.group(1) or "=", lambda m: m == limit)
+    return None
+
+
+def _day_of(spec: str, today: date) -> str | None:
+    spec = spec.lower()
+    if spec in ("today", "yesterday"):
+        return (today - timedelta(days=spec == "yesterday")).isoformat()
+    try:
+        return date.fromisoformat(spec).isoformat()
+    except ValueError:
+        return None
+
+
+def select(rows: Iterable[TimeRow], *, query: str = "", start: str | None = None, end: str | None = None,
+           slug: str | None = None, today: date) -> list[TimeRow]:
+    """The rows matching the search and the date range, newest day first, then by title."""
+    text, filters = parse_query(query)
+    text = text.casefold()
+    task = filters.get("task", "").casefold()
+    project = filters.get("project", "").casefold()
+    day = _day_of(filters["date"], today) if filters.get("date") else None
+    duration = _duration_test(filters["duration"]) if filters.get("duration") else None
+    out = []
+    for r in rows:
+        if slug and r.slug != slug:
+            continue
+        if start and r.day < start or end and r.day > end:
+            continue
+        if text and text not in r.title.casefold():
+            continue
+        if task and task not in r.title.casefold():
+            continue
+        if project and project not in r.project.casefold():
+            continue
+        if filters.get("date") and r.day != day:  # an unreadable date matches nothing
+            continue
+        if duration and not duration(r.minutes):
+            continue
+        out.append(r)
+    out.sort(key=lambda r: r.title.casefold())
+    return sorted(out, key=lambda r: r.day, reverse=True)  # stable: titles stay A-Z within a day
+
+
+def month_summary(rows: Iterable[TimeRow], today: date) -> dict[str, Any]:
+    """Entries and minutes logged in the current month, in total and for tasks and meetings."""
+    month = today.isoformat()[:7]
+    mine = [r for r in rows if r.day[:7] == month]
+    by = lambda kind: sum(r.minutes for r in mine if r.type == kind)
+    return {"total_entries": len(mine), "total_minutes": sum(r.minutes for r in mine),
+            "task_minutes": by("task"), "meeting_minutes": by("meeting")}
