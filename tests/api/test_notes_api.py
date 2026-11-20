@@ -148,3 +148,16 @@ def test_list_recent_first(client):
     assert [n["slug"] for n in client.get("/api/notes", params={"sort": "recent"}).json()] == ["second", "first"]
     assert [n["slug"] for n in client.get("/api/notes").json()] == ["first", "second"]
     assert client.get("/api/notes", params={"sort": "bogus"}).status_code == 422
+
+
+def test_type_in_the_api(client, root):
+    n = make(client, "Typed", type="task")
+    assert n["type"] == "task"
+    assert make(client, "Untyped")["type"] is None
+    assert client.put("/api/notes/typed", json={"content": "# Typed\n\nedited"}).json()["type"] == "task"
+    assert client.put("/api/notes/typed", json={"type": "contact"}).json()["type"] == "contact"
+    assert client.get("/api/types").json() == {"contact": 1}
+    assert [x["type"] for x in client.get("/api/notes").json()] == ["contact", None]
+    assert client.put("/api/notes/typed", json={"type": ""}).json()["type"] is None
+    assert client.get("/api/types").json() == {}
+    assert "type:" not in (root / "typed.md").read_text()

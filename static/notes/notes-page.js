@@ -18,6 +18,10 @@ const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(n
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
 const searchShortcutKey = isMac ? '⌘K' : 'Ctrl+K';
 const READING_WORDS_PER_MINUTE = 75;
+const DEFAULT_TYPE = 'note';
+// Icons for the usual types; anything else gets the plain file icon.
+const TYPE_ICONS = { task: 'list-check', contact: 'user', project: 'folder', meeting: 'calendar-check', clipping: 'paperclip', book: 'book' };
+const typeIcon = (type) => TYPE_ICONS[String(type || '').toLowerCase()] || 'file-lines';
 
 /* --- API ------------------------------------------------------------- */
 
@@ -328,13 +332,14 @@ class NotesApp extends HTMLElement {
     const isNewDraft = !note.slug;
     const content = this.currentContent();
     const tags = parseTags(this.querySelector('#note-tags')?.value ?? note.tags.join(', '));
+    const type = (this.querySelector('#note-type')?.value ?? note.type ?? '').trim();
 
     this.saveStatus = 'saving';
     this.updateSaveIndicator();
     try {
       const saved = isNewDraft
-        ? await api('/notes', { method: 'POST', body: { content, tags } })
-        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags } });
+        ? await api('/notes', { method: 'POST', body: { content, tags, type } })
+        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags, type } });
       this.selectedNote = saved;
       // The server may normalise the text (e.g. a pre-commit formatter); keep the caret if nothing changed meanwhile.
       if (this.cmEditor && saved.content !== content && this.cmEditor.state.doc.toString() === content) {
@@ -425,6 +430,20 @@ class NotesApp extends HTMLElement {
     note.content = this.currentContent();
     const tags = this.querySelector('#note-tags');
     if (tags) note.tags = parseTags(tags.value);
+    const type = this.querySelector('#note-type');
+    if (type) note.type = type.value.trim() || null;
+  }
+
+  // Suggest the types already used in the notes, plus the default.
+  async loadTypeOptions() {
+    try {
+      const used = await api('/types');
+      const list = this.querySelector('#note-type-options');
+      if (!list) return;
+      list.innerHTML = [...new Set([DEFAULT_TYPE, ...Object.keys(used)])].map((type) => `<option value="${esc(type)}"></option>`).join('');
+    } catch (error) {
+      console.error('Failed to load note types:', error);
+    }
   }
 
   /* --- List view ----------------------------------------------------- */
@@ -469,7 +488,12 @@ class NotesApp extends HTMLElement {
 
         <app-action-bar fixed class="notes-action-bar" aria-label="Note status and actions">
           <div class="action-bar-left notes-footer-left">
-            <span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New file')}"><i class="fa-regular fa-file-lines" aria-hidden="true"></i><span>${esc(note.slug ? `${note.slug}.md` : 'New note')}</span></span>
+            <span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
+              <i class="fa-solid fa-${typeIcon(note.type)}" id="note-type-icon" aria-hidden="true"></i>
+              ${editing
+                ? `<input id="note-type" class="notes-type-input" list="note-type-options" placeholder="${DEFAULT_TYPE}" aria-label="Note type" value="${esc(note.type || '')}" spellcheck="false" /><datalist id="note-type-options"></datalist>`
+                : `<span class="notes-type-name">${esc(note.type || DEFAULT_TYPE)}</span>`}
+            </span>
             <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="notes-footer-stats" title="${chars.toLocaleString()} characters">
               <i class="fa-solid fa-align-left notes-stats-icon" aria-hidden="true"></i>
@@ -515,6 +539,11 @@ class NotesApp extends HTMLElement {
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
     this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
+    this.querySelector('#note-type')?.addEventListener('input', (event) => {
+      this.querySelector('#note-type-icon').className = `fa-solid fa-${typeIcon(event.target.value)}`;
+      this.markDirty();
+    });
+    if (editing) this.loadTypeOptions();
 
     if (editing) this.initCodeMirror();
     this.setupPreviewEvents();

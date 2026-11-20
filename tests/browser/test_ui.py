@@ -176,7 +176,7 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.wait_for_url("**/notes/renamed-idea?mode=edit")
     expect(page.locator("#save-note-btn")).to_be_disabled()
     assert (notes_dir / "renamed-idea.md").exists() and not (notes_dir / "fresh-idea.md").exists()
-    expect(page.locator(".notes-type-label")).to_contain_text("renamed-idea.md")
+    expect(page.locator(".notes-type-label")).to_have_attribute("title", "renamed-idea.md")  # the file name is the tooltip
 
     # History follows the file; restoring the first version brings back the old title and file name.
     page.click("#note-versions-btn")
@@ -282,3 +282,42 @@ def test_there_is_no_new_note_button(page, server):
     page.goto(f"{server}/notes/alpha")
     assert page.locator("#add-note-btn").count() == 0
     expect(page.locator("#search-notes-btn")).to_be_visible()
+
+
+def test_action_bar_shows_the_note_type_not_the_file_name(page, server, notes_dir):
+    (notes_dir / "typed.md").write_text("---\ntitle: Typed\ntype: contact\n---\n\n# Typed\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "typed")
+    page.goto(f"{server}/notes/alpha")
+    label = page.locator(".notes-action-bar .notes-type-label")
+    expect(label).to_have_text("note")  # unset: the default (shown capitalised by CSS)
+    assert "alpha.md" not in page.locator(".notes-action-bar").inner_text()
+    expect(label).to_have_attribute("title", "alpha.md")
+    page.goto(f"{server}/notes/typed")
+    expect(page.locator(".notes-type-name")).to_have_text("contact")
+    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-user")
+    assert page.errors == []
+
+
+def test_editing_the_note_type_saves_it_to_frontmatter(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha?mode=edit")
+    page.wait_for_selector(".cm-content")
+    kind = page.locator("#note-type")
+    expect(kind).to_have_value("")
+    expect(kind).to_have_attribute("placeholder", "note")
+    expect(page.locator("#note-type-options option")).to_have_count(1)  # just the default; no types in use yet
+    kind.fill("task")
+    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-list-check")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 2)
+    assert "\ntype: task\n" in (notes_dir / "alpha.md").read_text()
+    page.click("#edit-note-btn")
+    expect(page.locator(".notes-type-name")).to_have_text("task")
+    # Clearing it removes the key again.
+    page.click("#edit-note-btn")
+    page.locator("#note-type").fill("")
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 3)
+    assert "type:" not in (notes_dir / "alpha.md").read_text()
+    assert page.errors == []

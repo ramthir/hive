@@ -76,6 +76,14 @@ class NoteIndex:
                 counts[t] += 1
         return dict(sorted(counts.items()))
 
+    def types(self) -> dict[str, int]:
+        """How many notes use each `type:` (notes without one are not counted)."""
+        counts: dict[str, int] = defaultdict(int)
+        for n in self.notes.values():
+            if n.type:
+                counts[n.type] += 1
+        return dict(sorted(counts.items()))
+
     def search(self, query: str, tag: str | None = None, limit: int = 50) -> list[SearchHit]:
         words = query.casefold().split()
         hits = []

@@ -12,7 +12,7 @@ from src.domain.notes.slug import validate_slug
 from src.infrastructure.fs_notes import frontmatter
 from src.infrastructure.git.client import GitClient
 
-MANAGED = ("title", "tags", "created", "updated")
+MANAGED = ("title", "tags", "created", "updated", "type")
 
 
 def _day(value: Any) -> str | None:
@@ -54,6 +54,7 @@ class FileNoteRepository(NoteRepository):
             tags=tuple(str(t) for t in tags),
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
+            type=(str(meta["type"]).strip() or None) if meta.get("type") is not None else None,
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
         )
@@ -69,6 +70,15 @@ class FileNoteRepository(NoteRepository):
         if "created" not in meta:
             meta["created"] = _as_date(note.created or iso)
         meta["updated"] = _as_date(iso)
+        if note.type:
+            if "type" in meta:
+                meta["type"] = note.type
+            else:  # a new key goes right after the tags (or the title), not at the end
+                keys = list(meta.keys())
+                after = keys.index("tags") if "tags" in keys else keys.index("title")
+                meta.insert(after + 1, "type", note.type)
+        elif "type" in meta:
+            del meta["type"]
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")

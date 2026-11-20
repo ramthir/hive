@@ -71,6 +71,9 @@ class NoteService:
     def tags(self) -> dict[str, int]:
         return self.index.tags()
 
+    def types(self) -> dict[str, int]:
+        return self.index.types()
+
     def versions(self, slug: str) -> list[NoteVersion]:
         return self.repo.versions(slug)
 
@@ -87,20 +90,24 @@ class NoteService:
         return slug
 
     # -- commands --------------------------------------------------------
-    def create(self, title: str | None = None, content: str = "", tags: tuple[str, ...] = ()) -> Note:
+    def create(self, title: str | None = None, content: str = "", tags: tuple[str, ...] = (),
+               type: str | None = None) -> Note:
         """The title is the content's first heading; `title` is used (and inserted as the heading) if it has none."""
         heading = extract_h1(content)
         title = heading if heading is not None else (title or "").strip()
         if not title:
             raise InvalidTitle(EMPTY_TITLE)
         note = self.repo.create(Note(
-            slug=self._unique_slug(title), title=title, content=with_h1(title, content), tags=tuple(tags)))
+            slug=self._unique_slug(title), title=title, content=with_h1(title, content), tags=tuple(tags),
+            type=(type or "").strip() or None))
         self.invalidate()
         return note
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
-               tags: tuple[str, ...] | None = None) -> Note:
+               tags: tuple[str, ...] | None = None, type: str | None = None) -> Note:
+        """`type` None leaves it unchanged; an empty string clears it."""
         current = self.repo.get(slug)
+        new_type = current.type if type is None else ((type.strip() or None))
         body = current.content if content is None else content
         if title is not None:
             body = set_h1(body, title.strip())
@@ -118,12 +125,13 @@ class NoteService:
             self.repo.rename(slug, new_slug)
             self.invalidate()
             note = self.repo.update(replace(
-                current, slug=new_slug, title=new_title, content=body,
+                current, slug=new_slug, title=new_title, content=body, type=new_type,
                 tags=current.tags if tags is None else tuple(tags)))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
-                current, title=new_title, content=body, tags=current.tags if tags is None else tuple(tags)))
+                current, title=new_title, content=body, type=new_type,
+                tags=current.tags if tags is None else tuple(tags)))
         self.invalidate()
         return note
 

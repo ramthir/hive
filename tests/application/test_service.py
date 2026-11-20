@@ -175,3 +175,39 @@ def test_delete_and_index_refresh(svc):
     assert svc.restore("a", first).content.endswith("one")
     svc.delete("a")
     assert svc.list() == []
+
+
+def test_type_is_optional_and_lives_in_frontmatter(svc, root):
+    plain = svc.create("Plain")
+    assert plain.type is None and "type:" not in (root / "plain.md").read_text()
+    task = svc.create("Do It", tags=("a", "b"), type=" task ")
+    assert task.type == "task"
+    # a new key goes right after the tags, not at the end of the frontmatter
+    assert (root / "do-it.md").read_text().startswith("---\ntitle: Do It\ntags:\n  - a\n  - b\ntype: task\ncreated:")
+    assert svc.types() == {"task": 1}
+
+
+def test_update_type_changes_clears_and_otherwise_keeps(svc, root):
+    svc.create("N", type="note")
+    assert svc.update("n", content="# N\n\nedited").type == "note"  # omitted: unchanged
+    assert svc.update("n", type="task").type == "task"
+    assert (root / "n.md").read_text().count("type: task") == 1
+    assert svc.update("n", type="  ").type is None  # blank clears it
+    assert "type:" not in (root / "n.md").read_text()
+
+
+def test_type_survives_a_title_rename_and_a_restore(svc):
+    svc.create("Old", type="contact")
+    first = svc.versions("old")[-1].sha
+    renamed = svc.update("old", content="# New\n\nx")
+    assert (renamed.slug, renamed.type) == ("new", "contact")
+    svc.update("new", type="task")
+    assert svc.restore("new", svc.versions("new")[-1].sha).type == "contact"  # the version had type: contact
+
+
+def test_existing_type_key_in_a_file_is_read_and_kept_in_place(svc, root):
+    (root / "x.md").write_text("---\ntitle: X\ntype: contact\ntags:\n  - t\n---\n\n# X\n")
+    git(root, "add", "-A"); git(root, "commit", "-qm", "x")
+    assert svc.get("x").type == "contact" and svc.get("x").extra == {}
+    svc.update("x", content="# X\n\nedited")
+    assert (root / "x.md").read_text().startswith("---\ntitle: X\ntype: contact\ntags:\n  - t\n")
