@@ -14,10 +14,7 @@
 .notes-tags-combobox .combobox-chip { flex: none; text-transform: capitalize; /* display only */ }
 .notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
 
-.notes-backlinks { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--color-dimmed5);
-  font-family: var(--font-family); font-size: .9rem; }
-.notes-backlinks h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7; margin-bottom: .5rem; }
-.notes-backlinks ul { list-style: none; display: grid; gap: .25rem; }
+/* Backlinks reuse the preview's own h2 / list styling so they read like a note's "Related" section. */
 .notes-backlinks a, .notes-wikilink { color: var(--color-accent, #78dce8); text-decoration: none; cursor: pointer; }
 .notes-wikilink.unresolved { color: var(--color-red, #ff6188); border-bottom: 1px dashed currentColor; }
 .notes-backlinks .unresolved-list a { color: var(--color-red, #ff6188); }
