@@ -3,7 +3,7 @@ import { confirmDialog, confirmDiscard } from '/static/components/dialog.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
-import { parseUtcDate, formatRelativeTime } from '/static/time-format.js';
+import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';

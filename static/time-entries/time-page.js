@@ -22,7 +22,7 @@ const EMPTY = { icon: 'fa-clock', title: 'No time entries found', subtitle: 'Add
 class TimeEntriesApp extends HTMLElement {
   connectedCallback() {
     this.state = readState(window.location.search);
-    this.rows = [];
+    this.loadSeq = 0; // the latest load wins: an older answer is dropped
     this.innerHTML = `
       <section class="time-page">
         <app-header heading="Time Entries" variant="flush" attached>
@@ -64,11 +64,10 @@ class TimeEntriesApp extends HTMLElement {
   }
 
   async load() {
-    const seq = (this._seq = (this._seq || 0) + 1);
+    const seq = ++this.loadSeq;
     try {
       const data = await api(`/time-entries?${listQuery(this.state)}`);
-      if (seq !== this._seq) return; // a newer search is already on its way
-      this.rows = data.items;
+      if (seq !== this.loadSeq) return; // a newer search is already on its way
       this.table.setData(data.items);
       this.renderSummary(data);
       this.pagination.setAttribute('page', String(data.page));
@@ -78,7 +77,7 @@ class TimeEntriesApp extends HTMLElement {
       this.pagination.hidden = data.total <= PAGE_SIZE;
       if (data.page > 0 && !data.items.length && data.total) this.go({ ...this.state, page: data.total_pages - 1 });
     } catch (error) {
-      if (seq === this._seq) this.table.setError(`Could not load time entries: ${error.message}`);
+      if (seq === this.loadSeq) this.table.setError(`Could not load time entries: ${error.message}`);
     }
   }
 

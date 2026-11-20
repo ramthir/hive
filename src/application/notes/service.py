@@ -201,6 +201,7 @@ class NoteService:
         return next(r for r in time_entries.rows_of(note) if r.day == iso)
 
     def remove_time(self, slug: str, day: str) -> None:
+        """Unlike `log_time` this does not need a task or meeting: time on a note that was retyped can still be removed."""
         current = self.repo.get(slug)
         iso = parse_day(day)
         if iso is None or iso not in current.time:

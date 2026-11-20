@@ -1,7 +1,7 @@
 import { confirmDialog } from '/static/components/dialog.js';
 import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
-import { parseUtcDate, formatRelativeTime } from '/static/time-format.js';
+import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import { api } from '/static/notes/api.js';
 import { openDialog } from '/static/notes/dialogs.js';
 import { renderDiff } from '/static/notes/diff.js';

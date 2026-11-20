@@ -332,6 +332,16 @@ def test_remove_time_drops_the_day_and_the_key_with_the_last_one(svc, root):
         svc.remove_time("fix-login", "2026-11-21")
 
 
+def test_time_can_still_be_removed_from_a_note_that_is_no_longer_a_task(svc):
+    _task(svc)
+    svc.log_time("fix-login", "2026-11-20", 60)
+    svc.update("fix-login", types=[])
+    with pytest.raises(InvalidTime):
+        svc.log_time("fix-login", "2026-11-21", 30)
+    svc.remove_time("fix-login", "2026-11-20")
+    assert svc.get("fix-login").time == {}
+
+
 def test_logging_time_does_not_touch_status_week_or_the_body(svc, root):
     svc.create("Fix login", "body text", types=("task",))
     svc.update("fix-login", status="DONE")

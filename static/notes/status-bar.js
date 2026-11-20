@@ -1,4 +1,4 @@
-import { formatRelativeTime } from '/static/time-format.js';
+import { formatRelativeTime } from '/static/relative-time.js';
 
 /* The editor's footer: word count, reading time, last-updated stamp, and the save button's state. */
 
