@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.domain.notes.errors import GitError
+from src.infrastructure.metrics import Metrics
 
 _REC = "\x1e"
 _SEP = "\x1f"
@@ -24,8 +25,9 @@ class Commit:
 
 
 class GitClient:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, metrics: Metrics | None = None):
         self.root = Path(root)
+        self.metrics = metrics or Metrics()
         self._lock = threading.RLock()
 
     @property
@@ -58,7 +60,12 @@ class GitClient:
                 self.run("rm", "-q", "--cached", "--ignore-unmatch", "--", *gone)
             if self.run("diff", "--cached", "--quiet", "--", *paths, check=False).returncode == 0:
                 return None
-            self.run("commit", "-m", message, "--only", "--", *paths)
+            with self.metrics.time("git_commit"):  # includes pre-commit hooks
+                self.run("commit", "-m", message, "--only", "--", *paths)
+            # `commit --only` runs hooks against a temporary index, so a hook's own `git add` (e.g. a
+            # formatter re-staging its output) never reaches the real index and would leave a phantom
+            # staged change. Re-sync the real index with HEAD for just the paths we committed.
+            self.run("reset", "-q", "HEAD", "--", *paths, check=False)
             return self.run("rev-parse", "HEAD").stdout.strip()
 
     def log(self, path: str) -> list[Commit]:

@@ -10,25 +10,30 @@ from src.domain.notes.errors import NoteExists
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify, validate_slug
 from src.domain.notes.wiki_links import rewrite_targets
+from src.infrastructure.metrics import Metrics
 
 
 class NoteService:
-    def __init__(self, repo: NoteRepository):
+    def __init__(self, repo: NoteRepository, metrics: Metrics | None = None):
         self.repo = repo
+        self.metrics = metrics or Metrics()
         self._index: NoteIndex | None = None
         self._lock = threading.Lock()
 
     # -- index -----------------------------------------------------------
     def invalidate(self) -> None:
-        """Drop the index (call after writes, or when files change outside the app)."""
+        """Drop the index (call after writes, or when files change outside the app).
+        The rebuild is lazy: nothing is read until the next query."""
         with self._lock:
             self._index = None
+        self.metrics.incr("index_invalidations")
 
     @property
     def index(self) -> NoteIndex:
         with self._lock:
             if self._index is None:
-                self._index = NoteIndex(self.repo.list())
+                with self.metrics.time("index_rebuild"):
+                    self._index = NoteIndex(self.repo.list())
             return self._index
 
     # -- queries ---------------------------------------------------------
