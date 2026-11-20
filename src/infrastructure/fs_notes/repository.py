@@ -63,6 +63,17 @@ def _time_value(time: dict[str, int], existing: Any) -> CommentedMap:
     return value
 
 
+def _set_key(meta: Any, key: str, value: Any, after: tuple[str, ...]) -> None:
+    """Set `key` in place, drop it when `value` is None, or insert a new one right after the first of `after` present."""
+    if value is None:
+        meta.pop(key, None)
+    elif key in meta:
+        meta[key] = value
+    else:
+        keys = list(meta.keys())
+        meta.insert(keys.index(next(k for k in after if k in keys)) + 1, key, value)
+
+
 def _as_date(value: str | None) -> Any:
     if value is None:
         return None
@@ -109,57 +120,24 @@ class FileNoteRepository(NoteRepository):
             meta = frontmatter.new_map()
         iso = self._today().isoformat()  # fresh date objects per key: shared ones become YAML anchors
         meta["title"] = note.title
-        # `tags` and `type` are only touched when they changed, so a file keeps its own list style (inline, block or
-        # scalar); a value that does change is written inline, as in the rest of the vault.
+        # `tags`, `type`, `status`, `week` and `time` are only touched when they changed, so a file keeps its own list
+        # style (inline, block or scalar); a value that does change is written inline, as in the rest of the vault.
+        # A new key goes right after the nearest key before it in the vault's order, not at the end.
         if tuple(note.tags) != parse_tags(meta.get("tags")):
-            if "tags" in meta:
-                meta["tags"] = _inline(note.tags)
-            else:  # a new key goes right after the title, not at the end
-                meta.insert(list(meta.keys()).index("title") + 1, "tags", _inline(note.tags))
+            _set_key(meta, "tags", _inline(note.tags), ("title",))
         if "created" not in meta:
             meta["created"] = _as_date(note.created or iso)
         meta["updated"] = _as_date(iso)
         if tuple(note.types) != parse_types(meta.get("type")):
-            if not note.types:
-                meta.pop("type", None)
-            elif "type" in meta:
-                meta["type"] = _types_value(note.types)
-            else:  # a new key goes right after the tags (or the title), not at the end
-                keys = list(meta.keys())
-                after = keys.index("tags") if "tags" in keys else keys.index("title")
-                meta.insert(after + 1, "type", _types_value(note.types))
-        # `status` is only touched when it changed; a new key goes after `type` (or `tags`, or the title).
+            _set_key(meta, "type", _types_value(note.types) if note.types else None, ("tags", "title"))
         current_status = str(meta["status"]).strip() if meta.get("status") is not None else None
         if note.status != (current_status or None):
-            if note.status is None:
-                meta.pop("status", None)
-            elif "status" in meta:
-                meta["status"] = note.status
-            else:
-                keys = list(meta.keys())
-                after = next(k for k in ("type", "tags", "title") if k in keys)
-                meta.insert(keys.index(after) + 1, "status", note.status)
+            _set_key(meta, "status", note.status, ("type", "tags", "title"))
         current_week = str(meta["week"]).strip() if meta.get("week") is not None else None
         if note.week != (current_week or None):
-            if note.week is None:
-                meta.pop("week", None)
-            elif "week" in meta:
-                meta["week"] = note.week
-            else:  # after `status` (or `type`, `tags`, the title)
-                keys = list(meta.keys())
-                after = next(k for k in ("status", "type", "tags", "title") if k in keys)
-                meta.insert(keys.index(after) + 1, "week", note.week)
-        # `time` is only touched when the usable days changed; it goes after `week` (or `status`, `type`, ...).
-        if note.time != parse_time(meta.get("time")):
-            value = _time_value(note.time, meta.get("time"))
-            if not value:
-                meta.pop("time", None)
-            elif "time" in meta:
-                meta["time"] = value
-            else:
-                keys = list(meta.keys())
-                after = next(k for k in ("week", "status", "type", "tags", "title") if k in keys)
-                meta.insert(keys.index(after) + 1, "time", value)
+            _set_key(meta, "week", note.week, ("status", "type", "tags", "title"))
+        if note.time != parse_time(meta.get("time")):  # only when the usable days changed
+            _set_key(meta, "time", _time_value(note.time, meta.get("time")) or None, ("week", "status", "type", "tags", "title"))
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
