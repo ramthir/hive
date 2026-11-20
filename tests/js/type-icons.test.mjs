@@ -40,3 +40,27 @@ test('a note takes the icon of its first type, or of the default type when it ha
   assert.equal(noteTypeIcon(undefined), TYPE_ICONS[DEFAULT_TYPE]);
   assert.equal(noteTypeIcon(['mystery']), FALLBACK_ICON);
 });
+
+import { typeLabel, typeOptions } from '../../static/type-icons.js';
+
+test('type options are the known, vault and current types by name, each with an icon', () => {
+  const options = typeOptions(['timeline', 'zzz'], ['task', 'custom']);
+  const names = options.map((o) => o.value);
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b)));
+  assert.equal(new Set(names).size, names.length);
+  for (const type of ['task', 'note', 'timeline', 'zzz', 'custom']) assert.ok(names.includes(type), type);
+  assert.deepEqual(options.find((o) => o.value === 'task'), { value: 'task', label: 'Task', icon: 'fa-solid fa-list-check' });
+  assert.match(options.find((o) => o.value === 'custom').icon, /^fa-solid fa-/);
+});
+
+test('type options work with nothing to add', () => {
+  assert.ok(typeOptions().length > 10);
+});
+
+test('a type is shown in title case while its value is kept', () => {
+  assert.equal(typeLabel('meeting_minutes'), 'Meeting Minutes');
+  assert.equal(typeLabel('work-nature'), 'Work Nature');
+  assert.equal(typeLabel(' task '), 'Task');
+  const option = typeOptions([], ['meeting_minutes']).find((o) => o.value === 'meeting_minutes');
+  assert.equal(option.label, 'Meeting Minutes');
+});

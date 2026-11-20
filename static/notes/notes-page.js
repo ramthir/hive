@@ -7,7 +7,7 @@ import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
-import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
+import { DEFAULT_TYPE, typeIcon, noteTypeIcon, typeLabel, typeOptions } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
@@ -419,11 +419,13 @@ class NotesApp extends HTMLElement {
 
         <app-action-bar fixed class="notes-action-bar" aria-label="Note status and actions">
           <div class="action-bar-left notes-footer-left">
-            <span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
+            ${editing && (note.types || []).length <= 1
+              ? `<app-combobox id="note-type" class="action-bar-combobox" value="${esc((note.types || [])[0] || '')}" placeholder="${typeLabel(DEFAULT_TYPE)}" aria-label="Note type" title="Note type"></app-combobox>`
+              : `<span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
               ${editing
                 ? `<i class="fa-solid fa-${noteTypeIcon(note.types)}" id="note-type-icon" aria-hidden="true"></i><input id="note-type" class="notes-type-input" placeholder="${DEFAULT_TYPE}" title="Note type; separate several with commas" aria-label="Note type" value="${esc((note.types || []).join(', '))}" spellcheck="false" />`
                 : (note.types?.length ? note.types : [DEFAULT_TYPE]).map((type) => `<span class="notes-type-chip"><i class="fa-solid fa-${typeIcon(type)}" aria-hidden="true"></i><span class="notes-type-name">${esc(type)}</span></span>`).join('')}
-            </span>
+            </span>`}
             <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="notes-footer-stats" title="${chars.toLocaleString()} characters">
               <i class="fa-solid fa-align-left notes-stats-icon" aria-hidden="true"></i>
@@ -472,14 +474,35 @@ class NotesApp extends HTMLElement {
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
     this.bindHeader();
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
-    this.querySelector('#note-type')?.addEventListener('input', (event) => {
-      this.querySelector('#note-type-icon').className = `fa-solid fa-${noteTypeIcon(parseTags(event.target.value))}`;
-      this.markDirty();
-    });
+    const typeField = this.querySelector('#note-type');
+    if (typeField?.localName === 'app-combobox') {
+      this.setupTypeCombobox(typeField);
+    } else {
+      // A note with several types keeps the plain text field: a comma separated list.
+      typeField?.addEventListener('input', (event) => {
+        this.querySelector('#note-type-icon').className = `fa-solid fa-${noteTypeIcon(parseTags(event.target.value))}`;
+        this.markDirty();
+      });
+    }
 
     if (editing) this.initCodeMirror();
     this.setupPreviewEvents();
     this.refreshBacklinks();
+  }
+
+  // The type combobox offers the known types (icons) and those in use in the vault; picking or clearing one marks the note dirty.
+  setupTypeCombobox(combobox) {
+    const options = () => typeOptions(this._vaultTypes, this.selectedNote?.types);
+    combobox.optionsList = options();
+    combobox.addEventListener('change', () => this.markDirty());
+    if (!this._vaultTypes) {
+      api('/types').then((counts) => {
+        this._vaultTypes = Object.keys(counts);
+        if (!combobox.isConnected) return;
+        combobox.optionsList = options();
+        combobox.render();
+      }).catch(() => {});
+    }
   }
 
   // The browser tab carries the note's title; the header heading stays "Notes".

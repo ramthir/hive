@@ -59,3 +59,12 @@ export const typeIcon = (type) => TYPE_ICONS[normalize(type)] || FALLBACK_ICON;
 
 /** Icon for a note: that of its first type, or of the default type when it has none. */
 export const noteTypeIcon = (types) => typeIcon((types || []).find((t) => normalize(t)) ?? DEFAULT_TYPE);
+
+/** `meeting_minutes` -> `Meeting Minutes`: how a type is shown; the stored value stays as typed. */
+export const typeLabel = (type) => String(type).trim().split(/[\s_-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+
+/** Choices of the type combobox: the known types, the types used in the vault and the note's own, by name, each with its icon and a title case label. */
+export function typeOptions(vaultTypes = [], current = []) {
+  const names = new Set([...Object.keys(TYPE_ICONS), ...(vaultTypes || []), ...(current || [])].map((t) => String(t).trim()).filter(Boolean));
+  return [...names].sort((a, b) => a.localeCompare(b)).map((name) => ({ value: name, label: typeLabel(name), icon: `fa-solid fa-${typeIcon(name)}` }));
+}

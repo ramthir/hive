@@ -304,24 +304,25 @@ def test_action_bar_shows_the_note_type_not_the_file_name(page, server, notes_di
     assert page.errors == []
 
 
-def test_editing_the_note_type_saves_a_list_and_keeps_other_files_style(page, server, notes_dir):
+def test_editing_the_note_type_is_a_combobox_that_saves_and_clears_the_type(page, server, notes_dir):
     page.goto(f"{server}/notes/alpha?mode=edit")
     page.wait_for_selector(".cm-content")
     kind = page.locator("#note-type")
-    expect(kind).to_have_value("")
-    expect(kind).to_have_attribute("placeholder", "note")
-    kind.fill("task, urgent")
-    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-list-check")
+    expect(kind.locator(".combobox-input")).to_have_value("")
+    expect(kind.locator(".combobox-input")).to_have_attribute("placeholder", "Note")
+    kind.locator(".combobox-input").click()
+    kind.locator(".combobox-option", has_text="Task").first.click()
+    expect(kind.locator(".combobox-input")).to_have_value("Task")  # shown in title case, saved as `task`
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
-    assert "\ntype: [task, urgent]\n" in (notes_dir / "alpha.md").read_text()
+    assert "\ntype: task\n" in (notes_dir / "alpha.md").read_text()
+    expect(page.locator("#note-properties-btn")).to_have_count(1)  # task: the type's properties appear without a reload
     page.click("#edit-note-btn")
-    expect(page.locator(".notes-type-name")).to_have_text(["task", "urgent"])
-    expect(page.locator(".notes-type-chip i")).to_have_class(["fa-solid fa-list-check", "fa-solid fa-file-lines"])  # unknown type: plain file icon
+    expect(page.locator(".notes-type-name")).to_have_text(["task"])
     # Clearing it removes the key again.
     page.click("#edit-note-btn")
-    page.locator("#note-type").fill("")
+    page.locator("#note-type .combobox-clear").click()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 3)
     assert "type:" not in (notes_dir / "alpha.md").read_text()
