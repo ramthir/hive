@@ -15,6 +15,16 @@ from src.api.main import create_app  # noqa: E402
 pytestmark = pytest.mark.browser
 
 
+def wait_for_commits(root, count, timeout=10):
+    """Saves are asynchronous (write + git commit); wait until the repo has `count` commits."""
+    end = time.time() + timeout
+    while time.time() < end:
+        if len(git(root, "rev-list", "HEAD").split()) >= count:
+            return
+        time.sleep(0.1)
+    raise AssertionError(f"expected {count} commits, got {len(git(root, 'rev-list', 'HEAD').split())}")
+
+
 def git(root, *a):
     return subprocess.run(["git", "-C", str(root), *a], capture_output=True, text=True, check=True).stdout
 
@@ -64,7 +74,7 @@ def test_list_search_and_tags(page, server):
     page.goto(server)
     page.wait_for_url("**/notes")
     expect(page.locator(".note-card")).to_have_count(2)
-    page.fill("#notes-search-input", "beta")
+    page.fill("#notes-search-input", "beta body")
     expect(page.locator(".note-card")).to_have_count(1)
     expect(page.locator(".note-card-title")).to_contain_text("Beta")
     page.fill("#notes-search-input", "")
@@ -98,6 +108,7 @@ def test_edit_save_commits_to_git(page, server, notes_dir):
     expect(page.locator("#notes-md")).to_contain_text("Added line")
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 2)
     expect(page.locator("#save-note-btn")).to_be_disabled()
     assert "Added line" in (notes_dir / "beta.md").read_text()
     assert git(notes_dir, "log", "-1", "--format=%s").strip() == "doc: update Beta Note"
@@ -113,12 +124,14 @@ def test_new_note_rename_history_restore_delete(page, server, notes_dir):
     page.keyboard.type("# Fresh Idea\n\nfirst")
     page.keyboard.press("Control+s")
     page.wait_for_url("**/notes/fresh-idea?mode=edit")
+    wait_for_commits(notes_dir, 2)
     assert (notes_dir / "fresh-idea.md").exists()
 
     page.click(".cm-content")
     page.keyboard.press("Control+End")
     page.keyboard.type(" second")
     page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 3)
     expect(page.locator("#save-note-btn")).to_be_disabled()
 
     page.click("#note-versions-btn")
@@ -127,7 +140,7 @@ def test_new_note_rename_history_restore_delete(page, server, notes_dir):
     rows.nth(1).click()  # the creation commit
     expect(page.locator(".hive-diff .add").first).to_be_visible()
     page.click("#version-restore")
-    page.click(".confirm-dialog .primary, .confirm-dialog [data-action=confirm], [data-action=confirm]")
+    page.click("[data-action=confirm]")
     expect(page.locator("#notes-md")).not_to_contain_text("second")
     assert "second" not in (notes_dir / "fresh-idea.md").read_text()
     assert git(notes_dir, "log", "-1", "--format=%s").startswith("doc: restore Fresh Idea")
@@ -138,3 +151,14 @@ def test_new_note_rename_history_restore_delete(page, server, notes_dir):
     assert not (notes_dir / "fresh-idea.md").exists()
     assert git(notes_dir, "log", "-1", "--format=%s").strip() == "doc: delete Fresh Idea"
     assert page.errors == []
+
+
+def test_layout_and_hard_wrapped_paragraphs(page, notes_dir, server):
+    (notes_dir / "wrapped.md").write_text("---\ntitle: Wrapped\n---\n\nfirst line of a paragraph\nwrapped onto a second line\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "wrapped")
+    page.goto(f"{server}/notes/wrapped")
+    expect(page.locator("#notes-md p")).to_have_count(1)
+    assert page.locator("#notes-md p br").count() == 0  # a single newline is not a line break
+    bar = page.locator(".notes-action-bar").bounding_box()
+    assert bar["x"] == 0 and bar["width"] == page.viewport_size["width"]  # no sidebar offset

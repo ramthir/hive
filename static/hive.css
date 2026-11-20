@@ -41,3 +41,6 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 .hive-diff .add { color: #a9dc76; } .hive-diff .del { color: #ff6188; } .hive-diff .hunk { color: #78dce8; opacity: .8; }
 .hive-dialog-input { width: 100%; background: var(--color-dark2); border: 1px solid var(--color-dimmed5);
   border-radius: var(--radius-md); color: var(--color-text); padding: .5rem .7rem; font: inherit; }
+
+/* No sidebar in Hive: pin Pandora's fixed bars to the viewport edge. */
+:root { --sidebar-width: 0px; --sidebar-content-offset: 0px; }

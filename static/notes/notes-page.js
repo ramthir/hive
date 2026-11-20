@@ -1,5 +1,5 @@
 import { ScopedRouter } from '/static/scoped-router.js';
-import { createDialog, confirmDiscard } from '/static/components/dialog.js';
+import { createDialog, confirmDialog, confirmDiscard } from '/static/components/dialog.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
@@ -402,11 +402,12 @@ class NotesApp extends HTMLElement {
   async confirmDeleteCurrentNote() {
     const note = this.selectedNote;
     if (!note?.slug) return;
-    const confirmed = await window.confirmDialog({
+    const confirmed = await confirmDialog({
       title: 'Delete Note?',
       message: `Delete "${note.title}"? The file is removed and the deletion is committed; you can recover it from git history.`,
-      okText: 'Delete',
+      confirmText: 'Delete',
       cancelText: 'Cancel',
+      danger: true,
     });
     if (!confirmed) return;
     try {
@@ -472,10 +473,10 @@ class NotesApp extends HTMLElement {
     if (editing === this.isNoteEditing) return;
     if (!editing && this.saveStatus === 'saving') return;
     if (!editing && this.saveStatus === 'dirty') {
-      const confirmed = await window.confirmDialog({
+      const confirmed = await confirmDialog({
         title: 'Unsaved changes',
         message: 'Save your changes before closing the Markdown editor?',
-        okText: 'Save and close',
+        confirmText: 'Save and close',
         cancelText: 'Keep editing',
       });
       if (!confirmed) return;
@@ -825,7 +826,7 @@ class NotesApp extends HTMLElement {
     configureMarkedWikilinks(markedLib);
     globalThis.PandoraMath?.configure(markedLib, globalThis.katex);
 
-    const parsed = new DOMParser().parseFromString(markedLib.parse(markdownText, { gfm: true, breaks: true }), 'text/html');
+    const parsed = new DOMParser().parseFromString(markedLib.parse(markdownText, { gfm: true, breaks: false }), 'text/html');
     // Mark task items so they can be styled whether marked renders them tight (`li > input`) or loose
     // (`li > p > input`), and let a hard-wrapped item flow as one text: `breaks: true` would force a <br>.
     parsed.querySelectorAll('li > input[type="checkbox"], li > p > input[type="checkbox"]').forEach((checkbox) => {
@@ -1154,10 +1155,10 @@ class NotesApp extends HTMLElement {
         restore.hidden = false;
         detail.innerHTML = `<p style="margin-bottom:.5rem">${esc(row.querySelector('.msg').textContent)} · <code>${esc(sha.slice(0, 7))}</code></p><pre class="hive-diff">${renderDiff(diff)}</pre>`;
         restore.onclick = async () => {
-          const confirmed = await window.confirmDialog({
+          const confirmed = await confirmDialog({
             title: 'Restore this version?',
             message: 'The note is set back to this version and saved as a new commit. Newer history is kept.',
-            okText: 'Restore',
+            confirmText: 'Restore',
             cancelText: 'Cancel',
           });
           if (!confirmed) return;
