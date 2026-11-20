@@ -229,14 +229,38 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     expect(tags).to_have_attribute("readonly", "")  # read-only until the note is being edited
     page.click("#edit-note-btn")
     page.wait_for_selector(".cm-content")
-    tags.fill("one, two, three")
+    field = page.locator("#note-tags")  # now chips with a type-to-add field
+    expect(field.locator(".combobox-chip-label")).to_have_text(["one"])
+    field.locator(".combobox-input").click()
+    page.keyboard.type("two")
+    page.keyboard.press("Enter")  # Enter adds what was typed
+    page.keyboard.type("three,")  # so does a comma
+    page.keyboard.type("four")
+    page.click(".cm-content")  # leaving the field adds the pending text too
+    expect(field.locator(".combobox-chip-label")).to_have_text(["one", "two", "three", "four"])
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
     text = (notes_dir / "alpha.md").read_text()
-    assert "tags: [one, two, three]\n" in text  # changed, so written inline
+    assert "tags: [one, two, three, four]\n" in text  # changed, so written inline
+    field.locator('.combobox-chip-remove[data-value="four"]').click()
+    expect(field.locator(".combobox-chip-label")).to_have_text(["one", "two", "three"])
     page.click("#edit-note-btn")  # close the editor: tags stay visible, read-only
-    expect(tags).to_have_value("one, two, three")
+    expect(page.locator("#note-tags")).to_have_value("one, two, three, four")
+    assert page.errors == []
+
+
+def test_tag_suggestions_match_existing_tags_ignoring_case_and_offer_to_create(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha?mode=edit")
+    page.wait_for_selector(".cm-content")
+    field = page.locator("#note-tags")
+    field.locator(".combobox-input").click()
+    page.keyboard.type("TW")
+    expect(field.locator(".combobox-option")).to_have_text(["two"])  # beta's tag, from /api/tags
+    page.keyboard.press("Enter")  # typed text that matches an existing tag ignoring case uses that tag
+    expect(field.locator(".combobox-chip-label")).to_have_text(["one", "two"])
+    page.keyboard.type("brand")
+    expect(field.locator(".combobox-option")).to_have_text(['Create "brand"'])
     assert page.errors == []
 
 
@@ -791,3 +815,14 @@ def test_notes_without_a_form_have_no_properties_button(page, server):
     page.goto(f"{server}/notes/beta")
     expect(page.locator("#edit-note-btn")).to_be_visible()
     expect(page.locator("#note-properties-btn")).to_have_count(0)
+
+
+def test_the_updated_stamp_is_hidden_while_editing(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator(".stat-updated")).to_have_count(1)
+    page.click("#edit-note-btn")
+    page.wait_for_selector(".cm-content")
+    expect(page.locator(".stat-updated")).to_have_count(0)
+    page.click("#edit-note-btn")
+    expect(page.locator(".stat-updated")).to_have_count(1)
+    assert page.errors == []

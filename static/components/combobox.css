@@ -299,3 +299,10 @@ app-combobox {
   border-radius: 5px;
   font-size: 0.8rem;
 }
+
+.combobox-option-meta {
+  margin-left: auto;
+  padding-left: 0.5rem;
+  color: var(--color-dimmed3);
+  font-size: 0.7rem;
+}

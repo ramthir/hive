@@ -1,12 +1,17 @@
 /* Hive-specific pieces that Pandora's notes.css does not have. */
 
 /* Tags live in the bottom action bar; the input is a plain, borderless field until it is edited. */
-.notes-footer-tags { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 0 1 20rem; opacity: .85; }
+.notes-footer-tags { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1 1 28rem; max-width: 32rem; opacity: .85; }
 .notes-footer-tags[hidden], .notes-footer-tags-divider[hidden] { display: none; }
 .notes-tags-input { flex: 1; min-width: 6rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
   color: var(--color-text); font: 500 .8rem var(--font-family); padding: .25rem .5rem;
   text-transform: capitalize; /* display only: the stored tag text is untouched */ }
 .notes-tags-input:not([readonly]) { background: var(--color-dark2); border-color: var(--color-dimmed5); }
+.notes-tags-combobox { flex: 1; width: auto; min-width: 12rem; max-width: 100%; }
+/* One line high like the rest of the footer: the chips scroll sideways instead of wrapping. */
+.notes-tags-combobox .combobox-control--multiple { min-height: 1.9rem; padding-top: 0; padding-bottom: 0; }
+.notes-tags-combobox .combobox-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.notes-tags-combobox .combobox-chip { flex: none; text-transform: capitalize; /* display only */ }
 .notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
 
 .notes-backlinks { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--color-dimmed5);
@@ -45,6 +50,7 @@
 @media (max-width: 900px) {
   .notes-footer-stats, .notes-footer-status, .notes-footer-left .notes-footer-divider:not(.notes-footer-tags-divider) { display: none; }
   .notes-footer-tags { flex: 1 1 8rem; }
+  .notes-tags-combobox { min-width: 6rem; }
 }
 
 /* The rendered note sits in #notes-md, so Pandora's `.notes-preview-pane > :first-child` no longer reaches the

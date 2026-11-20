@@ -15,6 +15,7 @@ import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
+import { tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
 import { formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
@@ -433,18 +434,20 @@ class NotesApp extends HTMLElement {
               <span class="stat-bullet" aria-hidden="true">•</span>
               <span class="stat-reading"><span class="stat-value">${readingMinutes}</span> min read</span>
             </div>
-            <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
+            ${editing ? '' : `<span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="action-bar-status notes-footer-status">
               <span class="stat-updated" title="${esc(parseUtcDate(note.updated)?.toLocaleDateString() || '')}">
                 <i class="fa-regular fa-clock" aria-hidden="true"></i>
                 <span>${note.updated ? `Updated ${esc(formatRelativeTime(note.updated))}` : 'Draft'}</span>
               </span>
-            </div>
+            </div>`}
             ${canLogTime(note) ? `<span class="stat-logged" title="Time logged on this note"${loggedLabel(note.time) ? '' : ' hidden'}><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> <span>${esc(loggedLabel(note.time))}</span></span>` : ''}
             <span class="action-bar-divider notes-footer-divider notes-footer-tags-divider" aria-hidden="true"${hideTags ? ' hidden' : ''}></span>
             <label class="notes-footer-tags"${hideTags ? ' hidden' : ''}>
               <i class="fa-solid fa-tags" aria-hidden="true"></i>
-              <input id="note-tags" class="notes-tags-input" placeholder="tags, comma separated" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />
+              ${editing
+                ? `<app-combobox id="note-tags" class="action-bar-combobox notes-tags-combobox" multiple creatable value="${esc((note.tags || []).join(','))}" placeholder="Add tags" aria-label="Tags"></app-combobox>`
+                : `<input id="note-tags" class="notes-tags-input" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />`}
             </label>
           </div>
           <div class="action-bar-right notes-footer-actions">
@@ -473,7 +476,9 @@ class NotesApp extends HTMLElement {
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
     this.bindHeader();
-    this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
+    const tagField = this.querySelector('#note-tags');
+    if (tagField?.localName === 'app-combobox') this.setupTagCombobox(tagField);
+    else tagField?.addEventListener('input', () => this.markDirty());
     const typeField = this.querySelector('#note-type');
     if (typeField?.localName === 'app-combobox') {
       this.setupTypeCombobox(typeField);
@@ -488,6 +493,19 @@ class NotesApp extends HTMLElement {
     if (editing) this.initCodeMirror();
     this.setupPreviewEvents();
     this.refreshBacklinks();
+  }
+
+  // Tags are chips; the suggestions are the tags in use in the vault, and what is typed can be added as a new one.
+  setupTagCombobox(combobox) {
+    const options = () => tagOptions(this._vaultTags, this.selectedNote?.tags);
+    combobox.optionsList = options();
+    combobox.addEventListener('change', () => this.markDirty());
+    api('/tags').then((counts) => {
+      this._vaultTags = counts;
+      if (!combobox.isConnected) return;
+      combobox.optionsList = options();
+      if (combobox.opened) combobox.drawOptions();
+    }).catch(() => {});
   }
 
   // The type combobox offers the known types (icons) and those in use in the vault; picking or clearing one marks the note dirty.
@@ -773,7 +791,7 @@ class NotesApp extends HTMLElement {
           if (this.selectedNote?.slug !== note.slug) return;
           this.selectedNote = saved;
           const tags = this.querySelector('#note-tags');
-          if (tags) tags.value = saved.tags.join(', ');
+          if (tags) tags.value = tags.localName === 'app-combobox' ? saved.tags.join(',') : saved.tags.join(', ');
           updateUpdatedStamp(this, saved);
           showToast(`Properties saved · ${saved.title}`, 'success');
         },

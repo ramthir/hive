@@ -5,7 +5,7 @@ const esc = (value) =>
 
 class AppCombobox extends HTMLElement {
   static get observedAttributes() {
-    return ['value', 'disabled', 'multiple'];
+    return ['value', 'disabled', 'multiple', 'creatable'];
   }
   constructor() {
     super();
@@ -126,11 +126,41 @@ class AppCombobox extends HTMLElement {
   get selected() {
     return this.optionsList.find((option) => String(option.value) === this.value);
   }
+  // `creatable` (with `multiple`): what is typed can be added as a value of its own, e.g. a new tag.
+  get isCreatable() {
+    return this.isMultiple && this.hasAttribute('creatable');
+  }
+  /** The option a typed text stands for: an existing one that matches it (exactly, else ignoring case), else a new value. */
+  resolveTyped(text) {
+    const typed = String(text ?? '').replace(/,/g, ' ').trim().replace(/\s+/g, ' ');
+    if (!typed) return null;
+    const same = (a, b) => String(a) === typed ? 1 : String(a).toLowerCase() === typed.toLowerCase() ? 2 : 0;
+    const known = [...this.optionsList, ...Array.from(this.selectedValues, (value) => ({ value, label: value }))];
+    const found = known.filter((o) => same(o.value, typed)).sort((a, b) => same(a.value, typed) - same(b.value, typed))[0];
+    return found ? { value: String(found.value), label: found.label } : { value: typed, label: typed, create: true };
+  }
   get filtered() {
     const query = this.searchQuery.trim().toLowerCase();
-    return query ? this.optionsList.filter((option) => option.label.toLowerCase().includes(query)) : this.optionsList;
+    const matches = query ? this.optionsList.filter((option) => option.label.toLowerCase().includes(query)) : this.optionsList;
+    if (!this.isCreatable || !query) return matches;
+    const typed = this.resolveTyped(this.searchQuery);
+    return !typed || !typed.create ? matches : [...matches, { value: typed.value, label: `Create "${typed.label}"`, icon: 'fa-solid fa-plus', create: true }];
+  }
+  /** Add the text typed so far (Enter, comma or leaving the field) as a value. */
+  commitTyped() {
+    const typed = this.resolveTyped(this.searchQuery);
+    this.searchQuery = '';
+    if (!typed || this.selectedValues.has(typed.value)) {
+      if (this.input) this.input.value = '';
+      return;
+    }
+    this.selectedValues.add(typed.value);
+    this.setAttribute('value', Array.from(this.selectedValues).join(','));
+    this.render();
+    this.dispatchEvent(new Event('change', { bubbles: true }));
   }
   render() {
+    this.opened = false; // drawing replaces the popup too, so it is closed; open() shows the new one
     const ariaLabel = this.getAttribute('aria-label');
     const name = this.getAttribute('name');
     const disabled = this.hasAttribute('disabled');
@@ -194,8 +224,12 @@ class AppCombobox extends HTMLElement {
         if (hidden) hidden.value = '';
         if (this.hasAttribute('required')) this.input.setCustomValidity('Select an option.');
       }
+      if (this.isCreatable) this.active = -1; // Enter then adds what was typed unless an option was arrowed to
       this.open();
       this.drawOptions();
+    };
+    this.input.onfocusout = (event) => {
+      if (this.isCreatable && this.searchQuery.trim() && !this.contains(event.relatedTarget)) this.commitTyped();
     };
     this.input.onkeydown = (event) => this.keydown(event);
     this.input.onchange = (event) => event.stopPropagation();
@@ -297,7 +331,7 @@ class AppCombobox extends HTMLElement {
               ? this.selectedValues.has(String(option.value))
               : String(option.value) === String(this.value);
             const icon = option.icon ? `<i class="combobox-option-icon ${esc(option.icon)}" aria-hidden="true"></i>` : '';
-            return `${heading}<button type="button" class="combobox-option${selected ? ' selected' : ''}${index === this.active ? ' active' : ''}" data-index="${index}" role="option" aria-selected="${selected}" title="${esc(option.label)}">${icon}<span class="combobox-option-label">${esc(option.label)}</span>${selected ? '<i class="fa-solid fa-check combobox-option-check" aria-hidden="true"></i>' : ''}</button>`;
+            return `${heading}<button type="button" class="combobox-option${selected ? ' selected' : ''}${index === this.active ? ' active' : ''}" data-index="${index}" role="option" aria-selected="${selected}" title="${esc(option.label)}">${icon}<span class="combobox-option-label">${esc(option.label)}</span>${option.meta !== undefined ? `<span class="combobox-option-meta">${esc(option.meta)}</span>` : ''}${selected ? '<i class="fa-solid fa-check combobox-option-check" aria-hidden="true"></i>' : ''}</button>`;
           })
           .join('')
       : '<div class="combobox-empty">No options found</div>';
@@ -350,6 +384,12 @@ class AppCombobox extends HTMLElement {
     if (event.key === 'Escape') {
       event.preventDefault();
       this.close();
+      return;
+    }
+    if (this.isCreatable && (event.key === ',' || (event.key === 'Enter' && this.searchQuery.trim() && this.active < 0))) {
+      event.preventDefault();
+      this.commitTyped();
+      this.input?.focus();
       return;
     }
     if (event.key === 'Backspace' && this.isMultiple && this.searchQuery === '' && this.selectedValues.size) {
