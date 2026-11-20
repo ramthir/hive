@@ -11,6 +11,8 @@ import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
+import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
+import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
 const notesRouter = new ScopedRouter({ basename: '/notes' });
 notesRouter.register('/notes', { view: 'list' });
@@ -20,7 +22,6 @@ notesRouter.registerFallback({ view: 'list' });
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
-const READING_WORDS_PER_MINUTE = 75;
 
 /* --- API ------------------------------------------------------------- */
 
@@ -286,7 +287,7 @@ class NotesApp extends HTMLElement {
 
   markDirty() {
     if (this.saveStatus !== 'saving') this.saveStatus = 'dirty';
-    this.updateSaveIndicator();
+    updateSaveIndicator(this, this.saveStatus);
   }
 
   async saveCurrentNote() {
@@ -298,7 +299,7 @@ class NotesApp extends HTMLElement {
     const types = parseTags(this.querySelector('#note-type')?.value ?? (note.types || []).join(', '));
 
     this.saveStatus = 'saving';
-    this.updateSaveIndicator();
+    updateSaveIndicator(this, this.saveStatus);
     try {
       const saved = isNewDraft
         ? await api('/notes', { method: 'POST', body: { content, tags, types } })
@@ -310,14 +311,14 @@ class NotesApp extends HTMLElement {
         this.cmEditor.dispatch({ changes: { from: 0, to: content.length, insert: saved.content }, selection: { anchor: head } });
       }
       this.saveStatus = 'saved';
-      this.updateSaveIndicator();
+      updateSaveIndicator(this, this.saveStatus);
       if (isNewDraft || saved.slug !== note.slug) {
         // A new note, or a changed heading that renamed the file: move the URL to the new file name.
         this.selectedSlug = saved.slug;
         notesRouter.navigate(`/notes/${encodeURIComponent(saved.slug)}?mode=edit`, { replace: true });
         this.renderEditorView();
       } else {
-        this.updateUpdatedStamp();
+        updateUpdatedStamp(this, this.selectedNote);
         this.updateDocumentTitle();
         this.refreshBacklinks();
       }
@@ -325,7 +326,7 @@ class NotesApp extends HTMLElement {
     } catch (error) {
       console.error('Save failed:', error);
       this.saveStatus = 'dirty';
-      this.updateSaveIndicator();
+      updateSaveIndicator(this, this.saveStatus);
       this.showAlert('Could Not Save Note', error.message);
     }
   }
@@ -427,9 +428,7 @@ class NotesApp extends HTMLElement {
     if (!this.selectedNote) return;
     const note = this.selectedNote;
     const editing = this.isNoteEditing;
-    const words = (note.content || '').trim().split(/\s+/).filter(Boolean).length;
-    const chars = (note.content || '').length;
-    const readingMinutes = words ? Math.max(1, Math.ceil(words / READING_WORDS_PER_MINUTE)) : 0;
+    const { words, chars, readingMinutes } = noteStats(note.content);
     const ro = editing ? '' : ' readonly';
     const hideTags = !editing && !(note.tags || []).length; // nothing to show or edit
 
@@ -521,26 +520,6 @@ class NotesApp extends HTMLElement {
     wireSearchTrigger(this);
   }
 
-  updateSaveIndicator() {
-    const button = this.querySelector('#save-note-btn');
-    if (!button) return;
-    button.className = `tool-button save ${this.saveStatus === 'dirty' ? 'dirty' : 'clean'}`;
-    if (this.saveStatus === 'saving') {
-      button.disabled = true;
-      button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>';
-      button.title = 'Saving note';
-    } else {
-      button.disabled = this.saveStatus !== 'dirty';
-      button.title = 'Save note';
-      button.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>';
-    }
-  }
-
-  updateUpdatedStamp() {
-    const stamp = this.querySelector('.stat-updated span');
-    if (stamp && this.selectedNote?.updated) stamp.textContent = `Updated ${formatRelativeTime(this.selectedNote.updated)}`;
-  }
-
   /* --- Backlinks ----------------------------------------------------- */
 
   async refreshBacklinks() {
@@ -600,7 +579,7 @@ class NotesApp extends HTMLElement {
     preview.addEventListener('click', this._previewClickHandler);
     this.decorateWikilinks(preview);
     this._diagrams.decorate(preview, { editing: this.isNoteEditing });
-    this.setupCodeBlockActions(preview);
+    setupCodeBlockActions(preview);
     this.preloadEditorWhenIdle();
   }
 
@@ -611,32 +590,6 @@ class NotesApp extends HTMLElement {
     const preload = () => loadEditor().catch(() => {});
     if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(preload, { timeout: 4000 });
     else setTimeout(preload, 2000);
-  }
-
-  setupCodeBlockActions(container) {
-    container.querySelectorAll('pre code').forEach((block) => {
-      const pre = block.parentElement;
-      if (!pre || pre.querySelector('.notes-copy-code-btn')) return;
-      const button = document.createElement('button');
-      button.className = 'notes-copy-code-btn';
-      button.type = 'button';
-      button.setAttribute('aria-label', 'Copy code');
-      button.innerHTML = '<i class="fa-regular fa-copy"></i>';
-      button.addEventListener('click', async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        try {
-          await copyTextToClipboard(block.textContent || '');
-          button.innerHTML = '<i class="fa-solid fa-check"></i>';
-          button.classList.add('copied');
-          setTimeout(() => {
-            button.innerHTML = '<i class="fa-regular fa-copy"></i>';
-            button.classList.remove('copied');
-          }, 1600);
-        } catch (_error) { /* clipboard unavailable */ }
-      });
-      pre.appendChild(button);
-    });
   }
 
   // Resolve [[targets]] against the notes on disk: link them, label them, or mark them broken.
@@ -751,7 +704,7 @@ class NotesApp extends HTMLElement {
         const text = update.state.doc.toString();
         this.selectedNote.content = text;
         this.updateLivePreview(text);
-        this.updateStats();
+        updateStats(this, this.currentContent());
         this.markDirty();
       },
       // The action bar overlays the bottom of the editor; the content's bottom padding is its height.
@@ -770,18 +723,6 @@ class NotesApp extends HTMLElement {
     } else {
       this._focusEditorWhenReady = true;
     }
-  }
-
-  updateStats() {
-    const text = this.currentContent();
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
-    const readingMinutes = words ? Math.max(1, Math.ceil(words / READING_WORDS_PER_MINUTE)) : 0;
-    const wordsEl = this.querySelector('.stat-words .stat-value');
-    const readingEl = this.querySelector('.stat-reading .stat-value');
-    if (wordsEl) wordsEl.textContent = words.toLocaleString();
-    if (readingEl) readingEl.textContent = readingMinutes;
-    const stats = this.querySelector('.notes-footer-stats');
-    if (stats) stats.title = `${text.length.toLocaleString()} characters`;
   }
 
   async copyCurrentNote() {

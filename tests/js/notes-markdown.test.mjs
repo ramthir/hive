@@ -78,3 +78,40 @@ test('the diagram cache keeps at most 100 entries, dropping the oldest', async (
   assert.equal(diagrams.cache.size, 100);
   assert.ok(!diagrams.cache.has('d0'));
 });
+
+const { noteStats, updateSaveIndicator, updateStats } = await import('../../static/notes/status-bar.js');
+
+test('word count, characters and reading time of a note', () => {
+  assert.deepEqual(noteStats(''), { words: 0, chars: 0, readingMinutes: 0 });
+  assert.deepEqual(noteStats(' one  two\nthree '), { words: 3, chars: 16, readingMinutes: 1 });
+  assert.equal(noteStats('word '.repeat(76)).readingMinutes, 2);
+  assert.deepEqual(noteStats(undefined), { words: 0, chars: 0, readingMinutes: 0 });
+});
+
+// A stand-in for the page: one element per selector the status bar touches.
+const fakeRoot = (elements) => ({ querySelector: (selector) => elements[selector] ?? null });
+
+test('the save button is enabled only for unsaved changes and shows a spinner while saving', () => {
+  const button = { className: '', disabled: null, title: '', innerHTML: '' };
+  const root = fakeRoot({ '#save-note-btn': button });
+  updateSaveIndicator(root, 'dirty');
+  assert.equal(button.disabled, false);
+  assert.match(button.className, /\bdirty\b/);
+  updateSaveIndicator(root, 'saving');
+  assert.equal(button.disabled, true);
+  assert.match(button.innerHTML, /fa-spin/);
+  updateSaveIndicator(root, 'saved');
+  assert.equal(button.disabled, true);
+  assert.match(button.className, /\bclean\b/);
+  assert.doesNotThrow(() => updateSaveIndicator(fakeRoot({}), 'dirty'));
+});
+
+test('the footer shows words, reading time and a character count', () => {
+  const words = { textContent: '' };
+  const reading = { textContent: '' };
+  const stats = { title: '' };
+  updateStats(fakeRoot({ '.stat-words .stat-value': words, '.stat-reading .stat-value': reading, '.notes-footer-stats': stats }), 'a b c');
+  assert.equal(words.textContent, '3');
+  assert.equal(reading.textContent, 1);
+  assert.equal(stats.title, '5 characters');
+});
