@@ -56,6 +56,10 @@ class NoteService:
         notes = sorted(self.index.notes.values(), key=lambda n: n.title.casefold())
         return [n for n in notes if tag in n.tags] if tag else notes
 
+    def current_week(self) -> str:
+        """This week in the service's clock, the one finished tasks are stamped with."""
+        return week_label(self._today())
+
     def tasks(self) -> list[Note]:
         """The notes of type `task`, most recently edited first."""
         return [n for n in self.recent() if is_task(n)]

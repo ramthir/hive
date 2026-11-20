@@ -8,36 +8,16 @@ export const COLUMNS = Object.freeze([
 
 export const noteHref = (task) => `/notes/${encodeURIComponent(task.slug)}`;
 
-// ISO 8601 week of a `YYYY-MM-DD` day (weeks start on Monday; week 1 holds the year's first Thursday).
-export function isoWeek(day) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(day ?? ''));
-  if (!m) return null;
-  const date = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-  const weekday = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - weekday); // the Thursday of this week decides the year
-  const year = date.getUTCFullYear();
-  const week = Math.ceil(((date - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
-  return { year, week };
-}
-
-export const isoDay = (date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-// A task's week: its `week:` key (2026-W47) if it has one, else the week of its `updated` day.
-export function taskWeek(task) {
-  const m = /^(\d{4})-W(\d{2})$/.exec(String(task?.week ?? ''));
-  return m ? { year: +m[1], week: +m[2], stored: true } : isoWeek(task?.updated);
-}
-
 export const ALL_WEEKS = 'all';
 
-/** `2026-W47`, the form of the `week:` key, for a week; null when the task has no week at all. */
-export function weekKey(task) {
-  const w = taskWeek(task);
-  return w ? `${w.year}-W${String(w.week).padStart(2, '0')}` : null;
-}
+/** `2026-W47`: the week a task belongs to, worked out by the server (its `week`, else its `updated` day); null if none. */
+export const weekKey = (task) => task?.week_key ?? null;
 
-export const currentWeekKey = (now = new Date()) => weekKey({ updated: isoDay(now) });
+/** A task's week for its chip: `{year, week, stored}` (stored: it was recorded, not guessed from `updated`), or null. */
+export function taskWeek(task) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(weekKey(task) ?? ''));
+  return m ? { year: +m[1], week: +m[2], stored: !!task.week_stored } : null;
+}
 
 /** `2026-W47` -> `Week 47 2026`, how Pandora names its weeks. */
 export const weekTitle = (key) => {
@@ -52,14 +32,13 @@ export const isDoneWeekChoice = (value) => value === ALL_WEEKS || /^\d{4}-W\d{2}
  * week always (even with none yet), then "All weeks". `selected` is kept in the list even when it has no tasks
  * (a shared link to an empty week still shows what it is).
  */
-export function doneWeekOptions(tasks, selected, now = new Date()) {
+export function doneWeekOptions(tasks, selected, current) {
   const counts = new Map();
   for (const task of tasks) {
     if (task.status !== 'DONE') continue;
     const key = weekKey(task);
     if (key) counts.set(key, (counts.get(key) || 0) + 1);
   }
-  const current = currentWeekKey(now);
   for (const key of [current, selected]) if (key && key !== ALL_WEEKS && !counts.has(key)) counts.set(key, 0);
   const options = [...counts.keys()].sort().reverse().map((key) => ({ value: key, title: weekTitle(key), count: counts.get(key) }));
   options.push({ value: ALL_WEEKS, title: 'All weeks', count: tasks.filter((t) => t.status === 'DONE').length });

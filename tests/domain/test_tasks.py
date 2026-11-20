@@ -51,3 +51,13 @@ def test_week_pattern_bounds():
         assert re.match(WEEK_PATTERN, ok)
     for bad in ["2026-W00", "2026-W54", "2026-W5", "26-W10", "last week", "2026-w10"]:
         assert not re.match(WEEK_PATTERN, bad)
+
+
+def test_task_week_is_the_stored_week_else_the_updated_day_else_none():
+    from src.domain.notes.tasks import task_week
+
+    assert task_week(note(week="2026-W40", updated="2026-11-20")) == ("2026-W40", True)
+    assert task_week(note(week="garbage", updated="2026-11-20")) == ("2026-W47", False)
+    assert task_week(note(updated="2026-01-01")) == ("2026-W01", False)
+    assert task_week(note(updated="nonsense")) == (None, False)
+    assert task_week(note()) == (None, False)

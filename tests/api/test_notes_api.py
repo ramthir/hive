@@ -243,3 +243,15 @@ def test_saving_content_keeps_the_week_and_a_done_tag_task_gets_one_when_finishe
     # `finished` is already Done through its tag, so re-saving DONE is not a transition: no week is invented
     client.put("/api/notes/finished", json={"status": "DONE"})
     assert client.get("/api/notes/finished").json()["week"] is None
+
+
+def test_tasks_carry_their_week_and_say_whether_it_was_recorded(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain", json={"status": "DONE", "week": "2026-W40"})
+    rows = {t["slug"]: t for t in client.get("/api/tasks").json()}
+    assert (rows["plain"]["week_key"], rows["plain"]["week_stored"]) == ("2026-W40", True)
+    assert (rows["finished"]["week_key"], rows["finished"]["week_stored"]) == ("2026-W01", False)  # from `updated: 2026-01-02`
+
+
+def test_current_week_is_the_servers(client):
+    assert client.get("/api/tasks/current-week").json() == {"week": week_label(date.today())}

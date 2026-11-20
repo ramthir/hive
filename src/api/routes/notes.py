@@ -46,6 +46,12 @@ def tasks(request: Request):
     return [TaskOut.from_task(n) for n in svc(request).tasks()]
 
 
+@router.get("/tasks/current-week")
+def current_week(request: Request) -> dict[str, str]:
+    """This week (e.g. 2026-W47) by the server's clock: the default week of the Done column."""
+    return {"week": svc(request).current_week()}
+
+
 @router.get("/tags", response_model=dict[str, int])
 def tags(request: Request):
     return svc(request).tags()

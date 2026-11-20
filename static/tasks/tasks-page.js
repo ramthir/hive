@@ -2,7 +2,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
-import { COLUMNS, ALL_WEEKS, currentWeekKey, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
+import { COLUMNS, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
 import { createTaskDrawer } from '/static/tasks/drawer.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
@@ -23,7 +23,6 @@ class TasksApp extends HTMLElement {
         <div class="tasks-board-wrap"><app-board id="tasks-board"></app-board></div>
         <div class="task-drawer-host"></div>
       </section>`;
-    this.doneWeek = this.readDoneWeek();
     wireSearchTrigger(this);
     this.board = this.querySelector('app-board');
     this.drawer = createTaskDrawer({ host: this.querySelector('.task-drawer-host'), onSave: (task, changes) => this.edit(task, changes) });
@@ -51,7 +50,7 @@ class TasksApp extends HTMLElement {
   // `?done=2026-W47` (or `all`) names the week the Done column shows; a bare /tasks shows this week.
   readDoneWeek() {
     const choice = new URLSearchParams(window.location.search).get('done');
-    return isDoneWeekChoice(choice) ? choice : currentWeekKey();
+    return isDoneWeekChoice(choice) ? choice : this.currentWeek;
   }
 
   setDoneWeek(choice) {
@@ -73,7 +72,7 @@ class TasksApp extends HTMLElement {
   renderDoneFilter() {
     const header = this.board.querySelector('[data-column-value="DONE"] .board-column-header');
     if (!header) return;
-    const { options, selected } = doneWeekOptions(this.tasks, this.doneWeek);
+    const { options, selected } = doneWeekOptions(this.tasks, this.doneWeek, this.currentWeek);
     const label = options.find((option) => option.value === selected)?.title ?? selected;
     const menu = document.createElement('app-dropdown-menu');
     menu.className = 'work-done-filter';
@@ -90,7 +89,10 @@ class TasksApp extends HTMLElement {
 
   async load() {
     try {
-      this.tasks = await api('/tasks');
+      const [tasks, { week }] = await Promise.all([api('/tasks'), api('/tasks/current-week')]);
+      this.tasks = tasks;
+      this.currentWeek = week;
+      this.doneWeek = this.readDoneWeek();
       // A bare /tasks shows this week's Done tasks, so the address says so (replacing the entry, not adding one).
       if (new URLSearchParams(window.location.search).has('done')) this.refresh();
       else this.setDoneWeek(this.doneWeek);
@@ -99,32 +101,32 @@ class TasksApp extends HTMLElement {
     }
   }
 
-  // Saved from the drawer: one PUT (one commit); a new title renames the note, so the slug is taken from the reply.
-  async edit(task, changes) {
-    const saved = await api(`/notes/${encodeURIComponent(task.slug)}`, { method: 'PUT', body: changes });
-    Object.assign(task, { slug: saved.slug, title: saved.title, tags: saved.tags, status: saved.status, week: saved.week, updated: saved.updated });
+  // After a save the server is asked again: it owns status, week and slug, so nothing is worked out here.
+  async reloadTasks() {
+    this.tasks = await api('/tasks');
     this.refresh();
   }
 
+  // Saved from the drawer: one PUT (one commit); a new title renames the note.
+  async edit(task, changes) {
+    await api(`/notes/${encodeURIComponent(task.slug)}`, { method: 'PUT', body: changes });
+    await this.reloadTasks();
+  }
+
   // Optimistic: the card jumps columns at once; if the save fails it goes back and the error is shown.
-  // Finishing a task puts it in this week (the server does the same), so it does not vanish from an older week's view.
+  // A finished task is shown in this week meanwhile, so it does not vanish from an older week's view.
   async move(task, status, previous) {
-    const previousWeek = task.week;
-    task.status = status;
-    task.week = status === 'DONE' ? currentWeekKey() : null;
+    const before = { ...task };
+    Object.assign(task, { status, ...(status === 'DONE' ? { week_key: this.currentWeek, week_stored: true } : {}) });
     this.refresh();
     try {
-      const saved = await api(`/notes/${encodeURIComponent(task.slug)}`, { method: 'PUT', body: { status } });
-      task.status = saved.status;
-      task.updated = saved.updated;
-      task.week = saved.week;
+      await api(`/notes/${encodeURIComponent(task.slug)}`, { method: 'PUT', body: { status } });
     } catch (error) {
-      task.status = previous;
-      task.week = previousWeek;
-      throw error;
-    } finally {
+      Object.assign(task, before, { status: previous });
       this.refresh();
+      throw error;
     }
+    await this.reloadTasks().catch(() => {}); // the move is saved; if the reload fails the optimistic card stays
   }
 }
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+import re
 from typing import Literal, get_args
 
 from src.domain.notes.entities import Note
@@ -30,3 +31,14 @@ def task_status(note: Note) -> str:
     if stored in STATUSES:
         return stored
     return "DONE" if any(t.casefold() == "done" for t in note.tags) else "TODO"
+
+
+def task_week(note: Note) -> tuple[str | None, bool]:
+    """The week a task belongs to and whether it was recorded: the stored `week:` if valid, else the week of the
+    `updated` day (False), else None. The Done column filters and the card's week chip both use this."""
+    if note.week and re.match(WEEK_PATTERN, note.week):
+        return note.week, True
+    try:
+        return week_label(date.fromisoformat((note.updated or "")[:10])), False
+    except ValueError:
+        return None, False

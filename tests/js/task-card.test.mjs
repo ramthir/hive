@@ -23,62 +23,49 @@ test('todo and done tags are hidden because the column says it, other tags stay'
   assert.ok(!/>\s*todo</i.test(html) && !/>\s*done</i.test(html));
 });
 
-import { isoWeek, taskWeek, currentWeekKey, weekTitle, isDoneWeekChoice, doneWeekOptions, visibleTasks } from '../../static/tasks/card.js';
+import { taskWeek, weekTitle, isDoneWeekChoice, doneWeekOptions, visibleTasks } from '../../static/tasks/card.js';
 
-test('isoWeek follows ISO 8601 across year boundaries', () => {
-  assert.deepEqual(isoWeek('2026-11-20'), { year: 2026, week: 47 });
-  assert.deepEqual(isoWeek('2026-01-01'), { year: 2026, week: 1 });
-  assert.deepEqual(isoWeek('2024-12-30'), { year: 2025, week: 1 }); // Monday of 2025's week 1
-  assert.deepEqual(isoWeek('2021-01-03'), { year: 2020, week: 53 });
-  assert.equal(isoWeek('nonsense'), null);
-  assert.equal(isoWeek(null), null);
-});
-
-test('a card shows the week of its last update', () => {
-  assert.match(renderCard({ slug: 'x', title: 'X', tags: [], updated: '2026-11-20' }), />\s*W47</);
+test('a card shows the week the server worked out for it', () => {
+  assert.match(renderCard({ slug: 'x', title: 'X', tags: [], week_key: '2026-W47' }), />\s*W47</);
   assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--week'));
 });
 
-const NOW = new Date(2026, 10, 20); // Friday 20 Nov 2026, ISO week 47
+const CURRENT = '2026-W47'; // what GET /api/tasks/current-week returns
 
-test('the current week key and titles', () => {
-  assert.equal(currentWeekKey(NOW), '2026-W47');
-  assert.equal(currentWeekKey(new Date(2026, 10, 16)), '2026-W47'); // Monday
-  assert.equal(currentWeekKey(new Date(2026, 10, 22)), '2026-W47'); // Sunday
-  assert.equal(currentWeekKey(new Date(2026, 10, 23)), '2026-W48');
+test('week titles and the Done filter choices', () => {
   assert.equal(weekTitle('2026-W07'), 'Week 07 2026');
   assert.ok(isDoneWeekChoice('2026-W47') && isDoneWeekChoice('all') && !isDoneWeekChoice('last') && !isDoneWeekChoice(null));
 });
 
-const done = (slug, week, updated) => ({ slug, status: 'DONE', week, updated });
+const done = (slug, week_key) => ({ slug, status: 'DONE', week_key });
 
 test('the Done filter lists weeks newest first with counts, this week always, then All weeks', () => {
   const tasks = [
-    done('a', '2026-W45'), done('b', '2026-W45'), done('c', undefined, '2026-11-10'), // c: no key, week 46 by `updated`
-    { slug: 'open', status: 'TODO', updated: '2020-01-01' }, // open tasks never count
+    done('a', '2026-W45'), done('b', '2026-W45'), done('c', '2026-W46'),
+    { slug: 'open', status: 'TODO', week_key: '2020-W01' }, // open tasks never count
   ];
-  const { options, selected } = doneWeekOptions(tasks, '2026-W47', NOW);
+  const { options, selected } = doneWeekOptions(tasks, '2026-W47', CURRENT);
   assert.equal(selected, '2026-W47');
   assert.deepEqual(options.map((o) => [o.value, o.count]), [['2026-W47', 0], ['2026-W46', 1], ['2026-W45', 2], ['all', 3]]);
   assert.equal(options[0].title, 'Week 47 2026');
   // a shared link to a week with nothing in it keeps that week in the list
-  assert.ok(doneWeekOptions(tasks, '2026-W30', NOW).options.some((o) => o.value === '2026-W30' && o.count === 0));
+  assert.ok(doneWeekOptions(tasks, '2026-W30', CURRENT).options.some((o) => o.value === '2026-W30' && o.count === 0));
 });
 
 test('the Done filter hides finished tasks from other weeks and never open ones', () => {
-  const tasks = [done('now', '2026-W47'), done('old', '2026-W40', '2026-11-19'), { slug: 'todo', status: 'TODO', updated: '2019-01-01' },
+  const tasks = [done('now', '2026-W47'), done('old', '2026-W40'), { slug: 'todo', status: 'TODO', week_key: '2019-W01' },
     { slug: 'doing', status: 'IN_PROGRESS' }];
   assert.deepEqual(visibleTasks(tasks, '2026-W47').map((t) => t.slug), ['now', 'todo', 'doing']);
   assert.deepEqual(visibleTasks(tasks, '2026-W40').map((t) => t.slug), ['old', 'todo', 'doing']);
   assert.equal(visibleTasks(tasks, 'all').length, 4);
 });
 
-test('the week key wins over the updated day', () => {
-  assert.deepEqual(taskWeek({ week: '2026-W40', updated: '2026-11-20' }), { year: 2026, week: 40, stored: true });
-  assert.deepEqual(taskWeek({ week: 'garbage', updated: '2026-11-20' }), { year: 2026, week: 47 });
-  const html = renderCard({ slug: 'x', title: 'X', tags: [], week: '2026-W40', updated: '2026-11-20' });
-  assert.match(html, />\s*W40</);
-  assert.match(html, /Finished in week 40 of 2026/);
+test('a task week comes from week_key, and says whether it was recorded', () => {
+  assert.deepEqual(taskWeek({ week_key: '2026-W40', week_stored: true }), { year: 2026, week: 40, stored: true });
+  assert.deepEqual(taskWeek({ week_key: '2026-W47' }), { year: 2026, week: 47, stored: false });
+  assert.equal(taskWeek({ week_key: null }), null);
+  assert.match(renderCard({ slug: 'x', title: 'X', tags: [], week_key: '2026-W40', week_stored: true }), /Finished in week 40 of 2026/);
+  assert.match(renderCard({ slug: 'x', title: 'X', tags: [], week_key: '2026-W40' }), /Last updated in week 40 of 2026/);
 });
 
 test('a #must / #important / #nice-to-have tag becomes a ranked priority chip, not a plain tag chip', () => {
