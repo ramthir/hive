@@ -9,6 +9,8 @@ import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
+import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
+import { DiagramPreviews } from '/static/notes/diagrams.js';
 
 const notesRouter = new ScopedRouter({ basename: '/notes' });
 notesRouter.register('/notes', { view: 'list' });
@@ -41,62 +43,6 @@ async function api(path, { method = 'GET', body, signal } = {}) {
 }
 
 const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) => tag.trim()).filter(Boolean))];
-
-/* --- Markdown: [[wikilinks]] ----------------------------------------- */
-
-let _markedWikilinkConfigured = false;
-
-// A table row is split on every unescaped "|" before inline parsing, so the alias
-// separator in [[target|label]] must be escaped inside table rows to stay one cell.
-function escapeWikilinkPipesInTableRows(markdown) {
-  let fence = null;
-  return String(markdown).split('\n').map((line) => {
-    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (fence) {
-      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
-      return line;
-    }
-    if (marker) {
-      fence = marker[1];
-      return line;
-    }
-    if (!/^\s*\|/.test(line)) return line;
-    return line.replace(/\[\[[^\]\r\n]*\]\]/g, (link) => link.replace(/(?<!\\)\|/g, '\\|'));
-  }).join('\n');
-}
-
-function configureMarkedWikilinks(markedLib) {
-  const markedInstance = markedLib || globalThis.marked;
-  if (_markedWikilinkConfigured || !markedInstance?.use) return;
-  markedInstance.use({
-    hooks: { preprocess: escapeWikilinkPipesInTableRows },
-    renderer: {
-      tablecell(content, flags) {
-        const type = flags.header ? 'th' : 'td';
-        const tag = flags.align ? `<${type} align="${flags.align}" style="text-align: ${flags.align}">` : `<${type}>`;
-        return `${tag}${content}</${type}>\n`;
-      },
-    },
-    extensions: [
-      {
-        name: 'wikilink',
-        level: 'inline',
-        start: (src) => src.indexOf('[['),
-        tokenizer(src) {
-          const match = /^\[\[([^\]|\r\n]+)(?:\|([^\]\r\n]+))?\]\]/.exec(src);
-          if (!match) return undefined;
-          const target = match[1].trim();
-          if (!target) return undefined;
-          const label = (match[2] !== undefined ? match[2] : match[1]).trim();
-          return { type: 'wikilink', raw: match[0], target, text: label || target, autoLabel: match[2] === undefined };
-        },
-        // Resolved against the notes on disk after rendering (see decorateWikilinks).
-        renderer: (token) => `<a class="notes-wikilink" data-target="${esc(token.target)}"${token.autoLabel ? ' data-auto-label="true"' : ''} href="#">${esc(token.text)}</a>`,
-      },
-    ],
-  });
-  _markedWikilinkConfigured = true;
-}
 
 configureMarkedWikilinks();
 
@@ -165,11 +111,8 @@ class NotesApp extends HTMLElement {
     this.cmEditor = null;
     this._unsubscribe = null;
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
-    // PlantUML previews: source -> data URL of the rendered SVG, and sources that failed (never retried until edited).
-    this._diagramCache = new Map();
-    this._diagramErrors = new Map();
-    this._diagramInflight = new Map();
-    this._diagramTimer = null;
+    // PlantUML previews: rendered diagrams are cached by source; failed sources are not retried until edited.
+    this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }));
   }
 
   connectedCallback() {
@@ -204,7 +147,7 @@ class NotesApp extends HTMLElement {
 
   disconnectedCallback() {
     clearTimeout(this._copyTimer);
-    clearTimeout(this._diagramTimer);
+    this._diagrams.dispose();
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
     window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
@@ -634,136 +577,9 @@ class NotesApp extends HTMLElement {
   }
 
   renderMarkdownPreview(content) {
-    const markdownText = String(content || '');
-    const markedLib = globalThis.marked;
-    if (!markedLib?.parse) return `<pre>${esc(markdownText)}</pre>`;
-    configureMarkedWikilinks(markedLib);
-    globalThis.PandoraMath?.configure(markedLib, globalThis.katex);
-
-    const parsed = new DOMParser().parseFromString(markedLib.parse(markdownText, { gfm: true, breaks: false }), 'text/html');
-    // Mark task items so they can be styled whether marked renders them tight (`li > input`) or loose
-    // (`li > p > input`), and let a hard-wrapped item flow as one text: `breaks: true` would force a <br>.
-    parsed.querySelectorAll('li > input[type="checkbox"], li > p > input[type="checkbox"]').forEach((checkbox) => {
-      const item = checkbox.closest('li');
-      item.classList.add('notes-task-item');
-      if (checkbox.checked) item.classList.add('notes-task-item--done');
-      item.querySelectorAll(':scope > br, :scope > p > br').forEach((lineBreak) => lineBreak.replaceWith(' '));
-    });
-    parsed.querySelectorAll('script, style, iframe, object, embed, form').forEach((element) => element.remove());
-    parsed.querySelectorAll('*').forEach((element) => {
-      [...element.attributes].forEach((attribute) => {
-        if (attribute.name.toLowerCase().startsWith('on')) element.removeAttribute(attribute.name);
-      });
-      for (const attributeName of ['href', 'src']) {
-        const attribute = element.getAttribute(attributeName);
-        if (!attribute) continue;
-        try {
-          if (element.classList.contains('notes-wikilink') && attributeName === 'href') continue;
-          const url = new URL(attribute, window.location.href);
-          if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) element.removeAttribute(attributeName);
-          else if (attributeName === 'href') {
-            if (url.origin === window.location.origin) {
-              element.removeAttribute('target');
-              if (!attribute.startsWith('#') && notesRouter.getMatch(url.pathname)) element.setAttribute('data-route', '');
-            } else {
-              element.setAttribute('target', '_blank');
-              element.setAttribute('rel', 'noopener noreferrer');
-            }
-          }
-        } catch (_error) {
-          element.removeAttribute(attributeName);
-        }
-      }
-    });
-    globalThis.hljs?.highlightElement && parsed.querySelectorAll('pre code').forEach((block) => {
-      try { globalThis.hljs.highlightElement(block); } catch (_error) { /* unknown language */ }
-    });
-    this.markDiagramBlocks(parsed);
-    return parsed.body.innerHTML;
-  }
-
-  /* --- PlantUML previews ---------------------------------------------- */
-
-  // ```plantuml / ```puml fences become figures: the rendered image if known, else the code with a status line.
-  markDiagramBlocks(parsed) {
-    parsed.querySelectorAll('pre > code.language-plantuml, pre > code.language-puml').forEach((code) => {
-      const pre = code.parentElement;
-      const source = code.textContent.trim();
-      if (!source) return;
-      const figure = parsed.createElement('figure');
-      figure.className = 'notes-diagram';
-      figure.setAttribute('data-diagram', source);
-      const image = this._diagramCache.get(source);
-      const error = this._diagramErrors.get(source);
-      if (image) {
-        figure.appendChild(this.diagramImage(parsed, image));
-      } else {
-        figure.appendChild(pre.cloneNode(true));
-        const note = parsed.createElement('p');
-        note.className = error ? 'notes-diagram-error' : 'notes-diagram-status';
-        note.textContent = error || 'Rendering diagram…';
-        figure.appendChild(note);
-      }
-      pre.replaceWith(figure);
-    });
-  }
-
-  diagramImage(doc, dataUrl) {
-    const img = doc.createElement('img');
-    img.className = 'notes-diagram-img';
-    img.alt = 'PlantUML diagram';
-    img.setAttribute('src', dataUrl); // an <img> never runs script, even if the SVG contained some
-    return img;
-  }
-
-  // Fetch whatever is not rendered yet. While typing, wait for a pause so each keystroke does not start a render.
-  decorateDiagrams(preview) {
-    const pending = [...preview.querySelectorAll('.notes-diagram[data-diagram]')]
-      .filter((figure) => !figure.querySelector('.notes-diagram-img') && !this._diagramErrors.has(figure.dataset.diagram));
-    if (!pending.length) return;
-    clearTimeout(this._diagramTimer);
-    this._diagramTimer = setTimeout(async () => {
-      const sources = [...new Set(pending.map((figure) => figure.dataset.diagram))];
-      await Promise.all(sources.map((source) => this.fetchDiagram(source)));
-      this.applyDiagrams();
-    }, this.isNoteEditing ? 500 : 0);
-  }
-
-  async fetchDiagram(source) {
-    if (this._diagramCache.has(source) || this._diagramErrors.has(source)) return;
-    if (!this._diagramInflight.has(source)) {
-      const request = api('/diagram/render', { method: 'POST', body: { source } })
-        .then(({ svg }) => {
-          this._diagramCache.set(source, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
-          if (this._diagramCache.size > 100) this._diagramCache.delete(this._diagramCache.keys().next().value);
-        })
-        .catch((error) => {
-          this._diagramErrors.set(source, error.status === 503 ? `PlantUML is not set up: ${error.message}` : `Could not render this diagram: ${error.message}`);
-        })
-        .finally(() => this._diagramInflight.delete(source));
-      this._diagramInflight.set(source, request);
-    }
-    await this._diagramInflight.get(source);
-  }
-
-  // Swap each figure on the page to its image, or show its error under the code.
-  applyDiagrams() {
-    const preview = this.querySelector('#notes-preview');
-    if (!preview) return;
-    preview.querySelectorAll('.notes-diagram[data-diagram]').forEach((figure) => {
-      if (figure.querySelector('.notes-diagram-img')) return;
-      const source = figure.dataset.diagram;
-      const image = this._diagramCache.get(source);
-      const error = this._diagramErrors.get(source);
-      if (image) {
-        figure.replaceChildren(this.diagramImage(document, image));
-      } else if (error) {
-        const status = figure.querySelector('.notes-diagram-status, .notes-diagram-error');
-        if (status) {
-          status.className = 'notes-diagram-error';
-          status.textContent = error;
-        }
-      }
+    return renderMarkdown(content, {
+      isRoute: (pathname) => Boolean(notesRouter.getMatch(pathname)),
+      decorate: (parsed) => this._diagrams.markBlocks(parsed),
     });
   }
 
@@ -783,7 +599,7 @@ class NotesApp extends HTMLElement {
     preview.removeEventListener('click', this._previewClickHandler);
     preview.addEventListener('click', this._previewClickHandler);
     this.decorateWikilinks(preview);
-    this.decorateDiagrams(preview);
+    this._diagrams.decorate(preview, { editing: this.isNoteEditing });
     this.setupCodeBlockActions(preview);
     this.preloadEditorWhenIdle();
   }
