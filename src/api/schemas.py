@@ -40,7 +40,7 @@ class NoteDetail(NoteSummary):
     extra: dict[str, Any]
 
     @classmethod
-    def of(cls, n: Note) -> "NoteDetail":  # type: ignore[override]
+    def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
                    types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
 

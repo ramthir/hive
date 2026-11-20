@@ -31,13 +31,13 @@ def list_notes(request: Request, q: str = "", tag: str | None = None, limit: int
 
 @router.post("/notes", response_model=NoteDetail, status_code=201)
 def create_note(request: Request, body: NoteCreate):
-    return NoteDetail.of(svc(request).create(body.title, body.content, tuple(body.tags), tuple(body.types)))
+    return NoteDetail.from_note(svc(request).create(body.title, body.content, tuple(body.tags), tuple(body.types)))
 
 
 @router.get("/latest", response_model=NoteDetail)
 def latest_note(request: Request):
     """The most recently edited note (what the app opens at /)."""
-    return NoteDetail.of(svc(request).latest())
+    return NoteDetail.from_note(svc(request).latest())
 
 
 @router.get("/tasks", response_model=list[TaskOut])
@@ -81,12 +81,12 @@ def reindex(request: Request):
 
 @router.get("/notes/{slug}", response_model=NoteDetail)
 def get_note(request: Request, slug: str):
-    return NoteDetail.of(svc(request).get(slug))
+    return NoteDetail.from_note(svc(request).get(slug))
 
 
 @router.put("/notes/{slug}", response_model=NoteDetail)
 def update_note(request: Request, slug: str, body: NoteUpdate):
-    return NoteDetail.of(svc(request).update(
+    return NoteDetail.from_note(svc(request).update(
         slug, title=body.title, content=body.content,
         tags=None if body.tags is None else tuple(body.tags),
         types=None if body.types is None else tuple(body.types), status=body.status, week=body.week, priority=body.priority))
@@ -150,4 +150,4 @@ def version_diff(request: Request, slug: str, sha: str, against: str = Query("pr
 @router.post("/notes/{slug}/versions/{sha}/restore", response_model=NoteDetail)
 def restore_version(request: Request, slug: str, sha: str):
     s = svc(request)
-    return NoteDetail.of(s.restore(slug, _find(s, slug, sha).sha))
+    return NoteDetail.from_note(s.restore(slug, _find(s, slug, sha).sha))
