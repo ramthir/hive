@@ -1,0 +1,135 @@
+/* CodeMirror 6 Editor Styling */
+.notes-cm-wrapper {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notes-cm-wrapper .cm-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-cm-wrapper .cm-scroller {
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-cm-wrapper .cm-content {
+  padding-bottom: calc(1.25rem + var(--footer-bar-height, 3.75rem)) !important;
+}
+
+.notes-editor-workspace.split .notes-editor-pane {
+  border-right: 1px solid var(--color-dimmed5);
+}
+
+/* Markdown formatting */
+.notes-preview-pane h1,
+.notes-preview-pane h2,
+.notes-preview-pane h3,
+.notes-preview-pane h4,
+.notes-preview-pane h5,
+.notes-preview-pane h6 {
+  color: var(--color-text);
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.notes-preview-pane h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  border-bottom: 1px solid var(--color-dimmed5);
+  padding-bottom: 0.4em;
+}
+
+.notes-preview-pane h2 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 0.3em;
+}
+
+.notes-preview-pane h3 {
+  font-size: 1.25rem;
+}
+
+.notes-preview-pane h4 {
+  font-size: 1.05rem;
+}
+
+.notes-preview-pane h5,
+.notes-preview-pane h6 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-dimmed1);
+}
+
+.notes-preview-pane h6 {
+  font-weight: 500;
+  color: var(--color-dimmed2);
+}
+
+/* A heading straight after another heading sits close to it */
+.notes-preview-pane :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0.5em;
+}
+
+.notes-preview-pane p {
+  margin: 0.8em 0;
+  color: var(--color-dimmed1);
+}
+
+.notes-preview-pane img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.notes-preview-pane img[src*="/diagram.svg"] {
+  cursor: pointer;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.notes-preview-pane img[src*="/diagram.svg"]:hover {
+  filter: brightness(1.08);
+}
+
+.notes-preview-pane code {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--color-background);
+  border: 1px solid var(--color-dimmed5);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  color: var(--color-accent3);
+}
+
+.notes-preview-pane pre {
+  position: relative;
+  background: var(--color-background);
+  border: 1px solid var(--color-dimmed5);
+  border-radius: var(--radius-md, 6px);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1em 0;
+  line-height: 1.6;
+}
+
+.notes-preview-pane pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--color-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  tab-size: 2;
+}
+

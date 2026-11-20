@@ -1,0 +1,259 @@
+/* Monokai Pro Syntax Highlighting for Notes Preview */
+.notes-preview-pane pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text);
+}
+
+/* Keywords, tags, logic, storage, control flow: Monokai Pro Pink */
+.notes-preview-pane .hljs-keyword,
+.notes-preview-pane .hljs-selector-tag,
+.notes-preview-pane .hljs-tag,
+.notes-preview-pane .hljs-name,
+.notes-preview-pane .hljs-doctag {
+  color: var(--color-accent1);
+  font-weight: 500;
+}
+
+/* Classes, functions, methods, section titles: Monokai Pro Green */
+.notes-preview-pane .hljs-title,
+.notes-preview-pane .hljs-title.class_,
+.notes-preview-pane .hljs-section {
+  color: var(--color-accent4);
+  font-weight: 600;
+}
+
+/* Strings, characters, regex, attributes value: Monokai Pro Yellow */
+.notes-preview-pane .hljs-string,
+.notes-preview-pane .hljs-regexp,
+.notes-preview-pane .hljs-symbol,
+.notes-preview-pane .hljs-bullet {
+  color: var(--color-accent3);
+}
+
+/* Numbers, constants, booleans, literals: Monokai Pro Purple */
+.notes-preview-pane .hljs-number,
+.notes-preview-pane .hljs-literal,
+.notes-preview-pane .hljs-link {
+  color: var(--color-accent6);
+}
+
+/* Variables, parameters, object keys, attributes: Monokai Pro Orange */
+.notes-preview-pane .hljs-variable,
+.notes-preview-pane .hljs-template-variable,
+.notes-preview-pane .hljs-params,
+.notes-preview-pane .hljs-attr,
+.notes-preview-pane .hljs-attribute {
+  color: var(--color-accent2);
+}
+
+/* Built-in functions/types, types, classes: Monokai Pro Cyan */
+.notes-preview-pane .hljs-type,
+.notes-preview-pane .hljs-built_in,
+.notes-preview-pane .hljs-builtin-name {
+  color: var(--color-accent5);
+  font-style: italic;
+}
+
+/* Comments, quotes: Monokai Pro Dimmed Muted Gray */
+.notes-preview-pane .hljs-comment,
+.notes-preview-pane .hljs-quote,
+.notes-preview-pane .hljs-meta {
+  color: var(--color-dimmed3);
+  font-style: italic;
+}
+
+/* Operators, punctuation: Monokai Pro Dimmed Light */
+.notes-preview-pane .hljs-operator,
+.notes-preview-pane .hljs-punctuation {
+  color: var(--color-dimmed1);
+}
+
+/* Deletion & Addition (diffs) */
+.notes-preview-pane .hljs-deletion {
+  color: var(--color-accent1);
+  background: color-mix(in srgb, var(--color-accent1) 15%, transparent);
+}
+.notes-preview-pane .hljs-addition {
+  color: var(--color-accent4);
+  background: color-mix(in srgb, var(--color-accent4) 15%, transparent);
+}
+
+/* Emphasis & Strong */
+.notes-preview-pane .hljs-emphasis {
+  font-style: italic;
+}
+.notes-preview-pane .hljs-strong {
+  font-weight: 700;
+}
+
+/* Copy code block button */
+.notes-copy-code-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-dimmed5);
+  border-radius: 4px;
+  color: var(--color-dimmed2);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+  line-height: 1;
+}
+
+.notes-preview-pane pre:hover .notes-copy-code-btn,
+.notes-copy-code-btn:focus-visible {
+  opacity: 1;
+}
+
+.notes-copy-code-btn:hover {
+  color: var(--color-text);
+  background: var(--color-dimmed4);
+}
+
+.notes-copy-code-btn.copied {
+  color: var(--color-accent4);
+  border-color: var(--color-accent4);
+  opacity: 1;
+}
+
+.notes-preview-pane blockquote {
+  border-left: 4px solid var(--color-accent5);
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  background: color-mix(in srgb, var(--color-accent5) 5%, transparent);
+  color: var(--color-dimmed1);
+  border-radius: 0 4px 4px 0;
+}
+
+.notes-preview-pane ul,
+.notes-preview-pane ol {
+  padding-left: 1.5em;
+  margin: 0.8em 0;
+}
+
+.notes-preview-pane li {
+  margin: 0.3em 0;
+  color: var(--color-dimmed1);
+}
+
+.notes-preview-pane .notes-task-item {
+  position: relative;
+  list-style: none;
+}
+
+.notes-preview-pane .notes-task-item,
+.notes-preview-pane .notes-task-item > p {
+  color: var(--color-text);
+}
+
+.notes-preview-pane .notes-task-item--done,
+.notes-preview-pane .notes-task-item--done > p {
+  color: var(--color-dimmed2);
+}
+
+.notes-preview-pane .notes-task-item > p {
+  margin: 0;
+}
+
+.notes-preview-pane .notes-task-item input[type='checkbox'] {
+  position: absolute;
+  left: -1.5em;
+  top: 0.35em;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  appearance: none;
+  border: 1.5px solid var(--color-dimmed3);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.notes-preview-pane .notes-task-item--done input[type='checkbox'] {
+  border-color: var(--color-green);
+  background-color: var(--color-green);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23221f22' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100%;
+}
+
+.notes-preview-pane table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.notes-preview-pane th,
+.notes-preview-pane td {
+  border: 1px solid var(--color-dimmed5);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.notes-preview-pane th[align='center'],
+.notes-preview-pane td[align='center'] {
+  text-align: center;
+}
+
+.notes-preview-pane th[align='right'],
+.notes-preview-pane td[align='right'] {
+  text-align: right;
+}
+
+.notes-preview-pane th[align='left'],
+.notes-preview-pane td[align='left'] {
+  text-align: left;
+}
+
+.notes-preview-pane th {
+  background: var(--color-dark1);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.notes-preview-pane tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.notes-preview-pane a {
+  color: var(--color-accent5);
+  text-decoration: underline;
+}
+
+.notes-preview-pane a.notes-wikilink {
+  color: var(--color-accent5);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent5) 45%, transparent);
+  padding: 0.05rem 0.15rem;
+  border-radius: 3px;
+  background-color: color-mix(in srgb, var(--color-accent5) 8%, transparent);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.notes-preview-pane a.notes-wikilink:hover {
+  background-color: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  border-bottom-color: var(--color-accent5);
+  color: #a6f0fc;
+}
+
+.notes-preview-pane a.notes-wikilink.unresolved {
+  color: var(--color-dimmed3, #908e90);
+  border-bottom: 1px dashed var(--color-dimmed4);
+  background-color: rgba(255, 255, 255, 0.03);
+  font-weight: normal;
+}
+
+.notes-preview-pane a.notes-wikilink.unresolved:hover {
+  color: var(--color-accent3, #e6db74);
+  border-bottom-color: var(--color-accent3, #e6db74);
+  background-color: rgba(230, 219, 116, 0.1);
+}
+

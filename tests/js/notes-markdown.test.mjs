@@ -115,3 +115,13 @@ test('the footer shows words, reading time and a character count', () => {
   assert.equal(reading.textContent, 1);
   assert.equal(stats.title, '5 characters');
 });
+
+import { readFileSync, existsSync } from 'node:fs';
+
+test('the notes page links every notes stylesheet, in cascade order, and no stale notes.css', () => {
+  const page = readFileSync(new URL('../../static/index.html', import.meta.url), 'utf8');
+  const linked = [...page.matchAll(/href="\/static\/notes\/([\w-]+\.css)"/g)].map((m) => m[1]);
+  assert.deepEqual(linked, ['layout.css', 'versions.css', 'editor.css', 'preview.css', 'status-bar.css', 'menu.css', 'embeds.css']);
+  for (const file of linked) assert.ok(existsSync(new URL(`../../static/notes/${file}`, import.meta.url)), `${file} is missing`);
+  assert.ok(!existsSync(new URL('../../static/notes/notes.css', import.meta.url)));
+});

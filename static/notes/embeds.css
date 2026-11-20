@@ -1,0 +1,44 @@
+/* The nonmodal editor drawer keeps the rendered note visible alongside it. */
+.notes-markdown-drawer {
+  flex: 0 0 44%;
+  min-width: 0;
+  border-left: 1px solid var(--color-dimmed5);
+  background: var(--color-background);
+}
+
+.notes-editor-workspace.write .notes-preview-pane {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .notes-editor-workspace.write {
+    flex-direction: column;
+  }
+  .notes-markdown-drawer {
+    flex-basis: 50%;
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--color-dimmed5);
+  }
+}
+
+/* Keep wide equations within the note rather than widening the page. */
+.notes-preview-pane .notes-math-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.notes-preview-pane .notes-math-display .katex-display {
+  margin: var(--space-3) 0;
+}
+
+.notes-diagram-status {
+  color: var(--text-secondary);
+  margin: 2rem auto;
+}
+
+.notes-diagram-status.is-error {
+  color: var(--danger, #f87171);
+}
