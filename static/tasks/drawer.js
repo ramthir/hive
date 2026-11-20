@@ -1,13 +1,12 @@
 import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/combobox.js';
 import { createDialog, confirmDiscard } from '/static/components/dialog.js';
-import { COLUMNS, PRIORITIES, drawerChanges, editableTags, noteHref, taskPriority } from '/static/tasks/card.js';
+import { COLUMNS, PRIORITIES, drawerChanges, noteHref, taskPriority } from '/static/tasks/card.js';
 
 const options = (items) => items.map(({ value, label }) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
 
 /**
- * Pandora's task drawer: a side panel with the task's properties (title, status, priority, tags). Priority is a
- * tag, so the combobox swaps `must` / `important` / `nice-to-have` in the tag list. `onSave(task, changes)` does the PUT.
+ * Pandora's task drawer: a side panel with the task's properties (title, status, priority, tags). `onSave(task, changes)` does the PUT.
  */
 export function createTaskDrawer({ host, onSave }) {
   host.innerHTML = `<app-dialog class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title">
@@ -63,8 +62,8 @@ export function createTaskDrawer({ host, onSave }) {
       form.innerHTML = `<div class="properties-form-grid">
         ${field('heading', 'Title', `<input name="title" required maxlength="255" value="${esc(task.title)}">`, { wide: true })}
         ${field('list-check', 'Status', `<app-combobox name="status" required value="${esc(task.status)}" placeholder="Select status">${options(COLUMNS)}</app-combobox>`)}
-        ${field('flag', 'Priority', `<app-combobox name="priority" value="${esc(priority?.tag ?? '')}" placeholder="None">${options(PRIORITIES.map((p) => ({ value: p.tag, label: p.label })))}</app-combobox>`)}
-        ${field('tag', 'Tags', `<input name="tags" placeholder="comma, separated" value="${esc(editableTags(task).join(', '))}">`, { wide: true })}
+        ${field('flag', 'Priority', `<app-combobox name="priority" value="${esc(priority?.value ?? '')}" placeholder="None">${options(PRIORITIES.map(({ value, label }) => ({ value, label })))}</app-combobox>`)}
+        ${field('tag', 'Tags', `<input name="tags" placeholder="comma, separated" value="${esc((task.tags || []).join(', '))}">`, { wide: true })}
       </div>`;
       error.className = 'crud-drawer-error';
       error.hidden = true;

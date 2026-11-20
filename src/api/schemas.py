@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import re
 
 from pydantic import BaseModel, Field
 
 from src.domain.notes.entities import Note, NoteVersion
-from src.domain.notes.tasks import WEEK_PATTERN, TaskStatus, task_status, task_week
+from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
 
@@ -59,6 +59,7 @@ class NoteUpdate(BaseModel):
     tags: list[str] | None = None
     types: list[str] | None = None  # omitted: unchanged; []: clear
     status: TaskStatus | None = None  # omitted: unchanged
+    priority: TaskPriority | Literal[""] | None = None  # replaces the priority tag; "" removes it; omitted: tags as given
     week: str | None = Field(default=None, pattern=WEEK_PATTERN)  # omitted: unchanged (set automatically with status)
 
 
@@ -98,12 +99,14 @@ class ResolvedLink(BaseModel):
 
 class TaskOut(NoteSummary):
     """A task note on the board: `status` is the effective one (stored, else derived from the `done` tag);
-    `week_key` is the stored `week` or else the week of `updated`, and `week_stored` says which."""
+    `week_key` is the stored `week` or else the week of `updated`, and `week_stored` says which. The priority is
+    its own field, so `tags` leaves out the priority tag."""
 
+    priority: TaskPriority | None = None
     week_key: str | None = None
     week_stored: bool = False
 
     @classmethod
     def from_task(cls, n: Note) -> "TaskOut":
         week_key, week_stored = task_week(n)
-        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n), "week_key": week_key, "week_stored": week_stored})
+        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n), "tags": list(without_priority(n.tags)), "priority": task_priority(n.tags), "week_key": week_key, "week_stored": week_stored})

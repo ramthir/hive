@@ -61,3 +61,15 @@ def test_task_week_is_the_stored_week_else_the_updated_day_else_none():
     assert task_week(note(updated="2026-01-01")) == ("2026-W01", False)
     assert task_week(note(updated="nonsense")) == (None, False)
     assert task_week(note()) == (None, False)
+
+
+def test_priority_is_the_most_urgent_priority_tag():
+    from src.domain.notes.tasks import task_priority, with_priority, without_priority
+
+    assert task_priority(["x", "important", "#Must"]) == "must"
+    assert task_priority(["#nice-to-have"]) == "nice-to-have"
+    assert task_priority(["x", "musts"]) is None
+    assert without_priority(["a", "#must", "Important", "b"]) == ("a", "b")
+    assert with_priority(["a", "must", "b"], "important") == ("a", "b", "important")
+    assert with_priority(["a", "must"], None) == ("a",)
+    assert with_priority([], "must") == ("must",)

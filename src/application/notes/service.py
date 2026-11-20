@@ -14,7 +14,7 @@ from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import InvalidTitle, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
-from src.domain.notes.tasks import is_task, task_status, week_label
+from src.domain.notes.tasks import is_task, task_status, week_label, with_priority
 from src.domain.notes.title import extract_h1, set_h1, with_h1
 from src.domain.notes.wiki_links import rewrite_targets
 from src.infrastructure.metrics import Metrics
@@ -121,14 +121,18 @@ class NoteService:
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
                tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None,
-               status: str | None = None, week: str | None = None) -> Note:
+               status: str | None = None, week: str | None = None, priority: str | None = None) -> Note:
         """`types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
         Moving a task to DONE records the week it was finished in `week` (unless `week` is given); moving it out
-        of DONE clears it again. `week` None leaves it unchanged otherwise."""
+        of DONE clears it again. `week` None leaves it unchanged otherwise. `priority` (must / important / nice-to-have,
+        "" for none) replaces the priority tag among the new `tags` (or the current ones); None leaves them as given."""
         current = self.repo.get(slug)
         new_types = current.types if types is None else _clean(types)
         new_status = current.status if status is None else status
         new_week = current.week if week is None else week
+        new_tags = current.tags if tags is None else tuple(tags)
+        if priority is not None:
+            new_tags = with_priority(new_tags, priority or None)
         if status is not None and week is None:
             before, after = task_status(current), task_status(replace(current, status=status))
             if after == "DONE" and before != "DONE":
@@ -154,13 +158,13 @@ class NoteService:
             note = self.repo.update(replace(
                 current, slug=new_slug, title=new_title, content=body, types=new_types,
                 status=new_status, week=new_week,
-                tags=current.tags if tags is None else tuple(tags)))
+                tags=new_tags))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
                 current, title=new_title, content=body, types=new_types,
                 status=new_status, week=new_week,
-                tags=current.tags if tags is None else tuple(tags)))
+                tags=new_tags))
         self.invalidate()
         return note
 

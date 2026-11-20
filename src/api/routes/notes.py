@@ -89,7 +89,7 @@ def update_note(request: Request, slug: str, body: NoteUpdate):
     return NoteDetail.of(svc(request).update(
         slug, title=body.title, content=body.content,
         tags=None if body.tags is None else tuple(body.tags),
-        types=None if body.types is None else tuple(body.types), status=body.status, week=body.week))
+        types=None if body.types is None else tuple(body.types), status=body.status, week=body.week, priority=body.priority))
 
 
 @router.delete("/notes/{slug}", status_code=204)

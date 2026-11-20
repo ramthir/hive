@@ -52,20 +52,15 @@ export const visibleTasks = (tasks, doneWeek) =>
 // `todo` / `done` only restate the column the card is in.
 const REDUNDANT_TAGS = ['todo', 'done'];
 
-// "1 Must / 2 Important / 3 Nice to have": the priority is marked with a `must` / `important` / `nice-to-have` tag.
+// "1 Must / 2 Important / 3 Nice to have": the server says which one a task has (`priority`, from its tags);
+// this is only how each is drawn and ranked.
 export const PRIORITIES = Object.freeze([
-  { tag: 'must', rank: 1, label: 'Must', cls: 'must', icon: 'fa-solid fa-flag' },
-  { tag: 'important', rank: 2, label: 'Important', cls: 'important', icon: 'fa-solid fa-flag' },
-  { tag: 'nice-to-have', rank: 3, label: 'Nice to have', cls: 'good-to-have', icon: 'fa-regular fa-flag' },
+  { value: 'must', rank: 1, label: 'Must', cls: 'must', icon: 'fa-solid fa-flag' },
+  { value: 'important', rank: 2, label: 'Important', cls: 'important', icon: 'fa-solid fa-flag' },
+  { value: 'nice-to-have', rank: 3, label: 'Nice to have', cls: 'good-to-have', icon: 'fa-regular fa-flag' },
 ]);
-const PRIORITY_TAGS = PRIORITIES.map((p) => p.tag);
-const tagName = (tag) => String(tag).replace(/^#/, '').toLowerCase();
 
-/** The most urgent priority a task is tagged with (`#must` beats `#important`), or null. */
-export function taskPriority(task) {
-  const tags = (task?.tags || []).map(tagName);
-  return PRIORITIES.find((p) => tags.includes(p.tag)) || null;
-}
+export const taskPriority = (task) => PRIORITIES.find((p) => p.value === task?.priority) || null;
 
 /** Most urgent first; tasks with the same priority (or none) keep their order. */
 export const sortByPriority = (tasks) =>
@@ -80,7 +75,7 @@ export function renderCard(task) {
     ? `<span class="board-chip board-chip--priority board-chip--${priority.cls}" title="Priority ${priority.rank}: ${priority.label}"><i class="${priority.icon}" aria-hidden="true"></i>${priority.label}</span>`
     : '';
   const tags = (task.tags || [])
-    .filter((tag) => ![...REDUNDANT_TAGS, ...PRIORITY_TAGS].includes(tagName(tag)))
+    .filter((tag) => !REDUNDANT_TAGS.includes(String(tag).toLowerCase()))
     .map((tag) => `<span class="board-chip"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`)
     .join('');
   const week = taskWeek(task);
@@ -100,22 +95,21 @@ export function parseTags(text) {
   return [...new Set(tags)];
 }
 
-/** The tags the drawer's free-text field shows: all but the priority one, which has its own select. */
-export const editableTags = (task) => (task?.tags || []).filter((t) => !PRIORITY_TAGS.includes(tagName(t)));
-
 /**
  * What the drawer's form changes about a task, as a `PUT /api/notes/{slug}` body holding only the changed keys
- * (empty when nothing changed). `values` = {title, status, priority: a priority tag or '', tags: comma-separated}.
- * The priority select replaces the priority tag; the other tags come from the text field.
+ * (empty when nothing changed). `values` = {title, status, priority: 'must' | 'important' | 'nice-to-have' | '', tags: comma-separated}.
+ * `task.tags` has no priority tag, so the text field only holds the others; the server turns `priority` into the tag,
+ * and `tags` replaces the whole list, so it is sent together with `priority`.
  */
 export function drawerChanges(task, values) {
   const body = {};
   const title = String(values.title ?? '').trim();
   if (title && title !== task.title) body.title = title;
   if (values.status && values.status !== task.status) body.status = values.status;
-  const tags = parseTags(values.tags).filter((t) => !PRIORITY_TAGS.includes(t.toLowerCase()));
-  if (values.priority) tags.push(values.priority);
+  const tags = parseTags(values.tags);
   const same = tags.length === (task.tags || []).length && tags.every((t) => (task.tags || []).includes(t));
+  const priority = values.priority || '';
   if (!same) body.tags = tags;
+  if (!same || priority !== (task.priority || '')) body.priority = priority;
   return body;
 }

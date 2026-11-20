@@ -255,3 +255,25 @@ def test_tasks_carry_their_week_and_say_whether_it_was_recorded(client, root):
 
 def test_current_week_is_the_servers(client):
     assert client.get("/api/tasks/current-week").json() == {"week": week_label(date.today())}
+
+
+def test_tasks_expose_the_priority_apart_from_their_tags(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain", json={"priority": "important"})
+    row = {t["slug"]: t for t in client.get("/api/tasks").json()}["plain"]
+    assert (row["priority"], row["tags"]) == ("important", ["todo"])
+    assert "tags: [todo, important]" in (root / "plain.md").read_text()
+    assert client.get("/api/notes/plain").json()["tags"] == ["todo", "important"]  # the note itself keeps the tag
+
+
+def test_priority_replaces_or_clears_the_tag_and_goes_with_tags_in_one_commit(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain", json={"priority": "must"})
+    before = len(git(root, "rev-list", "HEAD").split())
+    r = client.put("/api/notes/plain", json={"tags": ["todo", "work", "#important"], "priority": "nice-to-have"})
+    assert r.json()["tags"] == ["todo", "work", "nice-to-have"]  # the old priority tag is replaced, whichever way it was written
+    assert len(git(root, "rev-list", "HEAD").split()) == before + 1
+    assert client.put("/api/notes/plain", json={"priority": ""}).json()["tags"] == ["todo", "work"]
+    assert client.put("/api/notes/plain", json={"priority": "urgent"}).status_code == 422
+    # without `priority`, tags are taken as written
+    assert client.put("/api/notes/plain", json={"tags": ["a"]}).json()["tags"] == ["a"]

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { COLUMNS, drawerChanges, editableTags, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
+import { COLUMNS, drawerChanges, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
 
 test('the board has the three Pandora columns in order', () => {
   assert.deepEqual(COLUMNS.map((c) => c.value), ['TODO', 'IN_PROGRESS', 'DONE']);
@@ -68,18 +68,18 @@ test('a task week comes from week_key, and says whether it was recorded', () => 
   assert.match(renderCard({ slug: 'x', title: 'X', tags: [], week_key: '2026-W40' }), /Last updated in week 40 of 2026/);
 });
 
-test('a #must / #important / #nice-to-have tag becomes a ranked priority chip, not a plain tag chip', () => {
-  const html = renderCard({ slug: 'x', title: 'X', tags: ['todo', 'must', 'work'] });
+test('a task priority becomes a ranked chip, not a plain tag chip', () => {
+  const html = renderCard({ slug: 'x', title: 'X', priority: 'must', tags: ['todo', 'work'] });
   assert.match(html, /board-chip--must[^>]*>(?:(?!<\/span>).)*Must</s);
-  assert.ok(!/fa-tag[^>]*><\/i>must/.test(html) && html.includes('work'));
-  assert.match(renderCard({ slug: 'x', title: 'X', tags: ['important'] }), /board-chip--important[^>]*>(?:(?!<\/span>).)*Important</s);
-  assert.match(renderCard({ slug: 'x', title: 'X', tags: ['#nice-to-have'] }), /board-chip--good-to-have[^>]*>(?:(?!<\/span>).)*Nice to have</s);
-  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: ['work'] }).includes('board-chip--priority'));
+  assert.ok(html.includes('work'));
+  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'important', tags: [] }), /board-chip--important[^>]*>(?:(?!<\/span>).)*Important</s);
+  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'nice-to-have', tags: [] }), /board-chip--good-to-have[^>]*>(?:(?!<\/span>).)*Nice to have</s);
+  assert.ok(!renderCard({ slug: 'x', title: 'X', priority: null, tags: ['work'] }).includes('board-chip--priority'));
+  assert.equal(taskPriority({ priority: 'bogus' }), null);
 });
 
-test('the most urgent priority tag wins, and cards sort Must, Important, Nice to have, none (stable)', () => {
-  assert.equal(taskPriority({ tags: ['important', 'must'] }).label, 'Must');
-  const t = (slug, ...tags) => ({ slug, tags });
+test('cards sort Must, Important, Nice to have, none (stable)', () => {
+  const t = (slug, priority) => ({ slug, priority });
   const sorted = sortByPriority([t('a'), t('b', 'nice-to-have'), t('c', 'important'), t('d', 'must'), t('e'), t('f', 'must')]);
   assert.deepEqual(sorted.map((x) => x.slug), ['d', 'f', 'c', 'b', 'a', 'e']);
 });
@@ -89,12 +89,13 @@ test('parseTags splits on commas, drops # and repeats', () => {
   assert.deepEqual(parseTags(''), []);
 });
 
-test('the drawer sends only what changed; priority swaps the priority tag, other tags come from the text', () => {
-  const task = { title: 'T', status: 'TODO', tags: ['todo', 'must', 'work'] };
-  assert.deepEqual(editableTags(task), ['todo', 'work']);
-  assert.deepEqual(drawerChanges(task, { title: 'T', status: 'TODO', priority: 'must', tags: 'todo, work' }), {}, 'nothing changed');
-  assert.deepEqual(drawerChanges(task, { title: ' New ', status: 'DONE', priority: 'must', tags: 'todo, work' }), { title: 'New', status: 'DONE' });
-  assert.deepEqual(drawerChanges(task, { title: 'T', status: 'TODO', priority: 'important', tags: 'todo, work' }).tags, ['todo', 'work', 'important']);
-  assert.deepEqual(drawerChanges(task, { title: 'T', status: 'TODO', priority: '', tags: 'todo, work' }).tags, ['todo', 'work']);
-  assert.deepEqual(drawerChanges(task, { title: 'T', status: 'TODO', priority: 'must', tags: 'todo, work, #must, extra' }).tags, ['todo', 'work', 'extra', 'must']);
+test('the drawer sends only what changed; tags always travel with the priority', () => {
+  const task = { title: 'T', status: 'TODO', priority: 'must', tags: ['todo', 'work'] };
+  const same = { title: 'T', status: 'TODO', priority: 'must', tags: 'todo, work' };
+  assert.deepEqual(drawerChanges(task, same), {}, 'nothing changed');
+  assert.deepEqual(drawerChanges(task, { ...same, title: ' New ', status: 'DONE' }), { title: 'New', status: 'DONE' });
+  assert.deepEqual(drawerChanges(task, { ...same, priority: 'important' }), { priority: 'important' });
+  assert.deepEqual(drawerChanges(task, { ...same, priority: '' }), { priority: '' });
+  assert.deepEqual(drawerChanges(task, { ...same, tags: 'todo, work, extra' }), { tags: ['todo', 'work', 'extra'], priority: 'must' });
+  assert.deepEqual(drawerChanges({ ...task, priority: null }, { ...same, priority: '', tags: 'work' }), { tags: ['work'], priority: '' });
 });
