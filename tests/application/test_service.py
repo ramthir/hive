@@ -252,3 +252,29 @@ def test_one_type_is_written_as_a_scalar_and_several_as_an_inline_list(svc, root
     assert svc.get("one").types == ("contact",)
     svc.update("one", content="# One\n\nedited")  # untouched when unchanged
     assert "\ntype: contact\n" in (root / "one.md").read_text()
+
+
+def test_finishing_a_task_uses_the_service_clock_for_its_week(svc, day):
+    svc.create("Job", types=("task",))
+    day["today"] = date(2026, 11, 20)
+    assert svc.update("job", status="DONE").week == "2026-W47"
+    assert svc.update("job", status="DONE").week == "2026-W47"  # re-saving DONE is not a transition
+    day["today"] = date(2026, 12, 1)
+    assert svc.update("job", content="# Job\n\nedited").week == "2026-W47"
+    assert svc.update("job", status="IN_PROGRESS").week is None
+
+
+def test_a_task_done_by_tag_loses_nothing_until_moved_out_of_done(svc):
+    svc.create("Old", types=("task",), tags=("done",))
+    assert svc.update("old", status="DONE").week is None  # already Done through its tag
+    moved = svc.update("old", status="TODO")
+    assert (moved.status, moved.week) == ("TODO", None)
+
+
+def test_tasks_lists_only_task_notes_newest_first(svc, day):
+    svc.create("Plain")
+    day["today"] = date(2026, 11, 1)
+    svc.create("First", types=("task",))
+    day["today"] = date(2026, 11, 2)
+    svc.create("Second", types=("task", "urgent"))
+    assert [n.slug for n in svc.tasks()] == ["second", "first"]
