@@ -530,15 +530,14 @@ def test_sidebar_has_notes_tasks_and_the_hardcoded_user(page, server):
     assert page.errors == []
 
 
-def test_header_has_the_notes_heading_and_a_breadcrumb_for_the_note(page, server):
+def test_header_says_notes_without_a_breadcrumb(page, server):
     page.goto(f"{server}/notes/alpha")
     expect(page.locator("app-header")).to_have_attribute("heading", "Notes")
     expect(page.locator("#search-notes-btn")).to_be_visible()
-    labels = lambda: page.evaluate("document.querySelector('app-header').breadcrumbs.map((c) => c.label)")  # noqa: E731
-    assert labels() == ["Notes", "Alpha"]
+    assert page.evaluate("document.querySelector('app-header').breadcrumbs.length") == 0
     page.goto(f"{server}/notes/new")
     page.wait_for_selector(".cm-content")
-    assert labels() == ["Notes", "New note"]
+    expect(page.locator("app-header")).to_have_attribute("heading", "Notes")
     assert page.errors == []
 
 

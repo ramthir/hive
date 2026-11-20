@@ -565,26 +565,16 @@ class NotesApp extends HTMLElement {
     this.refreshBacklinks();
   }
 
-  // The breadcrumb and the browser tab both carry the note's title.
+  // The browser tab carries the note's title; the header heading stays "Notes".
   updateDocumentTitle() {
     const title = this.selectedNote?.title || 'New note';
     document.title = `${title} - Hive`;
-    const header = this.querySelector('app-header');
-    if (header) header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }, { label: title }];
   }
 
   bindHeader() {
     const header = this.querySelector('app-header');
     if (!header) return;
-    header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }];
     if (this.selectedNote) this.updateDocumentTitle();
-    // The breadcrumb's "Notes" link lives in the header's shadow DOM: go through go() so unsaved edits are guarded.
-    header.shadowRoot?.addEventListener('click', (event) => {
-      const link = event.target instanceof Element ? event.target.closest('a[href="/notes"]') : null;
-      if (!link) return;
-      event.preventDefault();
-      this.go('/notes');
-    });
     wireSearchTrigger(this);
   }
 
