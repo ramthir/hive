@@ -826,3 +826,9 @@ def test_the_updated_stamp_is_hidden_while_editing(page, server):
     page.click("#edit-note-btn")
     expect(page.locator(".stat-updated")).to_have_count(1)
     assert page.errors == []
+
+
+def test_sidebar_title_is_note_hive(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator("app-sidebar .logo-text")).to_have_text("Note Hive")
+    assert page.errors == []

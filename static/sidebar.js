@@ -157,9 +157,9 @@ class AppSidebar extends HTMLElement {
             <i class="fa-solid fa-bars menu-icon" aria-hidden="true"></i>
             <i class="fa-solid fa-xmark close-icon" aria-hidden="true"></i>
           </button>
-          <a href="/notes" class="logo" aria-label="Hive Home">
+          <a href="/notes" class="logo" aria-label="Note Hive Home">
             <i class="fa-solid fa-circle-nodes" aria-hidden="true"></i>
-            <span class="logo-text">Hive</span>
+            <span class="logo-text">Note Hive</span>
           </a>
           <button class="desktop-collapse-btn" type="button" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar-nav" title="Collapse sidebar (Ctrl+\\)">
             <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
