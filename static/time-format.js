@@ -27,17 +27,3 @@ export function formatRelativeTime(dateString) {
   if (diffDay < 7) return `${diffDay}d ago`;
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-
-/** "—" for no date, the original text for an unreadable one, otherwise "Oct 9, 2026, 2:05 PM". */
-export function formatFullDateTime(dateString) {
-  if (!dateString) return '—';
-  const date = parseUtcDate(dateString);
-  if (!date || Number.isNaN(date.getTime())) return String(dateString);
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
