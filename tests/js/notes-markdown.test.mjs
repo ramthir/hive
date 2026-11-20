@@ -125,3 +125,19 @@ test('the notes page links every notes stylesheet, in cascade order, and no stal
   for (const file of linked) assert.ok(existsSync(new URL(`../../static/notes/${file}`, import.meta.url)), `${file} is missing`);
   assert.ok(!existsSync(new URL('../../static/notes/notes.css', import.meta.url)));
 });
+
+const { renderDiff } = await import('../../static/notes/diff.js');
+
+test('a version diff marks hunks, additions and removals and escapes the text', () => {
+  const out = renderDiff('--- a\n+++ b\n@@ -1 +1 @@\n-old <b>\n+new\n context');
+  assert.match(out, /<span class="">--- a<\/span>/);
+  assert.match(out, /<span class="">\+\+\+ b<\/span>/);
+  assert.match(out, /<span class="hunk">@@ -1 \+1 @@<\/span>/);
+  assert.match(out, /<span class="del">-old &lt;b&gt;<\/span>/);
+  assert.match(out, /<span class="add">\+new<\/span>/);
+  assert.match(out, /<span class="">  ?context<\/span>|<span class=""> context<\/span>/);
+});
+
+test('an empty diff says the body did not change', () => {
+  assert.match(renderDiff('  \n'), /No changes to the note body/);
+});

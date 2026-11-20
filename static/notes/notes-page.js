@@ -1,5 +1,5 @@
 import { ScopedRouter } from '/static/scoped-router.js';
-import { createDialog, confirmDialog, confirmDiscard } from '/static/components/dialog.js';
+import { confirmDialog, confirmDiscard } from '/static/components/dialog.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
@@ -11,6 +11,9 @@ import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
+import { api } from '/static/notes/api.js';
+import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
+import { openVersionHistory } from '/static/notes/history.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
@@ -22,28 +25,8 @@ notesRouter.registerFallback({ view: 'list' });
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
-
-/* --- API ------------------------------------------------------------- */
-
-async function api(path, { method = 'GET', body, signal } = {}) {
-  const res = await fetch(`/api${path}`, {
-    method,
-    signal,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (res.status === 204) return null;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const detail = typeof data.detail === 'string' ? data.detail : null;
-    const error = new Error(detail || `HTTP ${res.status}`);
-    error.status = res.status;
-    throw error;
-  }
-  return data;
-}
-
 const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) => tag.trim()).filter(Boolean))];
+
 
 configureMarkedWikilinks();
 
@@ -75,29 +58,6 @@ const fencedCodeLanguage = (info) => {
   if (['plantuml', 'puml'].includes(language)) return plantumlLanguage;
   return null;
 };
-
-/* --- Dialog helper ---------------------------------------------------- */
-
-function openDialog(innerHtml, { className = '', initialFocus = null, wide = false } = {}) {
-  const dialog = document.createElement('app-dialog');
-  dialog.className = `modal-backdrop is-hidden ${className}`;
-  dialog.innerHTML = `<div class="modal-panel${wide ? ' modal-panel--drawer modal-panel--drawer-wide' : ''}" tabindex="-1">${innerHtml}</div>`;
-  document.body.appendChild(dialog);
-  const controller = createDialog(dialog, { closeOnBackdrop: true, initialFocus });
-  const close = () => {
-    controller.close();
-    setTimeout(() => dialog.remove(), 220);
-  };
-  controller.open({ onClose: () => setTimeout(() => dialog.remove(), 220) });
-  dialog.querySelectorAll('[data-action="cancel"]').forEach((el) => el.addEventListener('click', close));
-  return { dialog, close };
-}
-
-const dialogHeader = (title) => `
-  <div class="modal-header">
-    <h2 class="modal-title">${esc(title)}</h2>
-    <button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
-  </div>`;
 
 /* --- The app ---------------------------------------------------------- */
 
@@ -744,97 +704,17 @@ class NotesApp extends HTMLElement {
 
   /* --- History (git) ------------------------------------------------- */
 
-  async openNoteVersions() {
-    const note = this.selectedNote;
-    if (!note?.slug) return;
-    const base = `/notes/${encodeURIComponent(note.slug)}`;
-    const { dialog, close } = openDialog(`
-      <div class="modal-header">
-        <h2 class="modal-title">History</h2>
-        <div class="note-versions-header-actions">
-          <button type="button" class="crud-drawer-btn" id="version-back" hidden><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <span>All Versions</span></button>
-          <button type="button" class="crud-drawer-btn primary" id="version-restore" hidden><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span>Restore this version</span></button>
-          <button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <p class="note-version-message" role="status" aria-live="polite"></p>
-        <div class="hive-version-list" id="version-list" aria-live="polite"></div>
-        <div id="version-detail" hidden></div>
-      </div>`, { wide: true, className: 'note-versions-dialog-host' });
-    const list = dialog.querySelector('#version-list');
-    const detail = dialog.querySelector('#version-detail');
-    const message = dialog.querySelector('.note-version-message');
-    const back = dialog.querySelector('#version-back');
-    const restore = dialog.querySelector('#version-restore');
-
-    const showList = () => {
-      detail.hidden = true;
-      back.hidden = true;
-      restore.hidden = true;
-      list.hidden = false;
-      message.textContent = '';
-    };
-    back.addEventListener('click', showList);
-
-    const renderDiff = (text) => (text.trim()
-      ? text.split('\n').map((line) => {
-        const cls = line.startsWith('@@') ? 'hunk' : line.startsWith('+') && !line.startsWith('+++') ? 'add' : line.startsWith('-') && !line.startsWith('---') ? 'del' : '';
-        return `<span class="${cls}">${esc(line)}</span>`;
-      }).join('\n')
-      : '<span class="hunk">No changes to the note body in this version.</span>');
-
-    try {
-      const versions = await api(`${base}/versions`);
-      list.innerHTML = versions.map((version) => `
-        <button type="button" class="hive-version-row" data-sha="${esc(version.sha)}">
-          <span class="msg">${esc(version.message)}</span>
-          <span>${esc(version.author)}</span>
-          <time datetime="${esc(version.committed_at)}" title="${esc(parseUtcDate(version.committed_at)?.toLocaleString() || '')}">${esc(formatRelativeTime(version.committed_at))}</time>
-        </button>`).join('') || '<p>No history yet.</p>';
-    } catch (error) {
-      list.innerHTML = `<p class="note-version-message error">${esc(error.message)}</p>`;
-      return;
-    }
-
-    list.addEventListener('click', async (event) => {
-      const row = event.target.closest('.hive-version-row');
-      if (!row) return;
-      try {
-        const sha = row.dataset.sha;
-        const { diff } = await api(`${base}/versions/${sha}/diff`);
-        list.hidden = true;
-        detail.hidden = false;
-        back.hidden = false;
-        restore.hidden = false;
-        detail.innerHTML = `<p style="margin-bottom:.5rem">${esc(row.querySelector('.msg').textContent)} · <code>${esc(sha.slice(0, 7))}</code></p><pre class="hive-diff">${renderDiff(diff)}</pre>`;
-        restore.onclick = async () => {
-          const confirmed = await confirmDialog({
-            title: 'Restore this version?',
-            message: 'The note is set back to this version and saved as a new commit. Newer history is kept.',
-            confirmText: 'Restore',
-            cancelText: 'Cancel',
-          });
-          if (!confirmed) return;
-          try {
-            // The restored title can differ from the current one, in which case the file gets its old name back.
-            const restored = await api(`${base}/versions/${sha}/restore`, { method: 'POST' });
-            close();
-            this.saveStatus = 'saved';
-            this.destroyCodeMirror();
-            showToast('Version restored', 'success');
-            this.selectedSlug = restored.slug;
-            notesRouter.navigate(`/notes/${encodeURIComponent(restored.slug)}${this.isNoteEditing ? '?mode=edit' : ''}`, { replace: true });
-            this.loadEditorNote(restored.slug, { startInEdit: this.isNoteEditing });
-          } catch (error) {
-            message.className = 'note-version-message error';
-            message.textContent = error.message;
-          }
-        };
-      } catch (error) {
-        message.className = 'note-version-message error';
-        message.textContent = error.message || 'Could not open version.';
-      }
+  openNoteVersions() {
+    const slug = this.selectedNote?.slug;
+    if (!slug) return;
+    return openVersionHistory(slug, {
+      onRestored: (restored) => {
+        this.saveStatus = 'saved';
+        this.destroyCodeMirror();
+        this.selectedSlug = restored.slug;
+        notesRouter.navigate(`/notes/${encodeURIComponent(restored.slug)}${this.isNoteEditing ? '?mode=edit' : ''}`, { replace: true });
+        this.loadEditorNote(restored.slug, { startInEdit: this.isNoteEditing });
+      },
     });
   }
 }
