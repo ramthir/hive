@@ -57,8 +57,20 @@
 .notes-diagram-status, .notes-diagram-error { margin-top: .4rem; font: 500 .8rem var(--font-family); color: var(--color-dimmed2); }
 .notes-diagram-error { color: var(--color-red, #ff6188); }
 
-/* Header search button: opens the spotlight; the key hint sits at its right edge. */
-.notes-header-actions .notes-btn .notes-btn-key {
-  margin-left: .5rem; padding: .1rem .4rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-sm);
-  background: var(--color-dark2); color: var(--color-dimmed2); font: 600 .7rem/1.2 var(--font-family);
+/* Header search field: a button that looks like a search input and opens the spotlight; sized by the --search-* tokens. */
+.header-search {
+  display: flex; align-items: center; gap: var(--space-3); box-sizing: border-box;
+  flex: 0 1 var(--search-width); width: var(--search-width); max-width: 100%; height: var(--search-height);
+  padding: 0 var(--space-3) 0 var(--space-4); background: var(--search-bg); border: var(--search-border);
+  border-radius: var(--search-radius); color: var(--search-text-color); font: 500 var(--search-font-size) var(--font-family);
+  text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s;
 }
+.header-search:hover { border: var(--search-border-hover); color: var(--color-text); }
+.header-search:focus-visible { outline: none; border-color: var(--color-accent5); box-shadow: var(--search-focus-ring); }
+.header-search .fa-magnifying-glass { color: var(--search-icon-color); }
+.header-search-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-search-key {
+  flex: 0 0 auto; padding: .1rem .4rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-sm);
+  background: var(--color-dark1); color: var(--color-dimmed2); font: 600 .7rem/1.2 var(--font-family);
+}
+@media (max-width: 640px) { .header-search { flex: 1 1 100%; width: 100%; } }

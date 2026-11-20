@@ -6,6 +6,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/time-format.js';
 import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
+import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 
@@ -17,7 +18,6 @@ notesRouter.registerFallback({ view: 'list' });
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
-const searchShortcutKey = isMac ? '⌘K' : 'Ctrl+K';
 const READING_WORDS_PER_MINUTE = 75;
 
 /* --- API ------------------------------------------------------------- */
@@ -461,9 +461,7 @@ class NotesApp extends HTMLElement {
       <section class="notes-page notes-editor-page notes-editor--skeleton" aria-busy="true">
         <app-header heading="Notes" variant="flush" attached>
           <div slot="actions" class="notes-header-actions app-header-action-group">
-            <button id="search-notes-btn" class="notes-btn" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes">
-              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd class="notes-btn-key">${searchShortcutKey}</kbd>
-            </button>
+            ${renderSearchTrigger()}
           </div>
         </app-header>
         <div class="notes-editor-workspace preview">
@@ -496,9 +494,7 @@ class NotesApp extends HTMLElement {
       <section class="notes-page notes-editor-page">
         <app-header heading="Notes" variant="flush" attached>
           <div slot="actions" class="notes-header-actions app-header-action-group">
-            <button id="search-notes-btn" class="notes-btn" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes">
-              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd class="notes-btn-key">${searchShortcutKey}</kbd>
-            </button>
+            ${renderSearchTrigger()}
           </div>
         </app-header>
         <div class="notes-editor-workspace ${editing ? 'write' : 'preview'}">
@@ -589,7 +585,7 @@ class NotesApp extends HTMLElement {
       event.preventDefault();
       this.go('/notes');
     });
-    this.querySelector('#search-notes-btn')?.addEventListener('click', () => document.querySelector('note-spotlight')?.open());
+    wireSearchTrigger(this);
   }
 
   updateSaveIndicator() {

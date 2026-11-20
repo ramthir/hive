@@ -4,9 +4,8 @@ import { showToast } from '/static/toast.js';
 import { COLUMNS, ALL_WEEKS, currentWeekKey, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
 import { createTaskDrawer } from '/static/tasks/drawer.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
+import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 
-const isMac = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
-const searchShortcutKey = isMac ? '⌘K' : 'Ctrl+K';
 const VARIANTS = Object.freeze({ TODO: 'todo', IN_PROGRESS: 'in-progress', DONE: 'done' });
 // A column shows this many cards until "Show N more" is pressed: the Done column grows without bound.
 const COLUMN_LIMITS = Object.freeze({ DONE: 12 });
@@ -30,16 +29,14 @@ class TasksApp extends HTMLElement {
       <section class="tasks-page">
         <app-header heading="Tasks" variant="flush" attached>
           <div slot="actions" class="tasks-header-actions notes-header-actions app-header-action-group">
-            <button id="search-notes-btn" class="notes-btn" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes">
-              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd class="notes-btn-key">${searchShortcutKey}</kbd>
-            </button>
+            ${renderSearchTrigger()}
           </div>
         </app-header>
         <div class="tasks-board-wrap"><app-board id="tasks-board"></app-board></div>
         <div class="task-drawer-host"></div>
       </section>`;
     this.doneWeek = this.readDoneWeek();
-    this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
+    wireSearchTrigger(this);
     this.board = this.querySelector('app-board');
     this.drawer = createTaskDrawer({ host: this.querySelector('.task-drawer-host'), onSave: (task, changes) => this.edit(task, changes) });
     this.board.configure({

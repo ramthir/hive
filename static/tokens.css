@@ -199,6 +199,17 @@
   --autocomplete-width: 28rem;
   --autocomplete-height: var(--header-control-height);
   --autocomplete-focus-ring: 0 0 0 2px color-mix(in srgb, var(--color-accent5) 12%, transparent);
+  /* Header search field (static/components/search-trigger.js): one set of tokens for every page header. */
+  --search-width: 28rem;
+  --search-height: var(--header-control-height);
+  --search-bg: var(--color-dark2);
+  --search-border: 1px solid var(--color-dimmed5);
+  --search-border-hover: 1px solid var(--color-dimmed4);
+  --search-radius: var(--radius-md);
+  --search-font-size: 0.9rem;
+  --search-icon-color: var(--color-dimmed2);
+  --search-text-color: var(--color-dimmed2);
+  --search-focus-ring: var(--autocomplete-focus-ring);
   --search-clear-color: var(--color-dimmed3);
   --search-clear-hover-color: var(--color-accent1);
   --search-clear-hover-bg: color-mix(in srgb, var(--color-accent1) 12%, transparent);
