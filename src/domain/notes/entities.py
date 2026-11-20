@@ -19,6 +19,7 @@ class Note:
     status: str | None = None  # the `status:` frontmatter key (TODO / IN_PROGRESS / DONE) used by the task board
     week: str | None = None  # the `week:` frontmatter key, an ISO week like 2026-W47: when a task was finished
     types: tuple[str, ...] = ()  # the `type:` frontmatter key: a list like [task] or [contact, interview]; () = unset
+    time: dict[str, int] = field(default_factory=dict)  # the `time:` frontmatter key: ISO day -> minutes logged
     # Frontmatter keys the app does not manage; preserved verbatim on save.
     extra: dict[str, Any] = field(default_factory=dict)
     modified: float | None = None  # file mtime; only used to order notes updated on the same day

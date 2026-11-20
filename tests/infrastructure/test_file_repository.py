@@ -1,5 +1,6 @@
 import subprocess
 from datetime import date
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -143,3 +144,54 @@ def test_frontmatter_roundtrip_edge_cases():
     for text in ["---\ntitle: 'A'\n---\n", "---\ntitle: A\ntags:\n  - x\n---\n\nbody\n\n\nmore\n"]:
         meta, body = frontmatter.split(text)
         assert frontmatter.render(meta, body) == text
+
+
+# -- time ------------------------------------------------------------------
+TASK = "---\ntitle: T\ntags: [a]\ntype: task\nstatus: TODO\nweek: 2026-W47\ncreated: 2026-11-01\nupdated: 2026-11-01\n---\n\n# T\n"
+
+
+def seed(root, name, text):
+    (root / name).write_text(text)
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", f"seed {name}")
+
+
+def test_time_is_read_from_the_frontmatter(repo, root):
+    seed(root, "t.md", TASK.replace("---\n\n#", "time: {2026-11-21: 45, 2026-11-20: 90}\n---\n\n#"))
+    assert repo.get("t").time == {"2026-11-20": 90, "2026-11-21": 45}
+    assert "time" not in repo.get("t").extra
+
+
+def test_logging_time_writes_an_inline_map_after_week(repo, root):
+    seed(root, "t.md", TASK)
+    note = repo.get("t")
+    repo.update(replace(note, time={"2026-11-21": 45, "2026-11-20": 90}))
+    text = (root / "t.md").read_text()
+    assert "week: 2026-W47\ntime: {2026-11-20: 90, 2026-11-21: 45}\ncreated:" in text
+    assert repo.get("t").time == {"2026-11-20": 90, "2026-11-21": 45}
+    assert commits(root)[0] == "doc: update T"
+
+
+def test_changing_a_day_rewrites_only_the_time_line(repo, root):
+    seed(root, "t.md", TASK.replace("---\n\n#", "time: {2026-11-20: 90}\n---\n\n#"))
+    repo.update(replace(repo.get("t"), time={"2026-11-20": 120}))
+    diff = [l for l in git(root, "diff", "HEAD~1", "--", "t.md").splitlines() if l[:1] in "+-" and l[:3] not in ("+++", "---")]
+    assert diff == ["-updated: 2026-11-01", "-time: {2026-11-20: 90}", "+updated: 2026-11-20", "+time: {2026-11-20: 120}"]
+
+
+def test_an_unrelated_save_leaves_the_time_line_as_written(repo, root):
+    seed(root, "t.md", TASK.replace("---\n\n#", "time:\n  2026-11-20: 90\n---\n\n#"))
+    repo.update(replace(repo.get("t"), tags=("a", "b")))
+    assert "time:\n  2026-11-20: 90\n" in (root / "t.md").read_text()
+
+
+def test_clearing_every_day_removes_the_key(repo, root):
+    seed(root, "t.md", TASK.replace("---\n\n#", "time: {2026-11-20: 90}\n---\n\n#"))
+    repo.update(replace(repo.get("t"), time={}))
+    assert "time" not in (root / "t.md").read_text()
+
+
+def test_entries_that_are_not_a_valid_day_are_kept_when_time_changes(repo, root):
+    seed(root, "t.md", TASK.replace("---\n\n#", "time: {2026-11-20: 90, soon: 30, 2026-11-22: 0}\n---\n\n#"))
+    repo.update(replace(repo.get("t"), time={"2026-11-20": 100}))
+    assert "time: {2026-11-20: 100, soon: 30, 2026-11-22: 0}" in (root / "t.md").read_text()

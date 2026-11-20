@@ -20,3 +20,7 @@ class GitError(NoteError):
 
 class InvalidTitle(NoteError):
     pass
+
+
+class InvalidTime(NoteError):
+    pass

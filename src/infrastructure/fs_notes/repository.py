@@ -5,16 +5,17 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from ruamel.yaml.comments import CommentedSeq
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import NoteExists, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import validate_slug
+from src.domain.notes.time import parse_day, parse_time, valid_minutes
 from src.infrastructure.fs_notes import frontmatter
 from src.infrastructure.git.client import GitClient
 
-MANAGED = ("title", "tags", "created", "updated", "type", "status", "week")
+MANAGED = ("title", "tags", "created", "updated", "type", "status", "week", "time")
 
 
 def _day(value: Any) -> str | None:
@@ -47,6 +48,19 @@ def _inline(items) -> CommentedSeq:
 def _types_value(types):
     """`type: task` for one type (the vault's convention), `type: [a, b]` for several."""
     return types[0] if len(types) == 1 else _inline(types)
+
+
+def _time_value(time: dict[str, int], existing: Any) -> CommentedMap:
+    """`time: {2026-11-20: 90, 2026-11-21: 45}`, written inline with the days as YAML dates, oldest first. Entries
+    already in the file that are not a valid day and minutes are kept after the valid ones, never dropped."""
+    value = CommentedMap()
+    value.fa.set_flow_style()
+    for day, minutes in sorted(time.items()):
+        value[date.fromisoformat(day)] = minutes
+    for key, minutes in (existing.items() if hasattr(existing, "items") else ()):
+        if parse_day(key) is None or not valid_minutes(minutes):
+            value[key] = minutes
+    return value
 
 
 def _as_date(value: str | None) -> Any:
@@ -84,6 +98,7 @@ class FileNoteRepository(NoteRepository):
             types=parse_types(meta.get("type")),
             status=(str(meta["status"]).strip() or None) if meta.get("status") is not None else None,
             week=(str(meta["week"]).strip() or None) if meta.get("week") is not None else None,
+            time=parse_time(meta.get("time")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
         )
@@ -134,6 +149,17 @@ class FileNoteRepository(NoteRepository):
                 keys = list(meta.keys())
                 after = next(k for k in ("status", "type", "tags", "title") if k in keys)
                 meta.insert(keys.index(after) + 1, "week", note.week)
+        # `time` is only touched when the usable days changed; it goes after `week` (or `status`, `type`, ...).
+        if note.time != parse_time(meta.get("time")):
+            value = _time_value(note.time, meta.get("time"))
+            if not value:
+                meta.pop("time", None)
+            elif "time" in meta:
+                meta["time"] = value
+            else:
+                keys = list(meta.keys())
+                after = next(k for k in ("week", "status", "type", "tags", "title") if k in keys)
+                meta.insert(keys.index(after) + 1, "time", value)
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
