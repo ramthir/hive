@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.routes import diagrams, notes
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
-from src.domain.notes.errors import GitError, InvalidSlug, InvalidTime, InvalidTitle, NoteExists, NoteNotFound
+from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.metrics import Metrics
@@ -67,6 +67,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.add_exception_handler(InvalidSlug, err(422))
     app.add_exception_handler(InvalidTitle, err(422))
     app.add_exception_handler(InvalidTime, err(422))
+    app.add_exception_handler(InvalidProperty, err(422))
     app.add_exception_handler(GitError, err(500))
 
     async def diagram_error(_: Request, exc: DiagramError) -> JSONResponse:

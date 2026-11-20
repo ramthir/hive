@@ -138,8 +138,11 @@ class FileNoteRepository(NoteRepository):
             _set_key(meta, "week", note.week, ("status", "type", "tags", "title"))
         if note.time != parse_time(meta.get("time")):  # only when the usable days changed
             _set_key(meta, "time", _time_value(note.time, meta.get("time")) or None, ("week", "status", "type", "tags", "title"))
+        for k in [k for k in meta if k not in MANAGED and k not in note.extra]:
+            del meta[k]  # an unmanaged key the note no longer has (a cleared property)
         for k, v in note.extra.items():
-            meta[k] = v
+            if k not in meta or meta[k] != v:  # an unchanged value keeps its own quoting and style
+                meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
 
     def _commit(self, paths: list[str], message: str) -> None:

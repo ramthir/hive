@@ -715,3 +715,78 @@ def test_tasks_page_fills_the_width_and_has_the_same_header_as_notes(page, serve
     assert first["x"] - app["x"] <= 32 and (app["x"] + app["width"]) - (last["x"] + last["width"]) <= 32
     expect(page.locator("app-header #search-notes-btn")).to_be_visible()  # the header buttons match the notes page: just Search
     assert page.errors == []
+
+
+# -- note properties drawer -----------------------------------------------------
+
+def pick_field(drawer, key, label):
+    combo = drawer.locator(f'app-combobox[data-key="{key}"]')
+    combo.locator(".combobox-input").click()
+    combo.locator(".combobox-option", has_text=label).click()
+
+
+@pytest.fixture
+def property_notes(notes_dir):
+    (notes_dir / "acme.md").write_text("---\ntitle: Acme\ntype: project\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Acme\n")
+    (notes_dir / "bo.md").write_text("---\ntitle: Bo\ntype: contact\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Bo\n")
+    (notes_dir / "fix-it.md").write_text("---\ntitle: Fix it\ntype: task\ntags: [todo]\ncreated: 2026-01-01\nupdated: 2026-03-03\n---\n\n# Fix it\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "properties")
+    return notes_dir
+
+
+def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, property_notes):
+    page.goto(f"{server}/notes/fix-it")
+    before = len(git(property_notes, "rev-list", "HEAD").split())
+    page.click("#note-properties-btn")
+    drawer = page.locator(".notes-properties-drawer")
+    expect(drawer.locator(".modal-title")).to_have_text("Note Properties")
+    expect(drawer.locator("[data-field]")).to_have_count(6)
+    pick_field(drawer, "project", "Acme")
+    pick_field(drawer, "assignee", "Bo")
+    pick_field(drawer, "status", "In Progress")
+    pick_field(drawer, "priority", "Must")
+    drawer.locator('[data-action="save"]').click()
+    expect(page.locator(".notes-properties-drawer")).to_have_count(0)
+    wait_for_commits(property_notes, before + 1)
+    text = (property_notes / "fix-it.md").read_text()
+    assert "project: Acme" in text and "assignee: Bo" in text and "status: IN_PROGRESS" in text
+    assert "tags: [todo, must]" in text
+    assert len(git(property_notes, "rev-list", "HEAD").split()) == before + 1
+    expect(page.locator("#note-tags")).to_have_value("todo, must")
+    page.click("#note-properties-btn")  # reopened: shows what was saved
+    expect(page.locator('.notes-properties-drawer [data-key="project"] .combobox-input')).to_have_value("Acme")
+    assert page.errors == []
+
+
+def test_properties_drawer_shows_acting_for_only_while_shadowed(page, server, property_notes):
+    page.goto(f"{server}/notes/bo")
+    page.click("#note-properties-btn")
+    drawer = page.locator(".notes-properties-drawer")
+    acting = drawer.locator('[data-field="acting_for"]')
+    expect(acting).to_be_hidden()
+    pick_field(drawer, "billing", "Shadowed")
+    expect(acting).to_be_visible()
+    drawer.locator('[data-action="save"]').click()
+    expect(drawer.locator(".crud-drawer-error")).to_have_text("Acting for is required.")
+    pick_field(drawer, "acting_for", "Bo")
+    drawer.locator('[data-action="save"]').click()
+    expect(page.locator(".notes-properties-drawer")).to_have_count(0)
+    wait_until(lambda: "billing: Shadowed" in (property_notes / "bo.md").read_text())
+    assert "acting_for: Bo" in (property_notes / "bo.md").read_text()
+
+
+def test_properties_drawer_keeps_unsaved_text_by_saving_it_first_and_has_a_shortcut(page, server, property_notes):
+    page.goto(f"{server}/notes/fix-it?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("words typed before opening")
+    page.keyboard.press("Control+Shift+P")
+    expect(page.locator(".notes-properties-drawer .modal-title")).to_have_text("Note Properties")
+    assert "words typed before opening" in (property_notes / "fix-it.md").read_text()
+
+
+def test_notes_without_a_form_have_no_properties_button(page, server):
+    page.goto(f"{server}/notes/beta")
+    expect(page.locator("#edit-note-btn")).to_be_visible()
+    expect(page.locator("#note-properties-btn")).to_have_count(0)

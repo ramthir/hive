@@ -15,6 +15,7 @@ import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
+import { openProperties } from '/static/notes/properties.js';
 import { formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
@@ -28,6 +29,7 @@ notesRouter.registerFallback({ view: 'list' });
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
+const propertiesShortcutKey = isMac ? '⌘⇧P' : 'Ctrl+Shift+P';
 const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) => tag.trim()).filter(Boolean))];
 
 
@@ -148,6 +150,9 @@ class NotesApp extends HTMLElement {
     if (mod && !event.shiftKey && event.key.toLowerCase() === 's') {
       event.preventDefault();
       if (this.currentView === 'editor' && this.selectedNote && this.saveStatus === 'dirty') this.saveCurrentNote();
+    } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      if (this.currentView === 'editor' && this.selectedNote?.has_properties) this.openProperties();
     } else if ((event.metaKey || (!isMac && event.ctrlKey)) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
       event.preventDefault();
       if (this.currentView === 'editor' && this.selectedNote) this.setNoteEditing(!this.isNoteEditing);
@@ -281,6 +286,8 @@ class NotesApp extends HTMLElement {
         notesRouter.navigate(`/notes/${encodeURIComponent(saved.slug)}?mode=edit`, { replace: true });
         this.renderEditorView();
       } else {
+        // A changed type can add or remove the properties button (and the log time one).
+        if (Boolean(saved.has_properties) !== Boolean(note.has_properties) || canLogTime(saved) !== canLogTime(note)) this.renderEditorView();
         updateUpdatedStamp(this, this.selectedNote);
         this.updateDocumentTitle();
         this.refreshBacklinks();
@@ -443,6 +450,7 @@ class NotesApp extends HTMLElement {
               ${note.slug ? `
                 <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+              ${note.slug && note.has_properties ? `<button id="note-properties-btn" class="tool-button" type="button" title="Edit note properties (${propertiesShortcutKey})" aria-label="Edit note properties"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>` : ''}
               ${canLogTime(note) ? '<button id="log-time-btn" class="tool-button" type="button" title="Log time" aria-label="Log time"><i class="fa-solid fa-clock" aria-hidden="true"></i></button>' : ''}
               ${note.slug ? '<button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>' : ''}
               ${editing ? `
@@ -458,6 +466,7 @@ class NotesApp extends HTMLElement {
     this.querySelector('#copy-note-btn').addEventListener('click', () => this.copyCurrentNote());
     this.querySelector('#note-versions-btn')?.addEventListener('click', () => this.openNoteVersions());
     this.querySelector('#log-time-btn')?.addEventListener('click', () => this.openLogTime());
+    this.querySelector('#note-properties-btn')?.addEventListener('click', () => this.openProperties());
     this.querySelector('#delete-note-btn')?.addEventListener('click', () => this.confirmDeleteCurrentNote());
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
@@ -723,6 +732,32 @@ class NotesApp extends HTMLElement {
         showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success');
       },
     });
+  }
+
+  /* --- Properties ------------------------------------------------------ */
+
+  // Unsaved text is saved first, so the drawer's commit (status, priority and tags can change the tags) never loses it.
+  async openProperties() {
+    if (!this.selectedNote?.slug || !this.selectedNote.has_properties || this._propertiesOpening) return;
+    this._propertiesOpening = true;
+    try {
+      if (this.saveStatus === 'dirty') await this.saveCurrentNote();
+      if (this.saveStatus === 'dirty') return; // the save failed and said why
+      const note = this.selectedNote;
+      if (!note?.slug) return;
+      await openProperties(note, {
+        onSaved: (saved) => {
+          if (this.selectedNote?.slug !== note.slug) return;
+          this.selectedNote = saved;
+          const tags = this.querySelector('#note-tags');
+          if (tags) tags.value = saved.tags.join(', ');
+          updateUpdatedStamp(this, saved);
+          showToast(`Properties saved · ${saved.title}`, 'success');
+        },
+      });
+    } finally {
+      this._propertiesOpening = false;
+    }
   }
 
   /* --- History (git) ------------------------------------------------- */

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from src.application.notes.time_entries import TimeRow
 from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.properties import form_for
 from src.domain.notes.time import MAX_MINUTES_PER_DAY, TimeKind, accepts_time, time_type
 from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
@@ -41,12 +42,13 @@ class NoteDetail(NoteSummary):
     content: str
     time: dict[str, int] = {}  # ISO day -> minutes logged (task and meeting notes)
     takes_time: bool = False  # a task or meeting: time can be logged on it
+    has_properties: bool = False  # the note's type has a properties drawer (GET /notes/{slug}/properties)
     extra: dict[str, Any]
 
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, extra=dict(n.extra))
 
 
 class TimeEntryOut(BaseModel):
@@ -129,7 +131,40 @@ class NoteUpdate(BaseModel):
     types: list[str] | None = None  # omitted: unchanged; []: clear
     status: TaskStatus | None = None  # omitted: unchanged
     priority: TaskPriority | Literal[""] | None = None  # replaces the priority tag; "" removes it; omitted: tags as given
-    week: str | None = Field(default=None, pattern=WEEK_PATTERN)  # omitted: unchanged (set automatically with status)
+    week: str | None = Field(default=None, pattern=WEEK_PATTERN + "|^$")  # omitted: unchanged (set automatically with status); "" clears
+    properties: dict[str, str] | None = None  # the type's own fields, e.g. {"project": "Acme"}; "" removes one; omitted: unchanged
+
+
+class PropertyChoice(BaseModel):
+    value: str
+    label: str
+
+
+class PropertyShowWhen(BaseModel):
+    key: str
+    value: str
+
+
+class PropertyFieldOut(BaseModel):
+    """One field of the properties drawer. `target` says which key of `PUT /notes/{slug}` carries it: `property` fields go
+    in `properties` under their `key`; `status`, `priority` and `week` are top-level keys of the update."""
+    key: str
+    label: str
+    icon: str
+    kind: Literal["text", "select", "note"]
+    target: Literal["property", "status", "priority", "week"]
+    group: str | None
+    placeholder: str
+    required: bool
+    wide: bool
+    show_when: PropertyShowWhen | None
+    value: str
+    choices: list[PropertyChoice]
+
+
+class PropertiesOut(BaseModel):
+    groups: dict[str, str]
+    fields: list[PropertyFieldOut]
 
 
 class VersionOut(BaseModel):

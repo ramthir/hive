@@ -1,0 +1,42 @@
+// The properties drawer without the DOM: which fields show, what to send, and the markup of the fields.
+import { escapeHtml as esc } from '../html.js';
+
+/** A field with a `show_when` (Acting for) is only shown while the field it names has that value. */
+export const isVisible = (field, values) => !field.show_when || (values[field.show_when.key] ?? '') === field.show_when.value;
+
+/**
+ * The body of the `PUT /notes/{slug}` that saves the drawer: only what changed. `status`, `priority` and `week` are
+ * top-level keys of the update, every other field goes in `properties`. A field that is hidden is not sent: the server
+ * drops it itself once the field it depends on changes. Returns null when nothing changed.
+ */
+export function propertyChanges(fields, values) {
+  const body = {};
+  for (const field of fields) {
+    const value = String(values[field.key] ?? '').trim();
+    if (!isVisible(field, values) || value === field.value) continue;
+    if (field.target === 'property') (body.properties ||= {})[field.key] = value;
+    else body[field.target] = value;
+  }
+  return Object.keys(body).length ? body : null;
+}
+
+const control = (field) => {
+  const label = esc(field.label);
+  if (field.kind === 'text') {
+    return `<input data-key="${esc(field.key)}" aria-label="${label}" maxlength="255" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">`;
+  }
+  const options = field.choices.map((c) => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('');
+  return `<app-combobox data-key="${esc(field.key)}" aria-label="${label}" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">${options}</app-combobox>`;
+};
+
+/** The drawer's fields as HTML, with a heading wherever the group changes. */
+export function renderFields(form) {
+  let previous;
+  return form.fields.map((field) => {
+    const heading = field.group !== previous && form.groups[field.group]
+      ? `<div class="property-group-header"><span class="property-group-title">${esc(form.groups[field.group])}</span></div>` : '';
+    previous = field.group;
+    return `${heading}<label class="field${field.wide ? ' field-full-width' : ''}" data-field="${esc(field.key)}"${field.show_when ? ' hidden' : ''}>
+      <span class="property-label"><i class="fa-solid fa-${esc(field.icon)}" aria-hidden="true"></i> ${esc(field.label)}</span>${control(field)}</label>`;
+  }).join('');
+}

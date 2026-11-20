@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeNoteOut, VersionDetail,
+                             PropertiesOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
@@ -131,7 +131,17 @@ def update_note(request: Request, slug: str, body: NoteUpdate):
     return NoteDetail.from_note(svc(request).update(
         slug, title=body.title, content=body.content,
         tags=None if body.tags is None else tuple(body.tags),
-        types=None if body.types is None else tuple(body.types), status=body.status, week=body.week, priority=body.priority))
+        types=None if body.types is None else tuple(body.types), status=body.status, week=body.week, priority=body.priority,
+        properties=body.properties))
+
+
+@router.get("/notes/{slug}/properties", response_model=PropertiesOut)
+def note_properties(request: Request, slug: str):
+    """The properties drawer of a note: the fields of its type with their values and choices (404 if the type has none)."""
+    form = svc(request).property_form(slug)
+    if form is None:
+        raise HTTPException(status_code=404, detail="This note's type has no properties.")
+    return form
 
 
 @router.delete("/notes/{slug}", status_code=204)

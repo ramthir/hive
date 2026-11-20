@@ -24,3 +24,7 @@ class InvalidTitle(NoteError):
 
 class InvalidTime(NoteError):
     pass
+
+
+class InvalidProperty(NoteError):
+    pass

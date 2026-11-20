@@ -9,10 +9,11 @@ import threading
 from datetime import date
 from dataclasses import replace
 
-from src.application.notes import time_entries
+from src.application.notes import properties as properties_view, time_entries
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteNotFound
+from src.domain.notes.properties import apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
 from src.domain.notes.tasks import is_task, task_status, week_label, with_priority
@@ -68,6 +69,12 @@ class NoteService:
 
     def get(self, slug: str) -> Note:
         return self.repo.get(slug)
+
+    def property_form(self, slug: str) -> dict | None:
+        """The properties drawer for a note: its type's fields with current values and choices, or None if the type has none."""
+        note = self.repo.get(slug)
+        form = form_for(note.types)
+        return None if form is None else properties_view.build(form, note, self.index.notes.values(), self._today())
 
     def time_notes(self) -> list[tuple[Note, bool]]:
         """The notes that take time (tasks and meetings) with whether they are this week's: edited this week or with
@@ -137,15 +144,17 @@ class NoteService:
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
                tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None,
-               status: str | None = None, week: str | None = None, priority: str | None = None) -> Note:
+               status: str | None = None, week: str | None = None, priority: str | None = None,
+               properties: dict[str, str] | None = None) -> Note:
         """`types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
         Moving a task to DONE records the week it was finished in `week` (unless `week` is given); moving it out
-        of DONE clears it again. `week` None leaves it unchanged otherwise. `priority` (must / important / nice-to-have,
-        "" for none) replaces the priority tag among the new `tags` (or the current ones); None leaves them as given."""
+        of DONE clears it again. `week` None leaves it unchanged otherwise ("" clears it). `priority` (must / important /
+        nice-to-have, "" for none) replaces the priority tag among the new `tags` (or the current ones); None leaves them
+        as given. `properties` sets the frontmatter fields of the note's type ("" removes one; `domain.notes.properties`)."""
         current = self.repo.get(slug)
         new_types = current.types if types is None else _clean(types)
         new_status = current.status if status is None else status
-        new_week = current.week if week is None else week
+        new_week = current.week if week is None else (week or None)
         new_tags = current.tags if tags is None else tuple(tags)
         if priority is not None:
             new_tags = with_priority(new_tags, priority or None)
@@ -155,6 +164,7 @@ class NoteService:
                 new_week = week_label(self._today())
             elif before == "DONE" and after != "DONE":
                 new_week = None
+        extra = apply_properties(form_for(new_types), current, properties or {})
         body = current.content if content is None else content
         if title is not None:
             body = set_h1(body, title.strip())
@@ -173,13 +183,13 @@ class NoteService:
             self.invalidate()
             note = self.repo.update(replace(
                 current, slug=new_slug, title=new_title, content=body, types=new_types,
-                status=new_status, week=new_week,
+                status=new_status, week=new_week, extra=extra,
                 tags=new_tags))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
                 current, title=new_title, content=body, types=new_types,
-                status=new_status, week=new_week,
+                status=new_status, week=new_week, extra=extra,
                 tags=new_tags))
         self.invalidate()
         return note
