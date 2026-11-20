@@ -15,7 +15,8 @@ import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
-import { canLogTime, formatDuration, loggedLabel } from '/static/time-entries/entries.js';
+import { formatDuration } from '/static/time-entries/format.js';
+import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 

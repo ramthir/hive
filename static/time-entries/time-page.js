@@ -12,8 +12,10 @@ import { debounce } from '/static/components/drawer-sync.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import {
-  PAGE_SIZE, SEARCH_HELP, deleteCall, listQuery, readState, savePlan, stateSearch, summaryTiles, tableColumns, timeNoteOptions, today,
+  PAGE_SIZE, SEARCH_HELP, deleteCall, listQuery, readState, savePlan, stateSearch, tableColumns, timeNoteOptions,
 } from '/static/time-entries/entries.js';
+import { today } from '/static/time-entries/format.js';
+import { summaryTiles } from '/static/time-entries/summary.js';
 
 const EMPTY = { icon: 'fa-clock', title: 'No time entries found', subtitle: 'Add time to a task or meeting, or adjust your search.' };
 

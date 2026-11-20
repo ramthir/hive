@@ -4,7 +4,9 @@ import '/static/components/date-picker.js';
 import '/static/components/duration-picker.js';
 import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
-import { dayHint, loggedLabel, savePlan, today } from '/static/time-entries/entries.js';
+import { today } from '/static/time-entries/format.js';
+import { dayHint, loggedLabel } from '/static/time-entries/logged.js';
+import { savePlan } from '/static/time-entries/entries.js';
 
 /** Redraw the footer's "3h 30m logged" chip from the note's `time` map. */
 export function updateLogged(root, note) {

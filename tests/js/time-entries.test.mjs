@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  canLogTime, dayHint, deleteCall, loggedLabel, loggedMinutes, formatDay, formatDuration, listQuery, readState, savePlan, stateSearch, monthSparkline, summaryTiles, tableColumns, timeNoteOptions, today,
-} from '../../static/time-entries/entries.js';
+import { deleteCall, listQuery, readState, savePlan, stateSearch, tableColumns, timeNoteOptions } from '../../static/time-entries/entries.js';
+import { formatDay, formatDuration, today } from '../../static/time-entries/format.js';
+import { canLogTime, dayHint, loggedLabel, loggedMinutes } from '../../static/time-entries/logged.js';
+import { monthSparkline, summaryTiles } from '../../static/time-entries/summary.js';
 
 test('durations read as hours and minutes', () => {
   assert.deepEqual([0, 5, 45, 60, 90, 120, 1440].map(formatDuration), ['0m', '5m', '45m', '1h', '1h 30m', '2h', '24h']);
