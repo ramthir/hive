@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import notes
 from src.application.notes.service import NoteService
-from src.domain.notes.errors import GitError, InvalidSlug, NoteExists, NoteNotFound
+from src.domain.notes.errors import GitError, InvalidSlug, InvalidTitle, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.metrics import Metrics
@@ -54,6 +54,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None) -
     app.add_exception_handler(NoteNotFound, err(404))
     app.add_exception_handler(NoteExists, err(409))
     app.add_exception_handler(InvalidSlug, err(422))
+    app.add_exception_handler(InvalidTitle, err(422))
     app.add_exception_handler(GitError, err(500))
     app.include_router(notes.router, prefix="/api")
 

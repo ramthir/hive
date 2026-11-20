@@ -5,6 +5,7 @@ File-backed notes app: markdown files in `NOTES_DIR` (default `~/Workspace/notes
 - Tests: `uv run pytest` (single file: `uv run pytest tests/<path>`)
 - Every new feature needs automated tests next to the existing ones in `tests/`.
 - Layers: `src/domain` (entities, ports) -> `src/application` -> `src/infrastructure` (git, fs_notes) -> `src/api`.
+- A note's title is its first `# heading`; its file name is the kebab-case of that title (never set by hand). Changing the heading renames the file (service rewrites `[[slug]]`/`[[Title]]` links). Notes whose file has no heading show the frontmatter title as one until saved. `/` and `/notes` open the most recently edited note: there is no list page.
 - Note identity is the filename slug. Frontmatter (`title`, `tags`, `created`, `updated`) is round-tripped with ruamel so diffs stay minimal.
 - Never run tests against the real notes dir; use temp git repos.
 

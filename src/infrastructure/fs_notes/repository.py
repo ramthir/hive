@@ -41,7 +41,7 @@ class FileNoteRepository(NoteRepository):
     def _path(self, slug: str) -> Path:
         return self.root / self._rel(slug)
 
-    def _parse(self, slug: str, text: str) -> Note:
+    def _parse(self, slug: str, text: str, modified: float | None = None) -> Note:
         meta, body = frontmatter.split(text)
         meta = meta or {}
         tags = meta.get("tags") or []
@@ -55,6 +55,7 @@ class FileNoteRepository(NoteRepository):
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
+            modified=modified,
         )
 
     def _write(self, note: Note, existing_text: str | None) -> None:
@@ -77,13 +78,13 @@ class FileNoteRepository(NoteRepository):
 
     # -- queries ---------------------------------------------------------
     def list(self) -> list[Note]:
-        return [self._parse(p.stem, p.read_text(encoding="utf-8")) for p in sorted(self.root.glob("*.md"))]
+        return [self._parse(p.stem, p.read_text(encoding="utf-8"), p.stat().st_mtime) for p in sorted(self.root.glob("*.md"))]
 
     def get(self, slug: str) -> Note:
         path = self._path(slug)
         if not path.is_file():
             raise NoteNotFound(slug)
-        return self._parse(slug, path.read_text(encoding="utf-8"))
+        return self._parse(slug, path.read_text(encoding="utf-8"), path.stat().st_mtime)
 
     # -- commands (each is one commit) -----------------------------------
     def create(self, note: Note) -> Note:

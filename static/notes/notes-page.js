@@ -16,7 +16,6 @@ notesRouter.registerFallback({ view: 'list' });
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
 const READING_WORDS_PER_MINUTE = 75;
-const TAG_BAR_LIMIT = 30;
 
 /* --- API ------------------------------------------------------------- */
 
@@ -39,18 +38,6 @@ async function api(path, { method = 'GET', body, signal } = {}) {
 }
 
 const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) => tag.trim()).filter(Boolean))];
-
-/* --- Search highlighting --------------------------------------------- */
-
-const highlightMatch = (text, query) => {
-  const clean = (query || '').trim();
-  if (!clean || !text) return esc(text || '');
-  const regex = new RegExp(`(${clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return String(text)
-    .split(regex)
-    .map((part, i) => (i % 2 === 1 ? `<mark class="note-search-highlight">${esc(part)}</mark>` : esc(part)))
-    .join('');
-};
 
 /* --- Markdown: [[wikilinks]] ----------------------------------------- */
 
@@ -170,18 +157,11 @@ class NotesApp extends HTMLElement {
     this.currentView = 'list';
     this.selectedSlug = null;
     this.selectedNote = null;
-    this.notes = [];
-    this.tags = {};
-    this.query = '';
-    this.activeTag = null;
     this.saveStatus = 'saved'; // 'saved' | 'saving' | 'dirty'
     this.isNoteEditing = false;
-    this.loading = false;
     this.cmEditor = null;
-    this._searchTimer = null;
     this._autocompleteTimer = null;
     this._autocompleteController = null;
-    this._notesFetchGeneration = 0;
     this._unsubscribe = null;
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
   }
@@ -204,7 +184,6 @@ class NotesApp extends HTMLElement {
   }
 
   disconnectedCallback() {
-    clearTimeout(this._searchTimer);
     clearTimeout(this._autocompleteTimer);
     clearTimeout(this._copyTimer);
     this._autocompleteController?.abort();
@@ -272,46 +251,33 @@ class NotesApp extends HTMLElement {
       this.loadEditorNote(slug, { startInEdit });
       return;
     }
+    // No home page: the notes root shows the note that was edited most recently.
     this.destroyCodeMirror();
     this.currentView = 'list';
     this.selectedSlug = null;
     this.selectedNote = null;
     this.saveStatus = 'saved';
-    this.renderListView();
-    this.fetchTags();
-    this.fetchNotes();
+    this.renderRouteLoading();
+    this.openLatestNote();
   }
 
   /* --- Data ---------------------------------------------------------- */
 
-  async fetchNotes() {
-    const generation = ++this._notesFetchGeneration;
-    this.loading = true;
-    this.renderNotesGrid();
+  async openLatestNote() {
+    if (this._openingLatest) return;
+    this._openingLatest = true;
     try {
-      const params = new URLSearchParams({ limit: '1000' });
-      if (this.query.trim()) params.set('q', this.query.trim());
-      if (this.activeTag) params.set('tag', this.activeTag);
-      const data = await api(`/notes?${params}`);
-      if (generation !== this._notesFetchGeneration) return;
-      this.notes = data;
+      const latest = await api('/latest').catch((error) => {
+        if (error.status === 404) return null; // no notes yet
+        throw error;
+      });
+      if (this.currentView !== 'list') return; // the user already went somewhere else
+      notesRouter.navigate(latest ? `/notes/${encodeURIComponent(latest.slug)}` : '/notes/new', { replace: true });
     } catch (error) {
-      console.error('Failed to load notes:', error);
+      console.error('Failed to open the latest note:', error);
       showToast(error.message || 'Could not load notes.', 'error');
     } finally {
-      if (generation === this._notesFetchGeneration) {
-        this.loading = false;
-        this.renderNotesGrid();
-      }
-    }
-  }
-
-  async fetchTags() {
-    try {
-      this.tags = await api('/tags');
-      this.renderTagBar();
-    } catch (error) {
-      console.error('Failed to load tags:', error);
+      this._openingLatest = false;
     }
   }
 
@@ -338,11 +304,12 @@ class NotesApp extends HTMLElement {
   }
 
   startNewDraftNote() {
-    this.selectedNote = { slug: null, title: '', content: '', tags: [], created: null, updated: null };
+    // The title is the first heading, so a new note starts with an empty one for the cursor to land in.
+    this.selectedNote = { slug: null, title: '', content: '# \n\n', tags: [], created: null, updated: null };
     this.saveStatus = 'saved';
     this.destroyCodeMirror();
     this.renderEditorView();
-    setTimeout(() => this.querySelector('#note-title')?.focus(), 50);
+    setTimeout(() => this.focusEditor(), 50);
   }
 
   currentContent() {
@@ -359,20 +326,14 @@ class NotesApp extends HTMLElement {
     if (!note || this.saveStatus === 'saving') return;
     const isNewDraft = !note.slug;
     const content = this.currentContent();
-    const title = (this.querySelector('#note-title')?.value ?? note.title).trim();
     const tags = parseTags(this.querySelector('#note-tags')?.value ?? note.tags.join(', '));
-    if (!title) {
-      this.showAlert('Could Not Save Note', 'Give the note a title before saving.');
-      this.querySelector('#note-title')?.focus();
-      return;
-    }
 
     this.saveStatus = 'saving';
     this.updateSaveIndicator();
     try {
       const saved = isNewDraft
-        ? await api('/notes', { method: 'POST', body: { title, content, tags } })
-        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { title, content, tags } });
+        ? await api('/notes', { method: 'POST', body: { content, tags } })
+        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags } });
       this.selectedNote = saved;
       // The server may normalise the text (e.g. a pre-commit formatter); keep the caret if nothing changed meanwhile.
       if (this.cmEditor && saved.content !== content && this.cmEditor.state.doc.toString() === content) {
@@ -381,7 +342,8 @@ class NotesApp extends HTMLElement {
       }
       this.saveStatus = 'saved';
       this.updateSaveIndicator();
-      if (isNewDraft) {
+      if (isNewDraft || saved.slug !== note.slug) {
+        // A new note, or a changed heading that renamed the file: move the URL to the new file name.
         this.selectedSlug = saved.slug;
         notesRouter.navigate(`/notes/${encodeURIComponent(saved.slug)}?mode=edit`, { replace: true });
         this.renderEditorView();
@@ -395,7 +357,7 @@ class NotesApp extends HTMLElement {
       console.error('Save failed:', error);
       this.saveStatus = 'dirty';
       this.updateSaveIndicator();
-      this.showAlert('Could Not Save Note', error.status === 409 ? 'A note with this name already exists.' : error.message);
+      this.showAlert('Could Not Save Note', error.message);
     }
   }
 
@@ -419,45 +381,6 @@ class NotesApp extends HTMLElement {
     } catch (error) {
       this.showAlert('Could Not Delete Note', error.message);
     }
-  }
-
-  promptRename() {
-    const note = this.selectedNote;
-    if (!note?.slug) return;
-    const { dialog, close } = openDialog(`
-      ${dialogHeader('Rename File')}
-      <div class="modal-body">
-        <p>New file name for <strong>${esc(note.slug)}.md</strong>. Links written as <code>[[${esc(note.slug)}]]</code> in other notes are updated.</p>
-        <input class="hive-dialog-input" id="rename-input" value="${esc(note.slug)}" spellcheck="false" />
-        <p class="note-version-message error" id="rename-error" role="alert"></p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="crud-drawer-btn" data-action="cancel">Cancel</button>
-        <button type="button" class="crud-drawer-btn primary" id="rename-confirm">Rename</button>
-      </div>`, { initialFocus: '#rename-input' });
-    const input = dialog.querySelector('#rename-input');
-    const submit = async () => {
-      const slug = input.value.trim();
-      if (!slug || slug === note.slug) return close();
-      if (this.saveStatus === 'dirty') await this.saveCurrentNote();
-      if (this.saveStatus === 'dirty') return close();
-      try {
-        const renamed = await api(`/notes/${encodeURIComponent(note.slug)}/rename`, { method: 'POST', body: { slug } });
-        close();
-        this.selectedSlug = renamed.slug;
-        this.selectedNote = renamed;
-        notesRouter.navigate(`/notes/${encodeURIComponent(renamed.slug)}${this.isNoteEditing ? '?mode=edit' : ''}`, { replace: true });
-        this.destroyCodeMirror();
-        this.renderEditorView();
-        showToast(`Renamed to ${renamed.slug}`, 'success');
-      } catch (error) {
-        dialog.querySelector('#rename-error').textContent = error.status === 409 ? 'A note with that file name already exists.' : error.message;
-      }
-    };
-    dialog.querySelector('#rename-confirm').addEventListener('click', submit);
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') submit();
-    });
   }
 
   showAlert(title, message) {
@@ -485,7 +408,7 @@ class NotesApp extends HTMLElement {
     }
     this.isNoteEditing = editing;
     if (!editing) this.destroyCodeMirror();
-    // Keep what was typed in the title/tags inputs across the re-render.
+    // Keep what was typed in the tags input across the re-render.
     this.captureMeta();
     this.renderEditorView();
     if (editing) setTimeout(() => this.focusEditor(), 0);
@@ -499,9 +422,7 @@ class NotesApp extends HTMLElement {
     const note = this.selectedNote;
     if (!note) return;
     note.content = this.currentContent();
-    const title = this.querySelector('#note-title');
     const tags = this.querySelector('#note-tags');
-    if (title) note.title = title.value;
     if (tags) note.tags = parseTags(tags.value);
   }
 
@@ -534,108 +455,6 @@ class NotesApp extends HTMLElement {
     });
   }
 
-  renderListView() {
-    this.innerHTML = `
-      <section class="notes-page">
-        <app-header heading="Notes" variant="flush">
-          <div slot="actions" class="notes-header-actions app-header-action-group">
-            <app-autocomplete id="notes-search" class="notes-search-wrapper" input-id="notes-search-input"
-              placeholder="Search notes and content…" value="${esc(this.query)}"></app-autocomplete>
-            <button id="add-note-btn" class="notes-btn primary" type="button">
-              <i class="fa-solid fa-plus"></i><span>Add Note</span>
-            </button>
-          </div>
-        </app-header>
-        <div class="notes-tag-bar" id="notes-tag-bar"></div>
-        <div class="notes-grid" id="notes-grid"></div>
-      </section>`;
-
-    const header = this.querySelector('app-header');
-    header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }];
-    this.bindHeaderHomeLink(header);
-
-    const searchInput = this.querySelector('#notes-search');
-    const executeSearch = () => {
-      this.query = searchInput ? searchInput.value : '';
-      this.fetchNotes();
-    };
-    searchInput?.addEventListener('input', () => {
-      clearTimeout(this._searchTimer);
-      this._searchTimer = setTimeout(executeSearch, 250);
-    });
-    searchInput?.addEventListener('search', () => {
-      clearTimeout(this._searchTimer);
-      executeSearch();
-    });
-    this.querySelector('#add-note-btn')?.addEventListener('click', () => this.createNewNote());
-    this.renderTagBar();
-  }
-
-  renderTagBar() {
-    const bar = this.querySelector('#notes-tag-bar');
-    if (!bar) return;
-    const top = Object.entries(this.tags).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, TAG_BAR_LIMIT);
-    if (this.activeTag && !top.some(([tag]) => tag === this.activeTag)) top.unshift([this.activeTag, this.tags[this.activeTag] || 0]);
-    bar.innerHTML = top
-      .map(([tag, count]) => `<button type="button" class="notes-tag${tag === this.activeTag ? ' active' : ''}" data-tag="${esc(tag)}">${esc(tag)}<small>${count}</small></button>`)
-      .join('');
-    bar.querySelectorAll('[data-tag]').forEach((button) => button.addEventListener('click', () => {
-      this.activeTag = this.activeTag === button.dataset.tag ? null : button.dataset.tag;
-      this.renderTagBar();
-      this.fetchNotes();
-    }));
-  }
-
-  renderNotesGrid() {
-    const grid = this.querySelector('#notes-grid');
-    if (!grid) return;
-    if (this.loading && this.notes.length === 0) {
-      grid.setAttribute('aria-busy', 'true');
-      grid.innerHTML = Array.from({ length: 6 }).map(() => `
-        <article class="note-card note-card--skeleton" aria-hidden="true">
-          <div class="note-card-top"><div class="note-card-header"><span class="note-skeleton note-skeleton-title"></span></div>
-          <div class="note-card-body"><span class="note-skeleton note-skeleton-line note-skeleton-line--full"></span></div></div>
-        </article>`).join('');
-      return;
-    }
-    grid.removeAttribute('aria-busy');
-    if (this.notes.length === 0) {
-      grid.innerHTML = `
-        <div class="notes-empty-state">
-          <i class="fa-solid fa-book-open"></i><h3>No notes found</h3>
-          <p>${this.query || this.activeTag ? 'Try adjusting your search.' : 'Click "Add Note" to create your first markdown note!'}</p>
-        </div>`;
-      return;
-    }
-    grid.innerHTML = this.notes.map((note) => this.renderNoteCardHtml(note)).join('');
-    grid.querySelectorAll('.note-card[data-slug]').forEach((card) => card.addEventListener('click', () => {
-      notesRouter.navigate(`/notes/${encodeURIComponent(card.dataset.slug)}`);
-    }));
-  }
-
-  renderNoteCardHtml(note) {
-    const query = (this.query || '').trim();
-    const lower = query.toLowerCase();
-    const titleMatches = Boolean(lower && note.title.toLowerCase().includes(lower));
-    const contentMatches = Boolean(lower && note.snippet.toLowerCase().includes(lower));
-    let matchBadge = '';
-    if (query && titleMatches) matchBadge = '<span class="note-match-badge match-title" title="Search term matched in note title"><i class="fa-solid fa-heading" aria-hidden="true"></i> Title</span>';
-    else if (query && note.score != null) matchBadge = '<span class="note-match-badge match-content" title="Search term matched inside note content"><i class="fa-solid fa-align-left" aria-hidden="true"></i> In Content</span>';
-    const tags = note.tags.slice(0, 4).map((tag) => `<span>#${esc(tag)}</span>`).join('');
-    return `
-      <div class="note-card${!titleMatches && contentMatches ? ' match-content-only' : ''}" data-slug="${esc(note.slug)}">
-        <div class="note-card-top">
-          <div class="note-card-header">
-            <h4 class="note-card-title">${highlightMatch(note.title, query)}</h4>
-            ${matchBadge ? `<div class="note-card-badges">${matchBadge}</div>` : ''}
-          </div>
-          <div class="note-card-body">${highlightMatch(note.snippet.slice(0, 160), query) || 'No additional content'}</div>
-          ${tags ? `<div class="note-card-tags">${tags}</div>` : ''}
-        </div>
-        <div class="note-card-footer"><div class="note-card-meta"><span>${esc(formatRelativeTime(note.updated))}</span></div></div>
-      </div>`;
-  }
-
   /* --- Editor view --------------------------------------------------- */
 
   renderEditorView() {
@@ -659,7 +478,6 @@ class NotesApp extends HTMLElement {
         </app-header>
 
         <div class="notes-meta-bar">
-          <input id="note-title" class="notes-title-input" placeholder="Title" aria-label="Title" value="${esc(note.title)}"${ro} />
           <input id="note-tags" class="notes-tags-input" placeholder="tags, comma separated" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />
         </div>
 
@@ -692,8 +510,7 @@ class NotesApp extends HTMLElement {
           <div class="action-bar-right notes-footer-actions">
             <div class="map-toolbar" aria-label="Note actions">
               ${note.slug ? `
-                <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
-                <button id="rename-note-btn" class="tool-button" type="button" aria-label="Rename file" title="Rename file"><i class="fa-solid fa-i-cursor" aria-hidden="true"></i></button>` : ''}
+                <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
               ${note.slug ? '<button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>' : ''}
               ${editing ? `
@@ -710,11 +527,10 @@ class NotesApp extends HTMLElement {
     this.querySelector('#copy-note-btn').addEventListener('click', () => this.copyCurrentNote());
     this.querySelector('#note-versions-btn')?.addEventListener('click', () => this.openNoteVersions());
     this.querySelector('#delete-note-btn')?.addEventListener('click', () => this.confirmDeleteCurrentNote());
-    this.querySelector('#rename-note-btn')?.addEventListener('click', () => this.promptRename());
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
     this.querySelector('#add-note-btn').addEventListener('click', () => this.createNewNote());
-    for (const id of ['#note-title', '#note-tags']) this.querySelector(id).addEventListener('input', () => this.markDirty());
+    this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
 
     if (editing) this.initCodeMirror();
     this.setupPreviewEvents();
@@ -759,7 +575,7 @@ class NotesApp extends HTMLElement {
       this._autocompleteController?.abort();
       const query = autocomplete.value.trim();
       if (!query) {
-        autocomplete.options = [];
+        this.showRecentNotes(autocomplete);
         return;
       }
       this._autocompleteTimer = setTimeout(async () => {
@@ -778,10 +594,23 @@ class NotesApp extends HTMLElement {
         }
       }, 120);
     });
+    autocomplete.addEventListener('focusin', () => {
+      if (!autocomplete.value.trim()) this.showRecentNotes(autocomplete);
+    });
     autocomplete.addEventListener('select', (event) => {
       autocomplete.value = '';
       this.go(`/notes/${encodeURIComponent(event.detail.value)}`);
     });
+  }
+
+  async showRecentNotes(autocomplete) {
+    try {
+      const notes = await api('/notes?sort=recent&limit=8');
+      if (autocomplete.value.trim()) return;
+      autocomplete.options = notes.map((note) => ({ value: note.slug, label: note.title, icon: 'fa-regular fa-clock' }));
+    } catch (error) {
+      console.error('Failed to load recent notes:', error);
+    }
   }
 
   /* --- Backlinks ----------------------------------------------------- */
@@ -979,12 +808,7 @@ class NotesApp extends HTMLElement {
       const button = event.currentTarget;
       button.disabled = true;
       try {
-        // A link written as [[slug]] keeps working when the new note takes that slug.
-        const looksLikeSlug = /^[a-z0-9][a-z0-9-_]*$/.test(title);
-        const created = await api('/notes', {
-          method: 'POST',
-          body: { title, content: `# ${title}\n\n`, tags: [], ...(looksLikeSlug ? { slug: title } : {}) },
-        });
+        const created = await api('/notes', { method: 'POST', body: { content: `# ${title}\n\n`, tags: [] } });
         close();
         if (this.saveStatus === 'dirty') showToast(`Created ${created.slug}. Your unsaved edits are still here.`, 'success');
         else notesRouter.navigate(`/notes/${encodeURIComponent(created.slug)}?mode=edit`);
@@ -1047,6 +871,7 @@ class NotesApp extends HTMLElement {
       parent: container,
       root: document,
     });
+    if (!this.selectedNote?.slug) this.cmEditor.dispatch({ selection: { anchor: 2 } }); // new note: type the title
     if (this._focusEditorWhenReady) this.focusEditor();
   }
 
@@ -1163,12 +988,15 @@ class NotesApp extends HTMLElement {
           });
           if (!confirmed) return;
           try {
-            await api(`${base}/versions/${sha}/restore`, { method: 'POST' });
+            // The restored title can differ from the current one, in which case the file gets its old name back.
+            const restored = await api(`${base}/versions/${sha}/restore`, { method: 'POST' });
             close();
             this.saveStatus = 'saved';
             this.destroyCodeMirror();
             showToast('Version restored', 'success');
-            this.loadEditorNote(note.slug, { startInEdit: this.isNoteEditing });
+            this.selectedSlug = restored.slug;
+            notesRouter.navigate(`/notes/${encodeURIComponent(restored.slug)}${this.isNoteEditing ? '?mode=edit' : ''}`, { replace: true });
+            this.loadEditorNote(restored.slug, { startInEdit: this.isNoteEditing });
           } catch (error) {
             message.className = 'note-version-message error';
             message.textContent = error.message;

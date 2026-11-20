@@ -8,6 +8,7 @@ import re
 from pydantic import BaseModel, Field
 
 from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.title import with_h1
 
 
 def snippet(content: str, length: int = 200) -> str:
@@ -37,24 +38,20 @@ class NoteDetail(NoteSummary):
     @classmethod
     def of(cls, n: Note) -> "NoteDetail":  # type: ignore[override]
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   snippet=snippet(n.content), content=n.content, extra=dict(n.extra))
+                   snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
 
 
 class NoteCreate(BaseModel):
-    title: str = Field(min_length=1)
+    """The title is the content's first `# heading`; `title` is only used when the content has none."""
+    title: str | None = None
     content: str = ""
     tags: list[str] = []
-    slug: str | None = None
 
 
 class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1)
     content: str | None = None
     tags: list[str] | None = None
-
-
-class RenameRequest(BaseModel):
-    slug: str
 
 
 class VersionOut(BaseModel):

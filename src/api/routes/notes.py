@@ -5,7 +5,7 @@ import difflib
 from fastapi import APIRouter, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             RenameRequest, ResolvedLink, VersionDetail, VersionOut)
+                             ResolvedLink, VersionDetail, VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
 
@@ -19,16 +19,25 @@ def svc(request: Request) -> NoteService:
 # Plain `def` handlers: FastAPI runs them in a threadpool, so git subprocesses don't block the loop.
 
 @router.get("/notes", response_model=list[NoteSummary])
-def list_notes(request: Request, q: str = "", tag: str | None = None, limit: int = Query(50, ge=1, le=1000)):
+def list_notes(request: Request, q: str = "", tag: str | None = None, limit: int = Query(50, ge=1, le=1000),
+               sort: str = Query("title", pattern="^(title|recent)$")):
+    """With `q` or `tag`: ranked search. Otherwise all notes, by title or (`sort=recent`) most recently edited first."""
     s = svc(request)
     if q or tag:
         return [NoteSummary.of(h.note, h.score) for h in s.search(q, tag, limit)]
-    return [NoteSummary.of(n) for n in s.list()[:limit]]
+    notes = s.recent() if sort == "recent" else s.list()
+    return [NoteSummary.of(n) for n in notes[:limit]]
 
 
 @router.post("/notes", response_model=NoteDetail, status_code=201)
 def create_note(request: Request, body: NoteCreate):
-    return NoteDetail.of(svc(request).create(body.title, body.content, tuple(body.tags), body.slug))
+    return NoteDetail.of(svc(request).create(body.title, body.content, tuple(body.tags)))
+
+
+@router.get("/latest", response_model=NoteDetail)
+def latest_note(request: Request):
+    """The most recently edited note (what the app opens at /)."""
+    return NoteDetail.of(svc(request).latest())
 
 
 @router.get("/tags", response_model=dict[str, int])
@@ -68,11 +77,6 @@ def update_note(request: Request, slug: str, body: NoteUpdate):
 def delete_note(request: Request, slug: str):
     svc(request).delete(slug)
     return Response(status_code=204)
-
-
-@router.post("/notes/{slug}/rename", response_model=NoteDetail)
-def rename_note(request: Request, slug: str, body: RenameRequest):
-    return NoteDetail.of(svc(request).rename(slug, body.slug))
 
 
 @router.get("/notes/{slug}/backlinks", response_model=BacklinksOut)

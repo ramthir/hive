@@ -18,6 +18,7 @@ class Note:
     updated: str | None = None
     # Frontmatter keys the app does not manage; preserved verbatim on save.
     extra: dict[str, Any] = field(default_factory=dict)
+    modified: float | None = None  # file mtime; only used to order notes updated on the same day
 
 
 @dataclass(frozen=True)

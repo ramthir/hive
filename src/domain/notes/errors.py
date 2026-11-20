@@ -16,3 +16,7 @@ class InvalidSlug(NoteError):
 
 class GitError(NoteError):
     pass
+
+
+class InvalidTitle(NoteError):
+    pass
