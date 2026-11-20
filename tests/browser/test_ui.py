@@ -237,3 +237,10 @@ def test_tag_field_is_hidden_for_untagged_notes_until_editing(page, server, note
     page.click("#edit-note-btn")
     expect(page.locator("#note-tags")).to_be_visible()
     assert page.errors == []
+
+
+def test_heading_starts_right_below_the_header(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator("#notes-md h1")).to_be_visible()
+    top = page.locator("#notes-md h1").bounding_box()["y"] - page.locator(".notes-editor-workspace").bounding_box()["y"]
+    assert top <= 24, f"{top}px between the header and the heading"  # the pane's own padding only
