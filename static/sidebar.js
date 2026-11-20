@@ -2,7 +2,7 @@
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar on wide screens; on narrow ones it becomes a top bar with a dropdown menu.
  *
- * Hive's version is deliberately small: two navigation items (Notes and the Tasks board), and a hardcoded user at the bottom
+ * Hive's version is deliberately small: three navigation items (Notes, the Tasks board and Time entries), and a hardcoded user at the bottom
  * (there is no sign-in yet).
  */
 
@@ -12,6 +12,7 @@ const CURRENT_USER = Object.freeze({ name: 'Ramesh Thiruchelvam' });
 const NAVIGATION_ITEMS = Object.freeze([
   { href: '/notes', label: 'Notes', icon: 'fa-solid fa-book-open', activePaths: ['/notes'] },
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
+  { href: '/time-entries', label: 'Time', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
 ]);
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';

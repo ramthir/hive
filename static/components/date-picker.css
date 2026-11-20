@@ -1,0 +1,95 @@
+/* Shared date-picker presentation. */
+app-datepicker {
+  position: relative;
+  display: block;
+}
+.date-picker-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--color-dark2);
+  color: var(--color-dimmed2);
+  border: 1px solid var(--color-dimmed5);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+}
+.date-picker-trigger.has-value {
+  color: var(--color-text);
+}
+.date-picker-trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset-tight);
+}
+.date-picker-popup {
+  position: fixed;
+  inset: auto;
+  z-index: 20;
+  width: 18rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--color-dimmed5);
+  border-radius: 8px;
+  background: var(--color-dark1);
+  color: var(--color-text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.calendar-header {
+  display: grid;
+  grid-template-columns: 2rem 1fr 2rem;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+.calendar-header button,
+.calendar-day,
+.date-picker-clear {
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+  border-radius: 5px;
+}
+.calendar-header button {
+  width: 2rem;
+  height: 2rem;
+}
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.2rem;
+  text-align: center;
+}
+.calendar-weekdays {
+  color: var(--color-dimmed2);
+  font-size: 0.7rem;
+  margin-bottom: 0.25rem;
+}
+.calendar-day {
+  aspect-ratio: 1;
+}
+.calendar-header button:hover {
+  background: var(--color-dimmed5);
+}
+.calendar-day:hover {
+  background: var(--color-state-hover-bg);
+  color: var(--color-state-hover-text);
+}
+.calendar-day.today {
+  box-shadow: inset 0 0 0 1px var(--color-accent5);
+}
+.calendar-day.selected {
+  background: var(--color-state-selected-solid-bg);
+  color: var(--color-state-selected-solid-text);
+  font-weight: 700;
+}
+.date-picker-clear {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem;
+  color: var(--color-accent1);
+}

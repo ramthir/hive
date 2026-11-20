@@ -218,6 +218,12 @@ def test_tasks_page_is_served(client):
     assert r.status_code == 200 and "tasks-app" in r.text
 
 
+def test_time_entries_page_is_served(client):
+    r = client.get("/time-entries")
+    assert r.status_code == 200 and "time-entries-app" in r.text
+    assert client.get("/static/time-entries/time-page.js").status_code == 200
+
+
 def test_finishing_a_task_records_the_week_and_leaving_done_clears_it(client, root):
     seed_tasks(root)
     week = week_label(date.today())
