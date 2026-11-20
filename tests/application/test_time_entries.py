@@ -59,6 +59,19 @@ def test_search_syntax(query, expected):
     assert len(select(ROWS, query=query, today=TODAY)) == expected
 
 
-def test_month_summary_counts_only_the_current_month():
-    assert month_summary(ROWS, TODAY) == {"total_entries": 3, "total_minutes": 135, "task_minutes": 120, "meeting_minutes": 15}
-    assert month_summary([], TODAY) == {"total_entries": 0, "total_minutes": 0, "task_minutes": 0, "meeting_minutes": 0}
+def test_month_summary_counts_only_the_current_month_with_a_breakdown_per_day():
+    s = month_summary(ROWS, TODAY)
+    assert {k: s[k] for k in ("month", "today", "today_minutes", "total_entries", "total_minutes", "task_minutes",
+                              "meeting_minutes")} == {
+        "month": "2026-11", "today": "2026-11-20", "today_minutes": 105, "total_entries": 3, "total_minutes": 135,
+        "task_minutes": 120, "meeting_minutes": 15}
+    assert s["days"] == [
+        {"day": "2026-11-19", "minutes": 30, "items": [{"title": "Fix login", "project": "Acme", "minutes": 30}]},
+        {"day": "2026-11-20", "minutes": 105, "items": [
+            {"title": "Fix login", "project": "Acme", "minutes": 90}, {"title": "Standup", "project": "Internal", "minutes": 15}]},
+    ]
+
+
+def test_month_summary_of_nothing_is_zero():
+    s = month_summary([], TODAY)
+    assert (s["total_entries"], s["total_minutes"], s["today_minutes"], s["days"]) == (0, 0, 0, [])

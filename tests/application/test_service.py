@@ -349,4 +349,6 @@ def test_time_rows_search_every_task_and_meeting(svc):
     svc.log_time("standup", "2026-11-20", 15)
     assert [(r.title, r.minutes) for r in svc.time_rows()] == [("Fix login", 90), ("Standup", 15)]
     assert [r.title for r in svc.time_rows(query="stand")] == ["Standup"]
-    assert svc.time_summary(svc.time_rows()) == {"total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15}
+    summary = svc.time_summary(svc.time_rows())
+    assert {k: summary[k] for k in ("total_entries", "total_minutes", "task_minutes", "meeting_minutes", "today_minutes")} == {
+        "total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15, "today_minutes": 105}

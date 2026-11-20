@@ -1,5 +1,8 @@
 import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/table.js';
+import '/static/components/stat-card.js';
+import '/static/components/activity-sparkline.js';
+import { renderStatCard } from '/static/components/stat-card-render.js';
 import '/static/components/pagination.js';
 import '/static/components/combobox.js';
 import '/static/components/date-picker.js';
@@ -38,7 +41,7 @@ class TimeEntriesApp extends HTMLElement {
     this.table.setColumns(tableColumns(esc));
     this.table.setEmptyState(EMPTY);
     this.table.setLoading(true);
-    this.renderSummary({});
+    this.renderSummary({}, { loading: true });
 
     this.table.addEventListener('row-click', (event) => this.drawer.open(event.detail.rowData));
     this.pagination.addEventListener('page-change', (event) => this.go({ ...this.state, page: event.detail.page }));
@@ -86,9 +89,16 @@ class TimeEntriesApp extends HTMLElement {
     }
   }
 
-  renderSummary(meta) {
+  // Pandora's stat cards; `loading` shows their skeleton until the first answer.
+  renderSummary(meta, { loading = false } = {}) {
     this.querySelector('.time-summary').innerHTML = summaryTiles(meta)
-      .map((tile) => `<div class="time-tile" data-metric="${esc(tile.key)}"><i class="fa-solid ${esc(tile.icon)}" aria-hidden="true"></i><div><div class="time-tile-title">${esc(tile.title)}</div><div class="time-tile-value">${esc(tile.value)}</div><div class="time-tile-sub">${esc(tile.sub)}</div></div></div>`)
+      .map((tile) => {
+        const { sparkline } = tile;
+        const slotHtml = sparkline
+          ? `<activity-sparkline slot="visual" values="${esc(sparkline.values.join(','))}" start="${esc(sparkline.start)}" details="${esc(JSON.stringify(sparkline.details))}"></activity-sparkline>`
+          : '';
+        return renderStatCard({ ...tile, loading, attrs: { 'data-metric': tile.key }, slotHtml });
+      })
       .join('');
   }
 

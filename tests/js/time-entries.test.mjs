@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canLogTime, dayHint, deleteCall, loggedLabel, loggedMinutes, formatDay, formatDuration, listQuery, readState, savePlan, stateSearch, summaryTiles, tableColumns, timeNoteOptions, today,
+  canLogTime, dayHint, deleteCall, loggedLabel, loggedMinutes, formatDay, formatDuration, listQuery, readState, savePlan, stateSearch, monthSparkline, summaryTiles, tableColumns, timeNoteOptions, today,
 } from '../../static/time-entries/entries.js';
 
 test('durations read as hours and minutes', () => {
@@ -105,4 +105,34 @@ test('the footer says how much time a note has, and nothing when there is none',
 test('the dialog tells what the chosen day already holds', () => {
   assert.equal(dayHint({ '2026-11-20': 90 }, '2026-11-20'), '1h 30m already logged on Fri, Nov 20, 2026. This adds to it.');
   assert.equal(dayHint({}, '2026-11-20'), 'Nothing logged on Fri, Nov 20, 2026 yet.');
+});
+
+test('the total card carries the month and day progress against the 160h and 8h targets', () => {
+  const [total, tasks, meetings] = summaryTiles({ total_minutes: 4800, today_minutes: 120, total_entries: 2 });
+  assert.equal(total.title, 'Total Logged');
+  assert.equal(total.progress, 50);
+  assert.equal(total.dailyProgress, 25);
+  assert.equal(total.dailyTooltip, '2h of 8h logged today');
+  assert.equal(summaryTiles({ total_minutes: 99999, today_minutes: 99999 })[0].progress, 100);
+  assert.equal(tasks.progress, undefined);
+  assert.equal(meetings.sparkline, undefined);
+});
+
+test('the sparkline has a value per day of the server\'s month and tooltip rows only for days with time', () => {
+  const meta = {
+    month: '2026-02',
+    days: [{ day: '2026-02-03', minutes: 105, items: [
+      { title: 'Fix login', project: 'Acme', minutes: 90 }, { title: 'Standup', project: '', minutes: 15 }] }],
+  };
+  const spark = monthSparkline(meta);
+  assert.equal(spark.start, '2026-02-01');
+  assert.equal(spark.values.length, 28);
+  assert.equal(spark.values[2], 105);
+  assert.equal(spark.values.reduce((a, b) => a + b, 0), 105);
+  assert.equal(spark.details[0], null);
+  assert.deepEqual(spark.details[2], [
+    { label: 'Fix login', value: '1h 30m', note: '(Acme)' }, { label: 'Standup', value: '15m' }, { label: 'Total', value: '1h 45m' }]);
+  assert.equal(monthSparkline({ month: '2024-02' }).values.length, 29);
+  assert.equal(monthSparkline({}), null);
+  assert.equal(summaryTiles({ month: '2026-02', days: meta.days })[0].sparkline.values[2], 105);
 });

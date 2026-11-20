@@ -326,6 +326,9 @@ def test_time_entries_lists_rows_with_the_month_totals(client):
                                  "page", "page_size", "total_pages")} == {
         "total": 3, "total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15,
         "page": 0, "page_size": 10, "total_pages": 1}
+    assert body["month"] == today.isoformat()[:7] and body["today"] == today.isoformat()
+    assert [(d["day"], d["minutes"], [i["title"] for i in d["items"]]) for d in body["days"]] == [
+        (this_month, 105, ["Fix login", "Standup"])]
 
 
 def test_time_entries_filters_and_pages(client):

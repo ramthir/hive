@@ -111,9 +111,20 @@ def select(rows: Iterable[TimeRow], *, query: str = "", start: str | None = None
 
 
 def month_summary(rows: Iterable[TimeRow], today: date) -> dict[str, Any]:
-    """Entries and minutes logged in the current month, in total and for tasks and meetings."""
+    """The current month of the matched rows: entries and minutes in total and for tasks and meetings, today's
+    minutes, and per day (days with time only, oldest first) the minutes and what they were spent on."""
     month = today.isoformat()[:7]
     mine = [r for r in rows if r.day[:7] == month]
     by = lambda kind: sum(r.minutes for r in mine if r.type == kind)
-    return {"total_entries": len(mine), "total_minutes": sum(r.minutes for r in mine),
-            "task_minutes": by("task"), "meeting_minutes": by("meeting")}
+    days: dict[str, list[TimeRow]] = {}
+    for r in sorted(mine, key=lambda r: (r.day, r.title.casefold())):
+        days.setdefault(r.day, []).append(r)
+    return {
+        "month": month, "today": today.isoformat(),
+        "today_minutes": sum(r.minutes for r in mine if r.day == today.isoformat()),
+        "total_entries": len(mine), "total_minutes": sum(r.minutes for r in mine),
+        "task_minutes": by("task"), "meeting_minutes": by("meeting"),
+        "days": [{"day": day, "minutes": sum(r.minutes for r in items),
+                  "items": [{"title": r.title, "project": r.project, "minutes": r.minutes} for r in items]}
+                 for day, items in days.items()],
+    }
