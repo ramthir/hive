@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from src.application.notes.time_entries import TimeRow
 from src.domain.notes.entities import Note, NoteVersion
-from src.domain.notes.time import MAX_MINUTES_PER_DAY, time_type
+from src.domain.notes.time import MAX_MINUTES_PER_DAY, TimeKind, accepts_time, time_type
 from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
@@ -40,12 +40,13 @@ class NoteSummary(BaseModel):
 class NoteDetail(NoteSummary):
     content: str
     time: dict[str, int] = {}  # ISO day -> minutes logged (task and meeting notes)
+    takes_time: bool = False  # a task or meeting: time can be logged on it
     extra: dict[str, Any]
 
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), extra=dict(n.extra))
 
 
 class TimeEntryOut(BaseModel):
@@ -53,7 +54,7 @@ class TimeEntryOut(BaseModel):
     id: str
     slug: str
     title: str
-    type: Literal["task", "meeting"]
+    type: TimeKind
     project: str
     day: str
     minutes: int
@@ -97,7 +98,7 @@ class TimeNoteOut(BaseModel):
     """A note that takes time, for the picker: `this_week` when it was edited or had time logged this week."""
     slug: str
     title: str
-    type: Literal["task", "meeting"]
+    type: TimeKind
     this_week: bool
 
     @classmethod

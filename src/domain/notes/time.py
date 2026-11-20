@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal, get_args
 
 from src.domain.notes.entities import Note
 
 MAX_MINUTES_PER_DAY = 24 * 60
-TIME_TYPES = ("task", "meeting")
+TimeKind = Literal["task", "meeting"]
+TIME_TYPES: tuple[str, ...] = get_args(TimeKind)  # task first: a note that is both counts as a task
 
 
 def accepts_time(note: Note) -> bool:

@@ -99,10 +99,10 @@ test('table cells escape what comes from notes', () => {
 });
 
 test('only a saved task or meeting note can have time logged', () => {
-  assert.ok(canLogTime({ slug: 'a', types: ['task'] }));
-  assert.ok(canLogTime({ slug: 'a', types: ['idea', 'Meeting'] }));
-  assert.ok(!canLogTime({ slug: 'a', types: ['idea'] }));
-  assert.ok(!canLogTime({ slug: null, types: ['task'] }));
+  assert.ok(canLogTime({ slug: 'a', takes_time: true }));
+  assert.ok(!canLogTime({ slug: 'a', takes_time: false }));
+  assert.ok(!canLogTime({ slug: 'a' }));
+  assert.ok(!canLogTime({ slug: null, takes_time: true }));
   assert.ok(!canLogTime(null));
 });
 

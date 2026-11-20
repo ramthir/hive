@@ -152,9 +152,8 @@ export function tableColumns(esc) {
   ];
 }
 
-/** A note takes logged time when it has a file and is a task or meeting. */
-export const canLogTime = (note) =>
-  Boolean(note?.slug) && (note.types || []).some((t) => ['task', 'meeting'].includes(String(t).toLowerCase()));
+/** A note takes logged time when it has a file and the server says it is a task or meeting (`takes_time`). */
+export const canLogTime = (note) => Boolean(note?.slug) && note.takes_time === true;
 
 /** Minutes logged over all days of a note's `time` map. */
 export const loggedMinutes = (time) => Object.values(time || {}).reduce((sum, m) => sum + (Number(m) || 0), 0);
