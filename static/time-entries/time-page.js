@@ -8,8 +8,6 @@ import { createCrudDrawer } from '/static/components/crud-drawer.js';
 import { debounce } from '/static/components/drawer-sync.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
-import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
-import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import {
   PAGE_SIZE, SEARCH_HELP, deleteCall, listQuery, readState, savePlan, stateSearch, summaryTiles, tableColumns, timeNoteOptions, today,
 } from '/static/time-entries/entries.js';
@@ -26,7 +24,6 @@ class TimeEntriesApp extends HTMLElement {
           <div slot="actions" class="time-header-actions notes-header-actions app-header-action-group">
             <input class="time-search" type="search" placeholder="Search time entries" aria-label="Search time entries" title="${esc(SEARCH_HELP)}" value="${esc(this.state.q)}" autocomplete="off" />
             <button type="button" class="primary" data-add><i class="fa-solid fa-plus" aria-hidden="true"></i> Add time</button>
-            ${renderSearchTrigger()}
           </div>
         </app-header>
         <div class="time-body">
@@ -36,7 +33,6 @@ class TimeEntriesApp extends HTMLElement {
         </div>
         <div class="time-drawer-host"></div>
       </section>`;
-    wireSearchTrigger(this);
     this.table = this.querySelector('app-table');
     this.pagination = this.querySelector('app-pagination');
     this.table.setColumns(tableColumns(esc));
@@ -52,14 +48,8 @@ class TimeEntriesApp extends HTMLElement {
     search.addEventListener('input', apply);
 
     this.drawer = this.createDrawer();
-    this._spotlight = (event) => window.location.assign(`/notes/${encodeURIComponent(event.detail.slug)}`);
-    window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.loadNotes();
     this.load();
-  }
-
-  disconnectedCallback() {
-    window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
   }
 
   go(state) {

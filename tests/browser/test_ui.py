@@ -521,7 +521,7 @@ def test_sidebar_has_notes_tasks_time_and_the_hardcoded_user(page, server):
     expect(links.first).to_have_class("nav-link active")
     expect(links.first).to_have_attribute("aria-current", "page")
     expect(links.nth(1)).to_have_text("Tasks")
-    expect(links.nth(2)).to_have_text("Time")
+    expect(links.nth(2)).to_have_text("Time entries")
     expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
     expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
     # The user sits at the bottom of the sidebar, below the navigation.
