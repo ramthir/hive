@@ -19,6 +19,14 @@ def _day(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
+def parse_types(raw: Any) -> tuple[str, ...]:
+    """`type:` may be a list (the usual form) or a single scalar; blanks are dropped."""
+    if raw is None:
+        return ()
+    items = raw if isinstance(raw, (list, tuple)) else [raw]
+    return tuple(t for t in (str(i).strip() for i in items) if t)
+
+
 def _as_date(value: str | None) -> Any:
     if value is None:
         return None
@@ -54,7 +62,7 @@ class FileNoteRepository(NoteRepository):
             tags=tuple(str(t) for t in tags),
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
-            type=(str(meta["type"]).strip() or None) if meta.get("type") is not None else None,
+            types=parse_types(meta.get("type")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
         )
@@ -70,15 +78,16 @@ class FileNoteRepository(NoteRepository):
         if "created" not in meta:
             meta["created"] = _as_date(note.created or iso)
         meta["updated"] = _as_date(iso)
-        if note.type:
-            if "type" in meta:
-                meta["type"] = note.type
+        # Only touch `type` when it actually changed, so a file's own style (flow, block or scalar) is kept.
+        if tuple(note.types) != parse_types(meta.get("type")):
+            if not note.types:
+                meta.pop("type", None)
+            elif "type" in meta:
+                meta["type"] = list(note.types)
             else:  # a new key goes right after the tags (or the title), not at the end
                 keys = list(meta.keys())
                 after = keys.index("tags") if "tags" in keys else keys.index("title")
-                meta.insert(after + 1, "type", note.type)
-        elif "type" in meta:
-            del meta["type"]
+                meta.insert(after + 1, "type", list(note.types))
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")

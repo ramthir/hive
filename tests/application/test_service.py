@@ -177,37 +177,40 @@ def test_delete_and_index_refresh(svc):
     assert svc.list() == []
 
 
-def test_type_is_optional_and_lives_in_frontmatter(svc, root):
+def test_types_are_an_optional_list_in_frontmatter(svc, root):
     plain = svc.create("Plain")
-    assert plain.type is None and "type:" not in (root / "plain.md").read_text()
-    task = svc.create("Do It", tags=("a", "b"), type=" task ")
-    assert task.type == "task"
-    # a new key goes right after the tags, not at the end of the frontmatter
-    assert (root / "do-it.md").read_text().startswith("---\ntitle: Do It\ntags:\n  - a\n  - b\ntype: task\ncreated:")
-    assert svc.types() == {"task": 1}
+    assert plain.types == () and "type:" not in (root / "plain.md").read_text()
+    task = svc.create("Do It", tags=("a", "b"), types=(" task ", "task", "urgent"))
+    assert task.types == ("task", "urgent")  # trimmed and de-duplicated
+    # a new key goes right after the tags, not at the end of the frontmatter, as a list
+    assert (root / "do-it.md").read_text().startswith("---\ntitle: Do It\ntags:\n  - a\n  - b\ntype:\n  - task\n  - urgent\ncreated:")
+    assert svc.types() == {"task": 1, "urgent": 1}
 
 
-def test_update_type_changes_clears_and_otherwise_keeps(svc, root):
-    svc.create("N", type="note")
-    assert svc.update("n", content="# N\n\nedited").type == "note"  # omitted: unchanged
-    assert svc.update("n", type="task").type == "task"
-    assert (root / "n.md").read_text().count("type: task") == 1
-    assert svc.update("n", type="  ").type is None  # blank clears it
+def test_update_types_changes_clears_and_otherwise_keeps(svc, root):
+    svc.create("N", types=("note",))
+    assert svc.update("n", content="# N\n\nedited").types == ("note",)  # omitted: unchanged
+    assert svc.update("n", types=("task", "contact")).types == ("task", "contact")
+    assert svc.update("n", types=()).types == ()  # empty clears it
     assert "type:" not in (root / "n.md").read_text()
 
 
-def test_type_survives_a_title_rename_and_a_restore(svc):
-    svc.create("Old", type="contact")
-    first = svc.versions("old")[-1].sha
+def test_types_survive_a_title_rename_and_a_restore(svc):
+    svc.create("Old", types=("contact",))
     renamed = svc.update("old", content="# New\n\nx")
-    assert (renamed.slug, renamed.type) == ("new", "contact")
-    svc.update("new", type="task")
-    assert svc.restore("new", svc.versions("new")[-1].sha).type == "contact"  # the version had type: contact
+    assert (renamed.slug, renamed.types) == ("new", ("contact",))
+    svc.update("new", types=("task",))
+    assert svc.restore("new", svc.versions("new")[-1].sha).types == ("contact",)  # the first version had contact
 
 
-def test_existing_type_key_in_a_file_is_read_and_kept_in_place(svc, root):
-    (root / "x.md").write_text("---\ntitle: X\ntype: contact\ntags:\n  - t\n---\n\n# X\n")
-    git(root, "add", "-A"); git(root, "commit", "-qm", "x")
-    assert svc.get("x").type == "contact" and svc.get("x").extra == {}
-    svc.update("x", content="# X\n\nedited")
-    assert (root / "x.md").read_text().startswith("---\ntitle: X\ntype: contact\ntags:\n  - t\n")
+def test_a_files_own_type_style_is_read_and_left_alone(svc, root):
+    """The vault stores `type` as a block list, a flow list or a scalar; editing the note must not rewrite it."""
+    for slug, line, expected in [("block", "type:\n  - note\n  - glossary", ("note", "glossary")),
+                                 ("flow", "type: [contact, interview]", ("contact", "interview")),
+                                 ("scalar", "type: task", ("task",))]:
+        (root / f"{slug}.md").write_text(f"---\ntitle: T {slug}\n{line}\ntags:\n  - t\n---\n\n# T {slug}\n")
+        git(root, "add", "-A"); git(root, "commit", "-qm", slug)
+        assert svc.get(slug).types == expected and svc.get(slug).extra == {}
+        svc.update(slug, content=f"# T {slug}\n\nedited")
+        assert (root / f"{slug}.md").read_text().startswith(f"---\ntitle: T {slug}\n{line}\ntags:\n  - t\n")
+    assert svc.types() == {"note": 1, "glossary": 1, "contact": 1, "interview": 1, "task": 1}

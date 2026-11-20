@@ -21,7 +21,8 @@ const READING_WORDS_PER_MINUTE = 75;
 const DEFAULT_TYPE = 'note';
 // Icons for the usual types; anything else gets the plain file icon.
 const TYPE_ICONS = { task: 'list-check', contact: 'user', project: 'folder', meeting: 'calendar-check', clipping: 'paperclip', book: 'book' };
-const typeIcon = (type) => TYPE_ICONS[String(type || '').toLowerCase()] || 'file-lines';
+// A note can have several types; the first one picks the icon.
+const typeIcon = (types) => TYPE_ICONS[String((types || [])[0] || '').toLowerCase()] || 'file-lines';
 
 /* --- API ------------------------------------------------------------- */
 
@@ -332,14 +333,14 @@ class NotesApp extends HTMLElement {
     const isNewDraft = !note.slug;
     const content = this.currentContent();
     const tags = parseTags(this.querySelector('#note-tags')?.value ?? note.tags.join(', '));
-    const type = (this.querySelector('#note-type')?.value ?? note.type ?? '').trim();
+    const types = parseTags(this.querySelector('#note-type')?.value ?? (note.types || []).join(', '));
 
     this.saveStatus = 'saving';
     this.updateSaveIndicator();
     try {
       const saved = isNewDraft
-        ? await api('/notes', { method: 'POST', body: { content, tags, type } })
-        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags, type } });
+        ? await api('/notes', { method: 'POST', body: { content, tags, types } })
+        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags, types } });
       this.selectedNote = saved;
       // The server may normalise the text (e.g. a pre-commit formatter); keep the caret if nothing changed meanwhile.
       if (this.cmEditor && saved.content !== content && this.cmEditor.state.doc.toString() === content) {
@@ -431,19 +432,7 @@ class NotesApp extends HTMLElement {
     const tags = this.querySelector('#note-tags');
     if (tags) note.tags = parseTags(tags.value);
     const type = this.querySelector('#note-type');
-    if (type) note.type = type.value.trim() || null;
-  }
-
-  // Suggest the types already used in the notes, plus the default.
-  async loadTypeOptions() {
-    try {
-      const used = await api('/types');
-      const list = this.querySelector('#note-type-options');
-      if (!list) return;
-      list.innerHTML = [...new Set([DEFAULT_TYPE, ...Object.keys(used)])].map((type) => `<option value="${esc(type)}"></option>`).join('');
-    } catch (error) {
-      console.error('Failed to load note types:', error);
-    }
+    if (type) note.types = parseTags(type.value);
   }
 
   /* --- List view ----------------------------------------------------- */
@@ -489,10 +478,10 @@ class NotesApp extends HTMLElement {
         <app-action-bar fixed class="notes-action-bar" aria-label="Note status and actions">
           <div class="action-bar-left notes-footer-left">
             <span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
-              <i class="fa-solid fa-${typeIcon(note.type)}" id="note-type-icon" aria-hidden="true"></i>
+              <i class="fa-solid fa-${typeIcon(note.types)}" id="note-type-icon" aria-hidden="true"></i>
               ${editing
-                ? `<input id="note-type" class="notes-type-input" list="note-type-options" placeholder="${DEFAULT_TYPE}" aria-label="Note type" value="${esc(note.type || '')}" spellcheck="false" /><datalist id="note-type-options"></datalist>`
-                : `<span class="notes-type-name">${esc(note.type || DEFAULT_TYPE)}</span>`}
+                ? `<input id="note-type" class="notes-type-input" placeholder="${DEFAULT_TYPE}" title="Note type; separate several with commas" aria-label="Note type" value="${esc((note.types || []).join(', '))}" spellcheck="false" />`
+                : `<span class="notes-type-name">${esc((note.types || []).join(', ') || DEFAULT_TYPE)}</span>`}
             </span>
             <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="notes-footer-stats" title="${chars.toLocaleString()} characters">
@@ -540,10 +529,9 @@ class NotesApp extends HTMLElement {
     this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
     this.querySelector('#note-type')?.addEventListener('input', (event) => {
-      this.querySelector('#note-type-icon').className = `fa-solid fa-${typeIcon(event.target.value)}`;
+      this.querySelector('#note-type-icon').className = `fa-solid fa-${typeIcon(parseTags(event.target.value))}`;
       this.markDirty();
     });
-    if (editing) this.loadTypeOptions();
 
     if (editing) this.initCodeMirror();
     this.setupPreviewEvents();

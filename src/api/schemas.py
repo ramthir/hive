@@ -22,14 +22,14 @@ class NoteSummary(BaseModel):
     tags: list[str]
     created: str | None
     updated: str | None
-    type: str | None = None
+    types: list[str] = []
     score: int | None = None
     snippet: str = ""
 
     @classmethod
     def of(cls, n: Note, score: int | None = None) -> "NoteSummary":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   type=n.type, score=score, snippet=snippet(n.content))
+                   types=list(n.types), score=score, snippet=snippet(n.content))
 
 
 class NoteDetail(NoteSummary):
@@ -39,7 +39,7 @@ class NoteDetail(NoteSummary):
     @classmethod
     def of(cls, n: Note) -> "NoteDetail":  # type: ignore[override]
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   type=n.type, snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
+                   types=list(n.types), snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
 
 
 class NoteCreate(BaseModel):
@@ -47,14 +47,14 @@ class NoteCreate(BaseModel):
     title: str | None = None
     content: str = ""
     tags: list[str] = []
-    type: str | None = None
+    types: list[str] = []
 
 
 class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1)
     content: str | None = None
     tags: list[str] | None = None
-    type: str | None = None  # omitted: unchanged; "": clear
+    types: list[str] | None = None  # omitted: unchanged; []: clear
 
 
 class VersionOut(BaseModel):

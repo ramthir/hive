@@ -31,7 +31,7 @@ def list_notes(request: Request, q: str = "", tag: str | None = None, limit: int
 
 @router.post("/notes", response_model=NoteDetail, status_code=201)
 def create_note(request: Request, body: NoteCreate):
-    return NoteDetail.of(svc(request).create(body.title, body.content, tuple(body.tags), body.type))
+    return NoteDetail.of(svc(request).create(body.title, body.content, tuple(body.tags), tuple(body.types)))
 
 
 @router.get("/latest", response_model=NoteDetail)
@@ -58,7 +58,7 @@ def resolve(request: Request, target: list[str] = Query(default=[])):
 
 @router.get("/types", response_model=dict[str, int])
 def types(request: Request):
-    """The `type:` values in use, with counts (suggestions for the type field)."""
+    """The note types in use, with counts."""
     return svc(request).types()
 
 
@@ -76,7 +76,8 @@ def get_note(request: Request, slug: str):
 def update_note(request: Request, slug: str, body: NoteUpdate):
     return NoteDetail.of(svc(request).update(
         slug, title=body.title, content=body.content,
-        tags=None if body.tags is None else tuple(body.tags), type=body.type))
+        tags=None if body.tags is None else tuple(body.tags),
+        types=None if body.types is None else tuple(body.types)))
 
 
 @router.delete("/notes/{slug}", status_code=204)

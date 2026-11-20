@@ -114,7 +114,7 @@ def test_spotlight_lists_recent_notes_then_filters(page, server):
     page.keyboard.press("Enter")
     page.wait_for_url("**/notes/beta")
     expect(page.locator("note-spotlight .spotlight-backdrop")).to_be_hidden()
-    assert page.title() == "Beta Note - Hive"
+    expect(page).to_have_title("Beta Note - Hive")
     # The action bar's search button opens it too, and Escape closes it.
     page.click("#search-notes-btn")
     expect(page.locator("note-spotlight .spotlight-backdrop")).to_be_visible()
@@ -285,7 +285,7 @@ def test_there_is_no_new_note_button(page, server):
 
 
 def test_action_bar_shows_the_note_type_not_the_file_name(page, server, notes_dir):
-    (notes_dir / "typed.md").write_text("---\ntitle: Typed\ntype: contact\n---\n\n# Typed\n")
+    (notes_dir / "typed.md").write_text("---\ntitle: Typed\ntype:\n  - contact\n  - interview\n---\n\n# Typed\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "typed")
     page.goto(f"{server}/notes/alpha")
@@ -294,30 +294,45 @@ def test_action_bar_shows_the_note_type_not_the_file_name(page, server, notes_di
     assert "alpha.md" not in page.locator(".notes-action-bar").inner_text()
     expect(label).to_have_attribute("title", "alpha.md")
     page.goto(f"{server}/notes/typed")
-    expect(page.locator(".notes-type-name")).to_have_text("contact")
-    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-user")
+    expect(page.locator(".notes-type-name")).to_have_text("contact, interview")  # a list, as stored in the vault
+    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-user")  # the first type picks the icon
     assert page.errors == []
 
 
-def test_editing_the_note_type_saves_it_to_frontmatter(page, server, notes_dir):
+def test_editing_the_note_type_saves_a_list_and_keeps_other_files_style(page, server, notes_dir):
     page.goto(f"{server}/notes/alpha?mode=edit")
     page.wait_for_selector(".cm-content")
     kind = page.locator("#note-type")
     expect(kind).to_have_value("")
     expect(kind).to_have_attribute("placeholder", "note")
-    expect(page.locator("#note-type-options option")).to_have_count(1)  # just the default; no types in use yet
-    kind.fill("task")
+    kind.fill("task, urgent")
     expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-list-check")
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
-    assert "\ntype: task\n" in (notes_dir / "alpha.md").read_text()
+    assert "\ntype:\n  - task\n  - urgent\n" in (notes_dir / "alpha.md").read_text()
     page.click("#edit-note-btn")
-    expect(page.locator(".notes-type-name")).to_have_text("task")
+    expect(page.locator(".notes-type-name")).to_have_text("task, urgent")
     # Clearing it removes the key again.
     page.click("#edit-note-btn")
     page.locator("#note-type").fill("")
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 3)
     assert "type:" not in (notes_dir / "alpha.md").read_text()
+    assert page.errors == []
+
+
+def test_saving_a_note_does_not_rewrite_its_existing_type_formatting(page, server, notes_dir):
+    (notes_dir / "flow.md").write_text("---\ntitle: Flow\ntype: [contact, interview]\n---\n\n# Flow\n\ntext\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "flow")
+    page.goto(f"{server}/notes/flow?mode=edit")
+    page.wait_for_selector(".cm-content")
+    expect(page.locator("#note-type")).to_have_value("contact, interview")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" more")
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 3)
+    assert "\ntype: [contact, interview]\n" in (notes_dir / "flow.md").read_text()  # untouched: still the flow list
     assert page.errors == []

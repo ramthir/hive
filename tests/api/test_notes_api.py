@@ -150,14 +150,14 @@ def test_list_recent_first(client):
     assert client.get("/api/notes", params={"sort": "bogus"}).status_code == 422
 
 
-def test_type_in_the_api(client, root):
-    n = make(client, "Typed", type="task")
-    assert n["type"] == "task"
-    assert make(client, "Untyped")["type"] is None
-    assert client.put("/api/notes/typed", json={"content": "# Typed\n\nedited"}).json()["type"] == "task"
-    assert client.put("/api/notes/typed", json={"type": "contact"}).json()["type"] == "contact"
+def test_types_in_the_api(client, root):
+    n = make(client, "Typed", types=["task", "urgent"])
+    assert n["types"] == ["task", "urgent"]
+    assert make(client, "Untyped")["types"] == []
+    assert client.put("/api/notes/typed", json={"content": "# Typed\n\nedited"}).json()["types"] == ["task", "urgent"]
+    assert client.put("/api/notes/typed", json={"types": ["contact"]}).json()["types"] == ["contact"]
     assert client.get("/api/types").json() == {"contact": 1}
-    assert [x["type"] for x in client.get("/api/notes").json()] == ["contact", None]
-    assert client.put("/api/notes/typed", json={"type": ""}).json()["type"] is None
+    assert [x["types"] for x in client.get("/api/notes").json()] == [["contact"], []]
+    assert client.put("/api/notes/typed", json={"types": []}).json()["types"] == []
     assert client.get("/api/types").json() == {}
     assert "type:" not in (root / "typed.md").read_text()

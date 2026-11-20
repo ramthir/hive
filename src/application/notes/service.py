@@ -17,6 +17,11 @@ from src.domain.notes.title import extract_h1, set_h1, with_h1
 from src.domain.notes.wiki_links import rewrite_targets
 from src.infrastructure.metrics import Metrics
 
+def _clean(types) -> tuple[str, ...]:
+    """Trimmed, de-duplicated, order-preserving."""
+    return tuple(dict.fromkeys(t.strip() for t in types if t and t.strip()))
+
+
 EMPTY_TITLE = "The note needs a title: start it with a '# Title' heading."
 
 
@@ -91,7 +96,7 @@ class NoteService:
 
     # -- commands --------------------------------------------------------
     def create(self, title: str | None = None, content: str = "", tags: tuple[str, ...] = (),
-               type: str | None = None) -> Note:
+               types: tuple[str, ...] = ()) -> Note:
         """The title is the content's first heading; `title` is used (and inserted as the heading) if it has none."""
         heading = extract_h1(content)
         title = heading if heading is not None else (title or "").strip()
@@ -99,15 +104,15 @@ class NoteService:
             raise InvalidTitle(EMPTY_TITLE)
         note = self.repo.create(Note(
             slug=self._unique_slug(title), title=title, content=with_h1(title, content), tags=tuple(tags),
-            type=(type or "").strip() or None))
+            types=_clean(types)))
         self.invalidate()
         return note
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
-               tags: tuple[str, ...] | None = None, type: str | None = None) -> Note:
-        """`type` None leaves it unchanged; an empty string clears it."""
+               tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None) -> Note:
+        """`types` None leaves them unchanged; an empty list clears them."""
         current = self.repo.get(slug)
-        new_type = current.type if type is None else ((type.strip() or None))
+        new_types = current.types if types is None else _clean(types)
         body = current.content if content is None else content
         if title is not None:
             body = set_h1(body, title.strip())
@@ -125,12 +130,12 @@ class NoteService:
             self.repo.rename(slug, new_slug)
             self.invalidate()
             note = self.repo.update(replace(
-                current, slug=new_slug, title=new_title, content=body, type=new_type,
+                current, slug=new_slug, title=new_title, content=body, types=new_types,
                 tags=current.tags if tags is None else tuple(tags)))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
-                current, title=new_title, content=body, type=new_type,
+                current, title=new_title, content=body, types=new_types,
                 tags=current.tags if tags is None else tuple(tags)))
         self.invalidate()
         return note
