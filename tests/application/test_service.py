@@ -182,8 +182,8 @@ def test_types_are_an_optional_list_in_frontmatter(svc, root):
     assert plain.types == () and "type:" not in (root / "plain.md").read_text()
     task = svc.create("Do It", tags=("a", "b"), types=(" task ", "task", "urgent"))
     assert task.types == ("task", "urgent")  # trimmed and de-duplicated
-    # a new key goes right after the tags, not at the end of the frontmatter, as a list
-    assert (root / "do-it.md").read_text().startswith("---\ntitle: Do It\ntags:\n  - a\n  - b\ntype:\n  - task\n  - urgent\ncreated:")
+    # new lists are written inline (the vault's convention), right after the tags rather than at the end
+    assert (root / "do-it.md").read_text().startswith("---\ntitle: Do It\ntags: [a, b]\ntype: [task, urgent]\ncreated:")
     assert svc.types() == {"task": 1, "urgent": 1}
 
 
@@ -214,3 +214,29 @@ def test_a_files_own_type_style_is_read_and_left_alone(svc, root):
         svc.update(slug, content=f"# T {slug}\n\nedited")
         assert (root / f"{slug}.md").read_text().startswith(f"---\ntitle: T {slug}\n{line}\ntags:\n  - t\n")
     assert svc.types() == {"note": 1, "glossary": 1, "contact": 1, "interview": 1, "task": 1}
+
+
+def test_tags_and_types_keep_a_files_own_style_until_they_change(svc, root):
+    """Saving must not reformat lists that did not change; a list that does change is written inline."""
+    (root / "block.md").write_text("---\ntitle: Block\ntags:\n  - a\n  - b\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Block\n")
+    (root / "inline.md").write_text("---\ntitle: Inline\ntags: [a, b]\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Inline\n")
+    (root / "bare.md").write_text("---\ntitle: Bare\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Bare\n")
+    git(root, "add", "-A"); git(root, "commit", "-qm", "seed")
+    for slug in ("block", "inline", "bare"):  # an edit that leaves tags and types alone
+        svc.update(slug, content=f"# {slug.title()}\n\nedited")
+    assert "tags:\n  - a\n  - b\n" in (root / "block.md").read_text()      # block list untouched
+    assert "tags: [a, b]\n" in (root / "inline.md").read_text()             # inline list untouched
+    assert "tags" not in (root / "bare.md").read_text()                       # nothing invented
+    svc.update("block", tags=("a", "b", "c"))
+    assert "tags: [a, b, c]\n" in (root / "block.md").read_text()            # changed: now inline
+    svc.update("bare", tags=("x",), types=("note",))
+    assert (root / "bare.md").read_text().startswith("---\ntitle: Bare\ntags: [x]\ntype: [note]\ncreated:")
+    svc.update("inline", tags=())
+    assert "tags: []\n" in (root / "inline.md").read_text()
+    assert svc.get("block").tags == ("a", "b", "c")
+
+
+def test_tags_with_special_characters_are_quoted_inline(svc, root):
+    svc.create("Odd", tags=("a, b", "c: d", "plain"))
+    assert svc.get("odd").tags == ("a, b", "c: d", "plain")  # survives a round trip
+    assert "tags: [" in (root / "odd.md").read_text()

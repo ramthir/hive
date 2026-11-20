@@ -48,6 +48,9 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 /* Narrow windows: let the left side of the action bar shrink instead of overlapping the buttons. */
 .notes-footer-left { min-width: 0; flex: 1 1 auto; overflow: hidden; }
 .notes-footer-left .notes-type-label { min-width: 0; flex: 0 1 auto; display: inline-flex; align-items: center; gap: .45rem; }
+.notes-type-label i { opacity: .9; }
+.notes-type-chip { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+.notes-type-chip + .notes-type-chip { margin-left: .5rem; }
 .notes-type-name { text-transform: capitalize; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notes-type-input { width: 8.5rem; min-width: 4rem; background: var(--color-dark2); border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md);
   color: var(--color-text); font: 600 .8rem var(--font-family); padding: .25rem .5rem; }

@@ -231,7 +231,7 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
     text = (notes_dir / "alpha.md").read_text()
-    assert "tags:\n  - one\n  - two\n  - three\n" in text
+    assert "tags: [one, two, three]\n" in text  # changed, so written inline
     page.click("#edit-note-btn")  # close the editor: tags stay visible, read-only
     expect(tags).to_have_value("one, two, three")
     assert page.errors == []
@@ -294,8 +294,8 @@ def test_action_bar_shows_the_note_type_not_the_file_name(page, server, notes_di
     assert "alpha.md" not in page.locator(".notes-action-bar").inner_text()
     expect(label).to_have_attribute("title", "alpha.md")
     page.goto(f"{server}/notes/typed")
-    expect(page.locator(".notes-type-name")).to_have_text("contact, interview")  # a list, as stored in the vault
-    expect(page.locator("#note-type-icon")).to_have_class("fa-solid fa-user")  # the first type picks the icon
+    expect(page.locator(".notes-type-name")).to_have_text(["contact", "interview"])  # one chip per type
+    expect(page.locator(".notes-type-chip i")).to_have_class(["fa-solid fa-user", "fa-solid fa-comments"])  # an icon each
     assert page.errors == []
 
 
@@ -310,9 +310,10 @@ def test_editing_the_note_type_saves_a_list_and_keeps_other_files_style(page, se
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
-    assert "\ntype:\n  - task\n  - urgent\n" in (notes_dir / "alpha.md").read_text()
+    assert "\ntype: [task, urgent]\n" in (notes_dir / "alpha.md").read_text()
     page.click("#edit-note-btn")
-    expect(page.locator(".notes-type-name")).to_have_text("task, urgent")
+    expect(page.locator(".notes-type-name")).to_have_text(["task", "urgent"])
+    expect(page.locator(".notes-type-chip i")).to_have_class(["fa-solid fa-list-check", "fa-solid fa-file-lines"])  # unknown type: plain file icon
     # Clearing it removes the key again.
     page.click("#edit-note-btn")
     page.locator("#note-type").fill("")
@@ -475,3 +476,30 @@ def test_real_plantuml_draws_a_decodable_image(page, diagram_note):
         expect(img).to_be_visible(timeout=15000)
         assert img.evaluate("e => e.complete && e.naturalWidth > 50 && e.naturalHeight > 50")
         assert page.errors == []
+
+
+def test_unset_type_shows_the_default_note_icon(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator(".notes-type-chip i")).to_have_class("fa-solid fa-note-sticky")
+    expect(page.locator(".notes-type-name")).to_have_text("note")
+
+
+def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir):
+    for slug, title, types in [("t1", "A Task", "[task]"), ("c1", "A Contact", "[contact, interview]"), ("h1", "A Holiday", "holiday")]:
+        (notes_dir / f"{slug}.md").write_text(f"---\ntitle: {title}\ntype: {types}\nupdated: 2026-03-0{len(slug)}\n---\n\n# {title}\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "typed notes")
+    page.goto(f"{server}/notes/alpha")
+    page.keyboard.press("Control+k")
+    rows = page.locator("note-spotlight .spotlight-item")
+    expect(rows).to_have_count(5)
+
+    def icon(title):
+        return rows.filter(has_text=title).locator(".spotlight-item-icon i")
+
+    expect(icon("A Task")).to_have_class("fa-solid fa-list-check")
+    expect(icon("A Contact")).to_have_class("fa-solid fa-user")  # the first of its types
+    expect(icon("A Holiday")).to_have_class("fa-solid fa-umbrella-beach")  # a scalar `type:` works too
+    expect(icon("Alpha")).to_have_class("fa-solid fa-note-sticky")  # no type: the default
+    expect(rows.filter(has_text="A Contact").locator(".spotlight-item-icon")).to_have_attribute("title", "contact, interview")
+    assert page.errors == []

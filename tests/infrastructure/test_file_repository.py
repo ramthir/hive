@@ -37,7 +37,7 @@ def commits(root):
 def test_create_writes_frontmatter_and_commits(repo, root):
     note = repo.create(Note(slug="hello", title="Hello", content="# Hi\n", tags=("a", "b")))
     text = (root / "hello.md").read_text()
-    assert text == "---\ntitle: Hello\ntags:\n  - a\n  - b\ncreated: 2026-11-20\nupdated: 2026-11-20\n---\n\n# Hi\n"
+    assert text == "---\ntitle: Hello\ntags: [a, b]\ncreated: 2026-11-20\nupdated: 2026-11-20\n---\n\n# Hi\n"
     assert note.content == "# Hi\n" and note.tags == ("a", "b") and note.created == "2026-11-20"
     assert commits(root)[0] == "doc: add Hello"
 

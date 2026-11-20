@@ -6,6 +6,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/time-format.js';
 import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
+import { DEFAULT_TYPE, typeIcon, noteTypeIcon } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 
 const notesRouter = new ScopedRouter({ basename: '/notes' });
@@ -18,11 +19,6 @@ const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(n
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
 const searchShortcutKey = isMac ? '⌘K' : 'Ctrl+K';
 const READING_WORDS_PER_MINUTE = 75;
-const DEFAULT_TYPE = 'note';
-// Icons for the usual types; anything else gets the plain file icon.
-const TYPE_ICONS = { task: 'list-check', contact: 'user', project: 'folder', meeting: 'calendar-check', clipping: 'paperclip', book: 'book' };
-// A note can have several types; the first one picks the icon.
-const typeIcon = (types) => TYPE_ICONS[String((types || [])[0] || '').toLowerCase()] || 'file-lines';
 
 /* --- API ------------------------------------------------------------- */
 
@@ -484,10 +480,9 @@ class NotesApp extends HTMLElement {
         <app-action-bar fixed class="notes-action-bar" aria-label="Note status and actions">
           <div class="action-bar-left notes-footer-left">
             <span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
-              <i class="fa-solid fa-${typeIcon(note.types)}" id="note-type-icon" aria-hidden="true"></i>
               ${editing
-                ? `<input id="note-type" class="notes-type-input" placeholder="${DEFAULT_TYPE}" title="Note type; separate several with commas" aria-label="Note type" value="${esc((note.types || []).join(', '))}" spellcheck="false" />`
-                : `<span class="notes-type-name">${esc((note.types || []).join(', ') || DEFAULT_TYPE)}</span>`}
+                ? `<i class="fa-solid fa-${noteTypeIcon(note.types)}" id="note-type-icon" aria-hidden="true"></i><input id="note-type" class="notes-type-input" placeholder="${DEFAULT_TYPE}" title="Note type; separate several with commas" aria-label="Note type" value="${esc((note.types || []).join(', '))}" spellcheck="false" />`
+                : (note.types?.length ? note.types : [DEFAULT_TYPE]).map((type) => `<span class="notes-type-chip"><i class="fa-solid fa-${typeIcon(type)}" aria-hidden="true"></i><span class="notes-type-name">${esc(type)}</span></span>`).join('')}
             </span>
             <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="notes-footer-stats" title="${chars.toLocaleString()} characters">
@@ -535,7 +530,7 @@ class NotesApp extends HTMLElement {
     this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
     this.querySelector('#note-type')?.addEventListener('input', (event) => {
-      this.querySelector('#note-type-icon').className = `fa-solid fa-${typeIcon(parseTags(event.target.value))}`;
+      this.querySelector('#note-type-icon').className = `fa-solid fa-${noteTypeIcon(parseTags(event.target.value))}`;
       this.markDirty();
     });
 

@@ -5,6 +5,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from ruamel.yaml.comments import CommentedSeq
+
 from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import NoteExists, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
@@ -25,6 +27,21 @@ def parse_types(raw: Any) -> tuple[str, ...]:
         return ()
     items = raw if isinstance(raw, (list, tuple)) else [raw]
     return tuple(t for t in (str(i).strip() for i in items) if t)
+
+
+def parse_tags(raw: Any) -> tuple[str, ...]:
+    """`tags:` may be a list (block or inline) or a single scalar."""
+    if raw is None:
+        return ()
+    items = raw if isinstance(raw, (list, tuple)) else [raw]
+    return tuple(str(i) for i in items)
+
+
+def _inline(items) -> CommentedSeq:
+    """A list written inline, `[a, b]`: the vault's convention for `tags` and `type`."""
+    seq = CommentedSeq(list(items))
+    seq.fa.set_flow_style()
+    return seq
 
 
 def _as_date(value: str | None) -> Any:
@@ -52,14 +69,11 @@ class FileNoteRepository(NoteRepository):
     def _parse(self, slug: str, text: str, modified: float | None = None) -> Note:
         meta, body = frontmatter.split(text)
         meta = meta or {}
-        tags = meta.get("tags") or []
-        if isinstance(tags, str):
-            tags = [tags]
         return Note(
             slug=slug,
             title=str(meta.get("title") or slug),
             content=body,
-            tags=tuple(str(t) for t in tags),
+            tags=parse_tags(meta.get("tags")),
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
             types=parse_types(meta.get("type")),
@@ -73,21 +87,25 @@ class FileNoteRepository(NoteRepository):
             meta = frontmatter.new_map()
         iso = self._today().isoformat()  # fresh date objects per key: shared ones become YAML anchors
         meta["title"] = note.title
-        if note.tags or "tags" in meta:
-            meta["tags"] = list(note.tags)
+        # `tags` and `type` are only touched when they changed, so a file keeps its own list style (inline, block or
+        # scalar); a value that does change is written inline, as in the rest of the vault.
+        if tuple(note.tags) != parse_tags(meta.get("tags")):
+            if "tags" in meta:
+                meta["tags"] = _inline(note.tags)
+            else:  # a new key goes right after the title, not at the end
+                meta.insert(list(meta.keys()).index("title") + 1, "tags", _inline(note.tags))
         if "created" not in meta:
             meta["created"] = _as_date(note.created or iso)
         meta["updated"] = _as_date(iso)
-        # Only touch `type` when it actually changed, so a file's own style (flow, block or scalar) is kept.
         if tuple(note.types) != parse_types(meta.get("type")):
             if not note.types:
                 meta.pop("type", None)
             elif "type" in meta:
-                meta["type"] = list(note.types)
+                meta["type"] = _inline(note.types)
             else:  # a new key goes right after the tags (or the title), not at the end
                 keys = list(meta.keys())
                 after = keys.index("tags") if "tags" in keys else keys.index("title")
-                meta.insert(after + 1, "type", list(note.types))
+                meta.insert(after + 1, "type", _inline(note.types))
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
