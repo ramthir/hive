@@ -1,0 +1,273 @@
+/**
+ * Shared base styles — reset, html/body sizing, default body/link
+ * treatment, and scrollbar styling — used by Pandora and its
+ * sibling services. Load via
+ * <link rel="stylesheet" href="http://pandora/static/base.css">
+ * after tokens.css (these rules reference --font-family/--color-*).
+ *
+ * Only the boilerplate that was actually byte-identical (or near-
+ * identical, modulo scrollbar pixel sizes) across repos lives here —
+ * each service's own page/component styling stays in its own
+ * style.css, same principle as tokens.css's spacing scale: don't
+ * centralize what doesn't actually recur.
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+/* Keep shell based pages hidden until the sidebar's own stylesheet is ready. */
+app-shell {
+  opacity: 0;
+  transition: opacity 0.15s ease-in;
+}
+app-shell.ready {
+  opacity: 1;
+}
+
+/* Header action buttons share one control scale across every page. */
+.app-header-action-group {
+  display: flex;
+  align-items: center;
+  gap: var(--app-header-action-gap);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.app-header-action-group > button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-header-height, 2.5625rem);
+  min-height: 0;
+  gap: var(--btn-header-gap);
+  padding: 0 var(--btn-header-padding-x, 0.75rem);
+  border: var(--btn-header-secondary-border);
+  border-radius: var(--btn-header-radius);
+  background: var(--btn-header-secondary-bg);
+  color: var(--btn-header-secondary-text);
+  font-family: var(--font-family);
+  font-size: var(--btn-header-font-size);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.app-header-action-group > button:hover {
+  background: var(--btn-header-secondary-hover-bg);
+  border-color: var(--btn-header-secondary-border-hover);
+}
+
+.app-header-action-group > button.primary,
+.app-header-action-group > button.btn-primary {
+  background: var(--btn-header-primary-bg);
+  border: var(--btn-header-primary-border);
+  color: var(--btn-header-primary-text);
+}
+
+.app-header-action-group > button.primary:hover,
+.app-header-action-group > button.btn-primary:hover {
+  background: var(--btn-header-primary-hover-bg);
+  border-color: var(--btn-header-primary-border-hover);
+}
+
+.app-header-action-group > button.danger,
+.app-header-action-group > button.btn-danger,
+.app-header-action-group > button.profile-btn-delete {
+  background: var(--btn-header-danger-bg);
+  border: var(--btn-header-danger-border);
+  color: var(--btn-header-danger-text);
+}
+
+.app-header-action-group > button.danger:hover,
+.app-header-action-group > button.btn-danger:hover,
+.app-header-action-group > button.profile-btn-delete:hover {
+  background: var(--btn-header-danger-hover-bg);
+  border-color: var(--btn-header-danger-border-hover);
+}
+
+@media (max-width: 640px) {
+  .app-header-action-group {
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--space-2, 0.5rem);
+  }
+
+  .app-header-action-group > app-autocomplete,
+  .app-header-action-group > .notes-search-wrapper,
+  .app-header-action-group > .notes-note-search-wrapper,
+  .app-header-action-group > .quotes-search-wrapper,
+  .app-header-action-group > .assets-search-wrapper,
+  .app-header-action-group > .search-wrapper {
+    flex: 1 1 100%;
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .app-header-action-group > app-tab-bar,
+  .app-header-action-group > .quotes-view-toggle {
+    flex: 1 1 auto;
+  }
+
+  .app-header-action-group > button,
+  .app-header-action-group > .notes-btn,
+  .app-header-action-group > .work-btn,
+  .app-header-action-group > .quotes-btn,
+  .app-header-action-group > .assets-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+a {
+  color: var(--color-accent5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--color-accent4);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dimmed5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dimmed4);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--color-dark2) inset !important;
+  box-shadow: 0 0 0 1000px var(--color-dark2) inset !important;
+  caret-color: var(--color-text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Monokai-themed search cancel (x) button for native search inputs */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-right: 2px;
+  cursor: pointer;
+  background-color: var(--search-clear-color);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath fill='currentColor' d='M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath fill='currentColor' d='M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+input[type="search"]::-webkit-search-cancel-button:hover {
+  background-color: var(--search-clear-hover-color);
+}
+
+/* Shared Empty State & Route Loading */
+.empty-state,
+.notes-empty-state,
+.quotes-empty-state,
+.assets-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: 4rem var(--space-7);
+  text-align: center;
+  color: var(--color-dimmed3);
+  grid-column: 1 / -1;
+}
+
+.empty-state i,
+.notes-empty-state i,
+.quotes-empty-state i,
+.assets-empty-state i {
+  font-size: 3rem;
+  color: var(--color-dimmed4);
+}
+
+.empty-state h3,
+.notes-empty-state h3,
+.quotes-empty-state h3,
+.assets-empty-state h3 {
+  color: var(--color-text);
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.empty-state p,
+.notes-empty-state p,
+.quotes-empty-state p,
+.assets-empty-state p {
+  color: var(--color-dimmed2);
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.stat-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4, 1rem);
+}
+
+.stat-card-grid[hidden] {
+  display: none;
+}
+
+.stat-card-grid stat-card {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .stat-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .stat-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

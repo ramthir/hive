@@ -5,7 +5,7 @@ import difflib
 from fastapi import APIRouter, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             RenameRequest, VersionDetail, VersionOut)
+                             RenameRequest, ResolvedLink, VersionDetail, VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
 
@@ -34,6 +34,17 @@ def create_note(request: Request, body: NoteCreate):
 @router.get("/tags", response_model=dict[str, int])
 def tags(request: Request):
     return svc(request).tags()
+
+
+@router.get("/resolve", response_model=dict[str, ResolvedLink | None])
+def resolve(request: Request, target: list[str] = Query(default=[])):
+    """Resolve wikilink targets (slug, title, or loose title) to notes; unknown targets map to null."""
+    index = svc(request).index
+    out: dict[str, ResolvedLink | None] = {}
+    for t in target:
+        slug = index.resolve(t)
+        out[t] = ResolvedLink(slug=slug, title=index.notes[slug].title) if slug else None
+    return out
 
 
 @router.post("/reindex", status_code=204)

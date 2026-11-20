@@ -106,3 +106,19 @@ def test_external_edit_visible_after_reindex(client, root):
     assert [n["slug"] for n in client.get("/api/notes").json()] == ["a"]
     assert client.post("/api/reindex").status_code == 204
     assert [n["slug"] for n in client.get("/api/notes").json()] == ["a", "b"]
+
+
+def test_resolve_and_snippet(client):
+    make(client, "ADR: Standard", content="# Heading\n\nSome *body* text")
+    r = client.get("/api/resolve", params=[("target", "adr-standard"), ("target", "ADR Standard"), ("target", "nope")]).json()
+    assert r == {"adr-standard": {"slug": "adr-standard", "title": "ADR: Standard"},
+                 "ADR Standard": {"slug": "adr-standard", "title": "ADR: Standard"}, "nope": None}
+    assert client.get("/api/notes").json()[0]["snippet"] == "Heading Some body text"
+
+
+def test_spa_and_static_served(client):
+    for path in ("/", "/notes", "/notes/some-slug"):
+        r = client.get(path)
+        assert r.status_code == 200 and "<notes-app" in r.text
+    assert client.get("/static/tokens.css").status_code == 200
+    assert client.get("/api/nothing").status_code == 404

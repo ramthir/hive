@@ -6,7 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import notes
 from src.application.notes.service import NoteService
@@ -39,5 +40,14 @@ def create_app(notes_dir: str | Path | None = None) -> FastAPI:
     @app.get("/api/health")
     def health() -> dict:
         return {"status": "ok", "notes_dir": str(root)}
+
+    static = Path(__file__).resolve().parents[2] / "static"
+    app.mount("/static", StaticFiles(directory=static), name="static")
+
+    @app.get("/", include_in_schema=False)
+    @app.get("/notes", include_in_schema=False)
+    @app.get("/notes/{path:path}", include_in_schema=False)
+    def spa(path: str = "") -> FileResponse:
+        return FileResponse(static / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
