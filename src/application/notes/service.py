@@ -72,18 +72,7 @@ class NoteService:
     def time_notes(self) -> list[tuple[Note, bool]]:
         """The notes that take time (tasks and meetings) with whether they are this week's: edited this week or with
         time logged this week. This week's come first, most recently edited first; the rest follow by title."""
-        week = self.current_week()
-
-        def in_week(day: str) -> bool:
-            try:
-                return week_label(date.fromisoformat(day[:10])) == week
-            except ValueError:
-                return False
-
-        notes = sorted((n for n in self.index.notes.values() if accepts_time(n)), key=lambda n: n.title.casefold())
-        flagged = [(n, in_week(n.updated or "") or any(in_week(d) for d in n.time)) for n in notes]
-        recent = sorted((f for f in flagged if f[1]), key=lambda f: (f[0].updated or "", f[0].modified or 0.0), reverse=True)
-        return recent + [f for f in flagged if not f[1]]
+        return time_entries.order_time_notes(self.index.notes.values(), self.current_week())
 
     def time_rows(self, *, query: str = "", start: str | None = None, end: str | None = None,
                   slug: str | None = None) -> list[time_entries.TimeRow]:

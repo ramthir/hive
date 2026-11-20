@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from src.application.notes.time_entries import TimeRow, month_summary, parse_query, rows_of, select
+from src.application.notes.time_entries import TimeRow, month_summary, order_time_notes, parse_query, rows_of, select
 from src.domain.notes.entities import Note
 
 TODAY = date(2026, 11, 20)
@@ -75,3 +75,14 @@ def test_month_summary_counts_only_the_current_month_with_a_breakdown_per_day():
 def test_month_summary_of_nothing_is_zero():
     s = month_summary([], TODAY)
     assert (s["total_entries"], s["total_minutes"], s["today_minutes"], s["days"]) == (0, 0, 0, [])
+
+
+def test_order_time_notes_puts_the_weeks_first_and_skips_other_types():
+    def n(slug, kind, updated, time=None):
+        return Note(slug=slug, title=slug.title(), content="", types=(kind,), updated=updated, time=time or {})
+
+    notes = [n("archive", "task", "2026-10-01"), n("billing", "task", "2026-10-01", {"2026-11-18": 30}),
+             n("standup", "meeting", "2026-11-17"), n("deploy", "task", "2026-11-19"), n("idea", "idea", "2026-11-19")]
+    ordered = order_time_notes(notes, "2026-W47")
+    assert [(x.slug, week) for x, week in ordered] == [
+        ("deploy", True), ("standup", True), ("billing", True), ("archive", False)]

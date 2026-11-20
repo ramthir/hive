@@ -7,7 +7,8 @@ from datetime import date, timedelta
 from typing import Any, Iterable
 
 from src.domain.notes.entities import Note
-from src.domain.notes.time import time_type
+from src.domain.notes.tasks import week_label
+from src.domain.notes.time import accepts_time, time_type
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,22 @@ def select(rows: Iterable[TimeRow], *, query: str = "", start: str | None = None
         out.append(r)
     out.sort(key=lambda r: r.title.casefold())
     return sorted(out, key=lambda r: r.day, reverse=True)  # stable: titles stay A-Z within a day
+
+
+def _in_week(day: str, week: str) -> bool:
+    try:
+        return week_label(date.fromisoformat(day[:10])) == week
+    except ValueError:
+        return False
+
+
+def order_time_notes(notes: Iterable[Note], week: str) -> list[tuple[Note, bool]]:
+    """The notes that take time (tasks and meetings) with whether they are `week`'s: edited that week or with time
+    logged in it. That week's come first, most recently edited first; the rest follow by title."""
+    flagged = [(n, _in_week(n.updated or "", week) or any(_in_week(d, week) for d in n.time))
+               for n in sorted((n for n in notes if accepts_time(n)), key=lambda n: n.title.casefold())]
+    recent = sorted((f for f in flagged if f[1]), key=lambda f: (f[0].updated or "", f[0].modified or 0.0), reverse=True)
+    return recent + [f for f in flagged if not f[1]]
 
 
 def month_summary(rows: Iterable[TimeRow], today: date) -> dict[str, Any]:
