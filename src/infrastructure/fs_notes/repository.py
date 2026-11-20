@@ -88,6 +88,8 @@ class FileNoteRepository(NoteRepository):
         self.root = Path(root).expanduser().resolve()
         self.git = git or GitClient(self.root)
         self._today = today
+        # slug -> ((mtime_ns, size), parsed note): `list()` only re-parses files whose stat changed.
+        self._parsed: dict[str, tuple[tuple[int, int], Note]] = {}
 
     # -- helpers ---------------------------------------------------------
     def _rel(self, slug: str) -> str:
@@ -150,7 +152,25 @@ class FileNoteRepository(NoteRepository):
 
     # -- queries ---------------------------------------------------------
     def list(self) -> list[Note]:
-        return [self._parse(p.stem, p.read_text(encoding="utf-8"), p.stat().st_mtime) for p in sorted(self.root.glob("*.md"))]
+        """Every note, by file name. Parsing is the cost, so a file whose (mtime, size) is unchanged since the last call
+        reuses its parsed note; the stat comes before the read, so a write in between is only ever picked up late."""
+        cache, notes = self._parsed, []
+        fresh: dict[str, tuple[tuple[int, int], Note]] = {}
+        for path in sorted(self.root.glob("*.md")):
+            try:
+                st = path.stat()
+                key = (st.st_mtime_ns, st.st_size)
+                hit = cache.get(path.stem)
+                if hit and hit[0] == key:
+                    note = hit[1]
+                else:
+                    note = self._parse(path.stem, path.read_text(encoding="utf-8"), st.st_mtime)
+            except FileNotFoundError:  # deleted while listing
+                continue
+            fresh[path.stem] = (key, note)
+            notes.append(note)
+        self._parsed = fresh
+        return notes
 
     def get(self, slug: str) -> Note:
         path = self._path(slug)

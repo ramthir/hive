@@ -195,3 +195,23 @@ def test_entries_that_are_not_a_valid_day_are_kept_when_time_changes(repo, root)
     seed(root, "t.md", TASK.replace("---\n\n#", "time: {2026-11-20: 90, soon: 30, 2026-11-22: 0}\n---\n\n#"))
     repo.update(replace(repo.get("t"), time={"2026-11-20": 100}))
     assert "time: {2026-11-20: 100, soon: 30, 2026-11-22: 0}" in (root / "t.md").read_text()
+
+
+def test_list_reparses_only_files_that_changed(repo, root, monkeypatch):
+    repo.create(Note(slug="one", title="One", content="# One\n\nbody"))
+    repo.create(Note(slug="two", title="Two", content="# Two\n\nbody"))
+    assert [n.slug for n in repo.list()] == ["one", "two"]
+
+    parsed = []
+    real = repo._parse
+    monkeypatch.setattr(repo, "_parse", lambda slug, *a, **k: (parsed.append(slug), real(slug, *a, **k))[1])
+    assert [n.slug for n in repo.list()] == ["one", "two"]
+    assert parsed == []  # nothing changed: nothing parsed
+
+    (root / "two.md").write_text("---\ntitle: Two\n---\n\n# Two\n\nedited elsewhere\n")
+    assert [n.content for n in repo.list()][1].endswith("edited elsewhere\n")
+    assert parsed == ["two"]  # only the edited file
+
+    (root / "two.md").unlink()
+    (root / "three.md").write_text("# Three\n")
+    assert [n.slug for n in repo.list()] == ["one", "three"]  # deletions and additions are noticed
