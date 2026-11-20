@@ -17,3 +17,7 @@ File-backed notes app: markdown files in `NOTES_DIR` (default `~/Workspace/notes
 
 ## Running
 `NOTES_DIR=~/Workspace/notes uv run python main.py` serves on port 80 (needs `net.ipv4.ip_unprivileged_port_start` <= 80 or root). Binds 0.0.0.0 by default and there is no auth, so anyone who can reach the port can edit notes; `HOST=127.0.0.1` limits it to this machine. `PORT` overrides the port. Every save is a real git commit in `NOTES_DIR`.
+
+## PlantUML previews
+Fenced ```plantuml / ```puml blocks render as images in the preview. `DiagramService` (`src/application/diagrams`) runs `java -jar plantuml.jar -pipe -tsvg` per diagram (~200 ms) under `PLANTUML_SECURITY_PROFILE=SANDBOX`, so the renderer itself reads no files and opens no URLs; `!include <file>.puml` is inlined by us, only from `NOTES_DIR` and never outside it, and `!include monokai-theme.puml` / `!theme monokai-pro` always use the bundled theme (as in Pandora). Results are cached by source hash. The SVG is shown through an `<img>` data URL, never inline, so a diagram cannot run script.
+Setup (no root needed): a JRE (`mise install java@temurin-21`) and `plantuml.jar` in `~/.local/share/hive/plantuml/` (verify the SHA-256 GitHub publishes for the release), then `PLANTUML_JAVA` / `PLANTUML_JAR` in `.env`. Without them the code block stays and a message says why. No Graphviz is needed.

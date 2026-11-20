@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,7 +11,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import notes
+from src.api.routes import diagrams, notes
+from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidSlug, InvalidTitle, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
@@ -19,7 +21,8 @@ from src.infrastructure.metrics import Metrics
 from src.infrastructure.watcher import NotesWatcher
 
 
-def create_app(notes_dir: str | Path | None = None, watch: bool | None = None) -> FastAPI:
+def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
+               diagram_service: DiagramService | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -42,8 +45,16 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None) -
             if watcher:
                 watcher.stop()
 
+    if diagram_service is None:
+        diagram_service = DiagramService(
+            java=os.environ.get("PLANTUML_JAVA") or shutil.which("java"),
+            jar=os.environ.get("PLANTUML_JAR", "~/.local/share/hive/plantuml/plantuml.jar"),
+            notes_dir=root, metrics=metrics)
+
+    diagram_service.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
     app = FastAPI(title="Hive Notes", lifespan=lifespan)
     app.state.notes = service
+    app.state.diagrams = diagram_service
     app.state.metrics = metrics
 
     def err(status: int):
@@ -56,7 +67,13 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None) -
     app.add_exception_handler(InvalidSlug, err(422))
     app.add_exception_handler(InvalidTitle, err(422))
     app.add_exception_handler(GitError, err(500))
+
+    async def diagram_error(_: Request, exc: DiagramError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=exc.status)
+
+    app.add_exception_handler(DiagramError, diagram_error)
     app.include_router(notes.router, prefix="/api")
+    app.include_router(diagrams.router, prefix="/api")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:

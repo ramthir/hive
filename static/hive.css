@@ -61,3 +61,10 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 /* The rendered note sits in #notes-md, so Pandora's `.notes-preview-pane > :first-child` no longer reaches the
    heading: drop its top margin here so the title starts right under the header. */
 #notes-md > :first-child { margin-top: 0; }
+
+/* PlantUML previews */
+.notes-diagram { margin: 1.25rem 0; }
+.notes-diagram-img { display: block; max-width: 100%; height: auto; margin-inline: auto; border-radius: var(--radius-md); }
+.notes-diagram pre { margin: 0; }
+.notes-diagram-status, .notes-diagram-error { margin-top: .4rem; font: 500 .8rem var(--font-family); color: var(--color-dimmed2); }
+.notes-diagram-error { color: var(--color-red, #ff6188); }

@@ -336,3 +336,142 @@ def test_saving_a_note_does_not_rewrite_its_existing_type_formatting(page, serve
     wait_for_commits(notes_dir, 3)
     assert "\ntype: [contact, interview]\n" in (notes_dir / "flow.md").read_text()  # untouched: still the flow list
     assert page.errors == []
+
+
+# --- PlantUML previews ------------------------------------------------------------------------------------------------
+
+import contextlib  # noqa: E402
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from src.application.diagrams.service import DiagramService  # noqa: E402
+from tests.application.test_diagram_service import FAKE_SVG, FakeRunner  # noqa: E402
+
+DIAGRAM_NOTE = (
+    "---\ntitle: Flows\n---\n\n# Flows\n\nBefore.\n\n"
+    "```plantuml\n@startuml\nAlice -> Bob: one\n@enduml\n```\n\n"
+    "Between.\n\n"
+    "```puml\n@startuml\nAlice -> Carol: two\n@enduml\n```\n"
+)
+
+
+@contextlib.contextmanager
+def serve(notes_dir, diagram_service):
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, watch=False, diagram_service=diagram_service), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        srv.should_exit = True
+        thread.join(5)
+
+
+def fake_diagrams(tmp_path, notes_dir, runner=None, available=True):
+    java = tmp_path / "fake-java"
+    java.write_text("")
+    jar = tmp_path / "fake.jar"
+    jar.write_text("")
+    return DiagramService(str(java) if available else None, jar, notes_dir, runner=runner or FakeRunner())
+
+
+@pytest.fixture
+def diagram_note(notes_dir):
+    (notes_dir / "flows.md").write_text(DIAGRAM_NOTE)
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "flows")
+    return notes_dir
+
+
+def test_plantuml_fences_render_as_images(page, diagram_note, tmp_path):
+    runner = FakeRunner()
+    with serve(diagram_note, fake_diagrams(tmp_path, diagram_note, runner)) as server:
+        page.goto(f"{server}/notes/flows")
+        images = page.locator("#notes-md .notes-diagram-img")
+        expect(images).to_have_count(2)  # both ```plantuml and ```puml fences
+        assert images.first.get_attribute("src").startswith("data:image/svg+xml")
+        expect(page.locator("#notes-md .notes-diagram-status")).to_have_count(0)
+        assert page.locator("#notes-md pre code.language-plantuml").count() == 0  # the code is replaced by the image
+        assert len(runner.calls) == 2
+        # Reopening the note reuses the rendered images: nothing is rendered again.
+        page.goto(f"{server}/notes/alpha")
+        page.goto(f"{server}/notes/flows")
+        expect(page.locator("#notes-md .notes-diagram-img")).to_have_count(2)
+        assert len(runner.calls) == 2  # the server's cache (same source)
+        assert page.errors == []
+
+
+def test_editing_a_diagram_rerenders_only_the_changed_block(page, diagram_note, tmp_path):
+    runner = FakeRunner()
+    with serve(diagram_note, fake_diagrams(tmp_path, diagram_note, runner)) as server:
+        page.goto(f"{server}/notes/flows?mode=edit")
+        page.wait_for_selector(".cm-content")
+        expect(page.locator("#notes-md .notes-diagram-img")).to_have_count(2)
+        assert len(runner.calls) == 2
+        page.click(".cm-content")
+        page.keyboard.press("Control+Home")
+        page.keyboard.type("Typing in the heading must not re-render diagrams. ")
+        expect(page.locator("#notes-md")).to_contain_text("Typing in the heading")
+        expect(page.locator("#notes-md .notes-diagram-img")).to_have_count(2)  # stayed images while typing: no flicker
+        assert len(runner.calls) == 2
+        # Change one diagram's source: only that one is rendered again, after a short pause.
+        page.keyboard.press("Control+End")
+        page.keyboard.press("ArrowUp")
+        page.keyboard.press("ArrowUp")
+        page.keyboard.press("Home")
+        page.keyboard.type("Carol -> Dave: three\n")
+        wait_until(lambda: len(runner.calls) == 3)
+        assert "Carol -> Dave: three" in runner.calls[2]["source"]
+        expect(page.locator("#notes-md .notes-diagram-img")).to_have_count(2)
+        assert page.errors == []
+
+
+def wait_until(predicate, timeout=8):
+    end = time.time() + timeout
+    while time.time() < end:
+        if predicate():
+            return True
+        time.sleep(0.05)
+    raise AssertionError("condition not met in time")
+
+
+def test_missing_renderer_keeps_the_code_and_says_why(page, diagram_note, tmp_path):
+    with serve(diagram_note, fake_diagrams(tmp_path, diagram_note, available=False)) as server:
+        page.goto(f"{server}/notes/flows")
+        expect(page.locator("#notes-md .notes-diagram-error").first).to_contain_text("PlantUML is not set up")
+        expect(page.locator("#notes-md .notes-diagram pre code")).to_have_count(2)  # the source is still readable
+        assert page.locator(".notes-diagram-img").count() == 0
+        # The note itself still works.
+        expect(page.locator("#notes-md h1")).to_have_text("Flows")
+
+
+def test_a_failed_render_shows_the_error_and_is_not_retried(page, diagram_note, tmp_path):
+    runner = FakeRunner(stdout="", stderr="java exploded")
+    with serve(diagram_note, fake_diagrams(tmp_path, diagram_note, runner)) as server:
+        page.goto(f"{server}/notes/flows")
+        expect(page.locator("#notes-md .notes-diagram-error").first).to_contain_text("Could not render this diagram")
+        time.sleep(1.0)
+        assert len(runner.calls) == 2  # one attempt per diagram, no retry loop
+        expect(page.locator("#notes-md .notes-diagram pre code")).to_have_count(2)
+
+
+needs_java = pytest.mark.skipif(
+    not (os.environ.get("PLANTUML_JAVA") and Path(os.environ["PLANTUML_JAVA"]).is_file()
+         and Path(os.path.expanduser(os.environ.get("PLANTUML_JAR", "~/.local/share/hive/plantuml/plantuml.jar"))).is_file()),
+    reason="needs PLANTUML_JAVA and plantuml.jar")
+
+
+@needs_java
+def test_real_plantuml_draws_a_decodable_image(page, diagram_note):
+    real = DiagramService(os.environ["PLANTUML_JAVA"], os.path.expanduser(os.environ.get("PLANTUML_JAR", "~/.local/share/hive/plantuml/plantuml.jar")), diagram_note)
+    with serve(diagram_note, real) as server:
+        page.goto(f"{server}/notes/flows")
+        img = page.locator("#notes-md .notes-diagram-img").first
+        expect(img).to_be_visible(timeout=15000)
+        assert img.evaluate("e => e.complete && e.naturalWidth > 50 && e.naturalHeight > 50")
+        assert page.errors == []

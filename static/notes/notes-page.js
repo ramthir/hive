@@ -169,6 +169,11 @@ class NotesApp extends HTMLElement {
     this.cmEditor = null;
     this._unsubscribe = null;
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
+    // PlantUML previews: source -> data URL of the rendered SVG, and sources that failed (never retried until edited).
+    this._diagramCache = new Map();
+    this._diagramErrors = new Map();
+    this._diagramInflight = new Map();
+    this._diagramTimer = null;
   }
 
   connectedCallback() {
@@ -192,6 +197,7 @@ class NotesApp extends HTMLElement {
 
   disconnectedCallback() {
     clearTimeout(this._copyTimer);
+    clearTimeout(this._diagramTimer);
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
     window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
@@ -643,7 +649,93 @@ class NotesApp extends HTMLElement {
     globalThis.hljs?.highlightElement && parsed.querySelectorAll('pre code').forEach((block) => {
       try { globalThis.hljs.highlightElement(block); } catch (_error) { /* unknown language */ }
     });
+    this.markDiagramBlocks(parsed);
     return parsed.body.innerHTML;
+  }
+
+  /* --- PlantUML previews ---------------------------------------------- */
+
+  // ```plantuml / ```puml fences become figures: the rendered image if known, else the code with a status line.
+  markDiagramBlocks(parsed) {
+    parsed.querySelectorAll('pre > code.language-plantuml, pre > code.language-puml').forEach((code) => {
+      const pre = code.parentElement;
+      const source = code.textContent.trim();
+      if (!source) return;
+      const figure = parsed.createElement('figure');
+      figure.className = 'notes-diagram';
+      figure.setAttribute('data-diagram', source);
+      const image = this._diagramCache.get(source);
+      const error = this._diagramErrors.get(source);
+      if (image) {
+        figure.appendChild(this.diagramImage(parsed, image));
+      } else {
+        figure.appendChild(pre.cloneNode(true));
+        const note = parsed.createElement('p');
+        note.className = error ? 'notes-diagram-error' : 'notes-diagram-status';
+        note.textContent = error || 'Rendering diagram…';
+        figure.appendChild(note);
+      }
+      pre.replaceWith(figure);
+    });
+  }
+
+  diagramImage(doc, dataUrl) {
+    const img = doc.createElement('img');
+    img.className = 'notes-diagram-img';
+    img.alt = 'PlantUML diagram';
+    img.setAttribute('src', dataUrl); // an <img> never runs script, even if the SVG contained some
+    return img;
+  }
+
+  // Fetch whatever is not rendered yet. While typing, wait for a pause so each keystroke does not start a render.
+  decorateDiagrams(preview) {
+    const pending = [...preview.querySelectorAll('.notes-diagram[data-diagram]')]
+      .filter((figure) => !figure.querySelector('.notes-diagram-img') && !this._diagramErrors.has(figure.dataset.diagram));
+    if (!pending.length) return;
+    clearTimeout(this._diagramTimer);
+    this._diagramTimer = setTimeout(async () => {
+      const sources = [...new Set(pending.map((figure) => figure.dataset.diagram))];
+      await Promise.all(sources.map((source) => this.fetchDiagram(source)));
+      this.applyDiagrams();
+    }, this.isNoteEditing ? 500 : 0);
+  }
+
+  async fetchDiagram(source) {
+    if (this._diagramCache.has(source) || this._diagramErrors.has(source)) return;
+    if (!this._diagramInflight.has(source)) {
+      const request = api('/diagram/render', { method: 'POST', body: { source } })
+        .then(({ svg }) => {
+          this._diagramCache.set(source, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+          if (this._diagramCache.size > 100) this._diagramCache.delete(this._diagramCache.keys().next().value);
+        })
+        .catch((error) => {
+          this._diagramErrors.set(source, error.status === 503 ? `PlantUML is not set up: ${error.message}` : `Could not render this diagram: ${error.message}`);
+        })
+        .finally(() => this._diagramInflight.delete(source));
+      this._diagramInflight.set(source, request);
+    }
+    await this._diagramInflight.get(source);
+  }
+
+  // Swap each figure on the page to its image, or show its error under the code.
+  applyDiagrams() {
+    const preview = this.querySelector('#notes-preview');
+    if (!preview) return;
+    preview.querySelectorAll('.notes-diagram[data-diagram]').forEach((figure) => {
+      if (figure.querySelector('.notes-diagram-img')) return;
+      const source = figure.dataset.diagram;
+      const image = this._diagramCache.get(source);
+      const error = this._diagramErrors.get(source);
+      if (image) {
+        figure.replaceChildren(this.diagramImage(document, image));
+      } else if (error) {
+        const status = figure.querySelector('.notes-diagram-status, .notes-diagram-error');
+        if (status) {
+          status.className = 'notes-diagram-error';
+          status.textContent = error;
+        }
+      }
+    });
   }
 
   updateLivePreview(content) {
@@ -662,6 +754,7 @@ class NotesApp extends HTMLElement {
     preview.removeEventListener('click', this._previewClickHandler);
     preview.addEventListener('click', this._previewClickHandler);
     this.decorateWikilinks(preview);
+    this.decorateDiagrams(preview);
     this.setupCodeBlockActions(preview);
     this.preloadEditorWhenIdle();
   }

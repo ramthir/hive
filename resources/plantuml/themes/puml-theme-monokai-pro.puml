@@ -1,0 +1,365 @@
+' ========================================
+' PlantUML Monokai Theme Configuration
+' ========================================
+' Usage: Define !define THEME_LIGHT before including for light mode
+' Default: Dark theme (Monokai-inspired)
+
+' ========================================
+' COLOR PALETTE
+' ========================================
+' !pragma layout smetana
+
+!$font_family = "JetBrains Mono, Monaco, Consolas, 'Courier New', monospace"
+!$font_size = 12
+
+!ifdef THEME_LIGHT
+  !$bg = "#ffffff"
+  !$bd = "#bfb9ba"
+  !$fg = "#29242a"
+  !$muted = "#706b6e"
+  !$blue = "#1c8ca8"
+  !$green = "#269d69"
+  !$yellow = "#cc7a0a"
+  !$orange = "#e16032"
+  !$pink = "#e14775"
+  !$purple = "#7058be"
+!else
+  !$bg = "#2d2a2e"
+  !$bd = "#5b595c"
+  !$fg = "#fcfcfa"
+  !$muted = "#939293"
+  !$blue = "#78dce8"
+  !$green = "#a9dc76"
+  !$yellow = "#ffd866"
+  !$orange = "#fc9867"
+  !$pink = "#ff61ae"
+  !$purple = "#ab9df2"
+!endif
+
+
+' ========================================
+' GLOBAL SKINPARAM
+' ========================================
+
+skinparam {
+  ' Core
+  BackgroundColor $bg
+  DefaultFontColor $fg
+  DefaultFontName $font_family
+  DefaultFontSize $font_size
+  CaptionFontColor $fg
+  Padding 0
+  Margin 0
+  RoundCorner 8
+  Shadowing false
+  LineType ortho
+  NodeSep 50
+  RankSep 60
+
+  ' Arrows
+  ArrowColor $blue
+  ArrowThickness 2
+
+  ' Borders & Containers
+  DiagramBorderThickness 0
+  DiagramBorderColor transparent
+  DiagramBorderRoundCorner 0
+
+  ' Class Diagrams
+  ClassBorderThickness 2
+  ClassBackgroundColor $bg
+  ClassBorderColor $blue
+  ClassFontColor $fg
+  ClassAttributeFontColor $fg
+  ClassStereotypeFontColor<<Aggregate Root>> $orange
+  ClassStereotypeFontColor<<Value Object>> $green
+  ClassStereotypeFontColor<<Enum>> $purple
+  ClassStereotypeFontColor<<Interface>> $pink
+
+  ' Interfaces
+  InterfaceBackgroundColor $bg
+  InterfaceBorderColor $pink
+  InterfaceFontColor $fg
+  InterfaceStereotypeFontColor $green
+
+  ' Abstract Classes
+  AbstractClassBackgroundColor $bg
+  AbstractClassBorderColor $purple
+
+  ' Enumerations
+  EnumBackgroundColor $bg
+  EnumBorderColor $purple
+
+  ' Databases
+  DatabaseBackgroundColor $bg
+  DatabaseBorderColor $purple
+  DatabaseBorderThickness 2
+  DatabaseFontColor $fg
+
+  ' Components
+  ComponentBackgroundColor $bg
+  ComponentBorderColor $blue
+  ComponentBorderThickness 2
+  ComponentStyle rectangle
+
+  ' Queues
+  QueueBackgroundColor $bg
+  QueueBorderColor $orange
+  QueueBorderThickness 2
+  QueueFontColor $fg
+
+  ' Deployment Diagrams
+  NodeBackgroundColor $bg
+  NodeBorderColor $blue
+  NodeBorderThickness 2
+  NodeFontColor $fg
+  StorageBackgroundColor $bg
+  StorageBorderColor $green
+  StorageBorderThickness 2
+  StorageFontColor $fg
+  CollectionsBackgroundColor $bg
+  CollectionsBorderColor $purple
+  CollectionsBorderThickness 2
+  CollectionsFontColor $fg
+  ArtifactBackgroundColor $bg
+  ArtifactBorderColor $green
+  ArtifactBorderThickness 2
+  ArtifactFontColor $fg
+  FileBackgroundColor $bg
+  FileBorderColor $green
+  FileBorderThickness 2
+  FileFontColor $fg
+  FolderBackgroundColor $bg
+  FolderBorderColor $yellow
+  FolderBorderThickness 2
+  FolderFontColor $fg
+  FrameBackgroundColor $bg
+  FrameBorderColor $yellow
+  FrameBorderThickness 2
+  FrameFontColor $yellow
+  CardBackgroundColor $bg
+  CardBorderColor $blue
+  CardBorderThickness 2
+  CardFontColor $fg
+  AgentBackgroundColor $bg
+  AgentBorderColor $blue
+  AgentBorderThickness 2
+  AgentFontColor $fg
+  StackBackgroundColor $bg
+  StackBorderColor $purple
+  StackBorderThickness 2
+  StackFontColor $fg
+  HexagonBackgroundColor $bg
+  HexagonBorderColor $orange
+  HexagonBorderThickness 2
+  HexagonFontColor $fg
+  BoundaryBackgroundColor $bg
+  BoundaryBorderColor $blue
+  ControlBackgroundColor $bg
+  ControlBorderColor $blue
+  EntityBackgroundColor $bg
+  EntityBorderColor $blue
+
+  ' Use Case Diagrams
+  UsecaseBackgroundColor $bg
+  UsecaseBorderColor $blue
+  UsecaseBorderThickness 2
+  UsecaseFontColor $fg
+
+  ' Packages
+  PackageBackgroundColor $bg
+  PackageBorderColor $yellow
+  PackageFontColor $yellow
+
+  ' Notes
+  NoteBackgroundColor $bg
+  NoteBorderColor $yellow
+  NoteFontColor $fg
+  NoteTextAlignment left
+
+  ' Rectangles & Basic Shapes
+  RectangleBackgroundColor $bg
+  RectangleBorderColor $blue
+  RectangleBorderThickness 2
+  RectangleFontColor $fg
+  RectangleBorderColor<<orange>> $orange
+  RectangleBorderColor<<blue>> $blue
+  RectangleBorderColor<<green>> $green
+  RectangleBorderColor<<yellow>> $yellow
+  RectangleBorderColor<<pink>> $pink
+  RectangleBorderColor<<purple>> $purple
+  RectangleBorderColor<<gray>> $bd
+  RectangleBorderColor<<Phase 1>> $orange
+  RectangleBorderColor<<Phase 2>> $orange
+  RectangleBorderColor<<Phase 3>> $orange
+  RectangleBorderColor<<Phase 4>> $orange
+  RectangleBorderColor<<Phase 5>> $orange
+  RectangleStereotypeFontColor<<Phase 1>> $orange
+  RectangleStereotypeFontColor<<Phase 2>> $orange
+  RectangleStereotypeFontColor<<Phase 3>> $orange
+  RectangleStereotypeFontColor<<Phase 4>> $orange
+  RectangleStereotypeFontColor<<Phase 5>> $orange
+  RectangleBorderColor<<Step 1>> $green
+  RectangleBorderColor<<Step 2>> $green
+  RectangleBorderColor<<Step 3>> $green
+  RectangleBorderColor<<Step 4>> $green
+  RectangleBorderColor<<Step 5>> $green
+  RectangleBorderColor<<Step 6>> $green
+  RectangleBorderColor<<Step 7>> $green
+  RectangleStereotypeFontColor<<Step 1>> $green
+  RectangleStereotypeFontColor<<Step 2>> $green
+  RectangleStereotypeFontColor<<Step 3>> $green
+  RectangleStereotypeFontColor<<Step 4>> $green
+  RectangleStereotypeFontColor<<Step 5>> $green
+  RectangleStereotypeFontColor<<Step 6>> $green
+  RectangleStereotypeFontColor<<Step 7>> $green
+
+  ' Clouds
+  CloudBackgroundColor $bg
+  CloudBorderColor $blue
+  CloudBorderThickness 2
+  CloudFontColor $fg
+  CloudBorderColor<<orange>> $orange
+  CloudBorderColor<<blue>> $blue
+  CloudBorderColor<<green>> $green
+  CloudBorderColor<<yellow>> $yellow
+  CloudBorderColor<<pink>> $pink
+  CloudBorderColor<<purple>> $purple
+  CloudBorderColor<<gray>> $bd
+
+  ' Sequence Diagrams
+  ParticipantBackgroundColor $bg
+  ParticipantBorderColor $blue
+  ActorBackgroundColor $bg
+  ActorBorderColor $green
+  ActorBorderThickness 2
+  ActorFontColor $fg
+  LifeLineBackgroundColor $bg
+  LifeLineBorderColor $blue
+  SequenceArrowColor $blue
+  SequenceLifeLineBorderColor $blue
+  SequenceDividerBackgroundColor $bg
+  SequenceDividerBorderColor $yellow
+  SequenceDividerFontColor $yellow
+  SequenceDividerFontStyle bold
+  SequenceGroupBackgroundColor $bg
+  SequenceGroupBodyBackgroundColor $bg
+  SequenceGroupBorderColor $orange
+  SequenceGroupFontColor $orange
+
+  ' Activity Diagrams
+  ActivityStartColor $green
+  ActivityEndColor $pink
+  ActivityStopColor $pink
+  ActivityBarColor $blue
+  ActivityBorderColor $blue
+  ActivityBorderThickness 2
+  ActivityBackgroundColor $bg
+  ActivityDiamondBackgroundColor $bg
+  ActivityDiamondBorderColor $blue
+  ActivityTextAlignment center
+  DefaultTextAlignment center
+
+  ' Partitions
+  PartitionBackgroundColor $bg
+  PartitionBorderColor $blue
+  PartitionFontColor $blue
+  PartitionBorderThickness 2
+  PartitionRoundCorner 10
+  PartitionFontSize 12
+  PartitionFontStyle bold
+  PartitionBorderColor<<orange>> $orange
+  PartitionFontColor<<orange>> $orange
+  PartitionBorderColor<<blue>> $blue
+  PartitionFontColor<<blue>> $blue
+  PartitionBorderColor<<green>> $green
+  PartitionFontColor<<green>> $green
+  PartitionBorderColor<<yellow>> $yellow
+  PartitionFontColor<<yellow>> $yellow
+  PartitionBorderColor<<pink>> $pink
+  PartitionFontColor<<pink>> $pink
+  PartitionBorderColor<<purple>> $purple
+  PartitionFontColor<<purple>> $purple
+  PartitionBorderColor<<gray>> $bd
+  PartitionFontColor<<gray>>   $bd
+
+  ' State Diagrams
+  StateBackgroundColor $bg
+  StateBorderColor $blue
+}
+
+' ========================================
+' MINDMAP DIAGRAM STYLING
+' ========================================
+
+<style>
+mindmapDiagram {
+  node {
+    Padding 5
+    RoundCorner 10
+    HorizontalAlignment center
+    LineThickness 2
+    BackgroundColor $bg
+    LineColor $blue
+    FontColor $fg
+    FontSize $font_size
+    FontName $font_family
+    FontStyle bold
+  }
+  rootNode {
+    Padding 8
+    FontSize $font_size
+    LineThickness 2
+  }
+  leafNode {
+    Padding 5
+  }
+  arrow {
+    LineStyle 2
+    LineThickness 2
+    LineColor $blue
+  }
+}
+
+.blue, node<<Blue>> {
+  LineColor $blue
+  FontColor $blue
+}
+
+.green, node<<Green>> {
+  LineColor $green
+  FontColor $green
+}
+
+.yellow, node<<Yellow>> {
+  LineColor $yellow
+  FontColor $yellow
+}
+
+.orange, node<<Orange>> {
+  LineColor $orange
+  FontColor $orange
+}
+
+.pink, node<<Pink>> {
+  LineColor $pink
+  FontColor $pink
+}
+
+.purple, node<<Purple>> {
+  LineColor $purple
+  FontColor $purple
+}
+
+.gray, node<<Gray>> {
+  LineColor $muted
+  FontColor $muted
+}
+</style>
+
+' ========================================
+' VISIBILITY SETTINGS
+' ========================================
+
+hide circle
+hide methods
