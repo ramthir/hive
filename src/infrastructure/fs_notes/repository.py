@@ -44,6 +44,11 @@ def _inline(items) -> CommentedSeq:
     return seq
 
 
+def _types_value(types):
+    """`type: task` for one type (the vault's convention), `type: [a, b]` for several."""
+    return types[0] if len(types) == 1 else _inline(types)
+
+
 def _as_date(value: str | None) -> Any:
     if value is None:
         return None
@@ -101,11 +106,11 @@ class FileNoteRepository(NoteRepository):
             if not note.types:
                 meta.pop("type", None)
             elif "type" in meta:
-                meta["type"] = _inline(note.types)
+                meta["type"] = _types_value(note.types)
             else:  # a new key goes right after the tags (or the title), not at the end
                 keys = list(meta.keys())
                 after = keys.index("tags") if "tags" in keys else keys.index("title")
-                meta.insert(after + 1, "type", _inline(note.types))
+                meta.insert(after + 1, "type", _types_value(note.types))
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")

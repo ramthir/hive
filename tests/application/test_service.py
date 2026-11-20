@@ -230,7 +230,7 @@ def test_tags_and_types_keep_a_files_own_style_until_they_change(svc, root):
     svc.update("block", tags=("a", "b", "c"))
     assert "tags: [a, b, c]\n" in (root / "block.md").read_text()            # changed: now inline
     svc.update("bare", tags=("x",), types=("note",))
-    assert (root / "bare.md").read_text().startswith("---\ntitle: Bare\ntags: [x]\ntype: [note]\ncreated:")
+    assert (root / "bare.md").read_text().startswith("---\ntitle: Bare\ntags: [x]\ntype: note\ncreated:")  # one type: a scalar
     svc.update("inline", tags=())
     assert "tags: []\n" in (root / "inline.md").read_text()
     assert svc.get("block").tags == ("a", "b", "c")
@@ -240,3 +240,15 @@ def test_tags_with_special_characters_are_quoted_inline(svc, root):
     svc.create("Odd", tags=("a, b", "c: d", "plain"))
     assert svc.get("odd").tags == ("a, b", "c: d", "plain")  # survives a round trip
     assert "tags: [" in (root / "odd.md").read_text()
+
+
+def test_one_type_is_written_as_a_scalar_and_several_as_an_inline_list(svc, root):
+    svc.create("One", types=("task",))
+    assert "\ntype: task\n" in (root / "one.md").read_text()
+    svc.update("one", types=("task", "urgent"))
+    assert "\ntype: [task, urgent]\n" in (root / "one.md").read_text()
+    svc.update("one", types=("contact",))
+    assert "\ntype: contact\n" in (root / "one.md").read_text()
+    assert svc.get("one").types == ("contact",)
+    svc.update("one", content="# One\n\nedited")  # untouched when unchanged
+    assert "\ntype: contact\n" in (root / "one.md").read_text()
