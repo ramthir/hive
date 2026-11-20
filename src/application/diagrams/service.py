@@ -135,7 +135,8 @@ class DiagramService:
         resolved = self.resolve_includes(source)
         if len(resolved) > MAX_SOURCE_LENGTH * 2:
             raise DiagramTooLarge("Diagram source is too large once its includes are expanded.")
-        key = hashlib.sha256(resolved.encode("utf-8")).hexdigest()
+        # Graphviz changes the layout (ortho connectors), so a render made without it must not be reused once it is installed.
+        key = hashlib.sha256((("dot:" if st["graphviz"] else "nodot:") + resolved).encode("utf-8")).hexdigest()
         with self._lock:
             if key in self._cache:
                 self._cache.move_to_end(key)

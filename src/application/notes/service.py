@@ -6,6 +6,7 @@ Changing the heading renames the file, and links to the note are rewritten so th
 from __future__ import annotations
 
 import threading
+from datetime import date
 from dataclasses import replace
 
 from src.application.notes.index import NoteIndex, SearchHit
@@ -13,6 +14,7 @@ from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import InvalidTitle, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
+from src.domain.notes.tasks import is_task, task_status, week_label
 from src.domain.notes.title import extract_h1, set_h1, with_h1
 from src.domain.notes.wiki_links import rewrite_targets
 from src.infrastructure.metrics import Metrics
@@ -26,8 +28,9 @@ EMPTY_TITLE = "The note needs a title: start it with a '# Title' heading."
 
 
 class NoteService:
-    def __init__(self, repo: NoteRepository, metrics: Metrics | None = None):
+    def __init__(self, repo: NoteRepository, metrics: Metrics | None = None, today=date.today):
         self.repo = repo
+        self._today = today
         self.metrics = metrics or Metrics()
         self._index: NoteIndex | None = None
         self._lock = threading.Lock()
@@ -52,6 +55,10 @@ class NoteService:
     def list(self, tag: str | None = None) -> list[Note]:
         notes = sorted(self.index.notes.values(), key=lambda n: n.title.casefold())
         return [n for n in notes if tag in n.tags] if tag else notes
+
+    def tasks(self) -> list[Note]:
+        """The notes of type `task`, most recently edited first."""
+        return [n for n in self.recent() if is_task(n)]
 
     def get(self, slug: str) -> Note:
         return self.repo.get(slug)
@@ -109,10 +116,21 @@ class NoteService:
         return note
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
-               tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None) -> Note:
-        """`types` None leaves them unchanged; an empty list clears them."""
+               tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None,
+               status: str | None = None, week: str | None = None) -> Note:
+        """`types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
+        Moving a task to DONE records the week it was finished in `week` (unless `week` is given); moving it out
+        of DONE clears it again. `week` None leaves it unchanged otherwise."""
         current = self.repo.get(slug)
         new_types = current.types if types is None else _clean(types)
+        new_status = current.status if status is None else status
+        new_week = current.week if week is None else week
+        if status is not None and week is None:
+            before, after = task_status(current), task_status(replace(current, status=status))
+            if after == "DONE" and before != "DONE":
+                new_week = week_label(self._today())
+            elif before == "DONE" and after != "DONE":
+                new_week = None
         body = current.content if content is None else content
         if title is not None:
             body = set_h1(body, title.strip())
@@ -131,11 +149,13 @@ class NoteService:
             self.invalidate()
             note = self.repo.update(replace(
                 current, slug=new_slug, title=new_title, content=body, types=new_types,
+                status=new_status, week=new_week,
                 tags=current.tags if tags is None else tuple(tags)))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
                 current, title=new_title, content=body, types=new_types,
+                status=new_status, week=new_week,
                 tags=current.tags if tags is None else tuple(tags)))
         self.invalidate()
         return note

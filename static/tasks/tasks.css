@@ -1,0 +1,106 @@
+/* The task board page. It fills the shell edge to edge exactly like <notes-app> does: the shell's page container
+   pads its content, so the page cancels that padding with negative margins (same values as notes.css). */
+tasks-app {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: calc(100vh - 4.0625rem);
+  min-height: calc(100dvh - 4.0625rem);
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4));
+  width: calc(100% + 2 * var(--space-4));
+  box-sizing: border-box;
+}
+@media (min-width: 640px) {
+  tasks-app {
+    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+    width: calc(100% + 2 * var(--space-6));
+  }
+}
+@media (min-width: 1024px) {
+  tasks-app {
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+    width: calc(100% + 2 * var(--space-7));
+  }
+}
+.tasks-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+.tasks-header-actions { justify-content: flex-end; }
+/* The header buttons come from base.css (.app-header-action-group > button), as on the notes page. */
+.tasks-header-actions .notes-btn { height: var(--btn-header-height, 2.5625rem); }
+.tasks-board-wrap {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+.tasks-error {
+  margin: var(--space-4) var(--space-6);
+  color: var(--color-danger);
+}
+.board-card-tags {
+  margin-top: 0.7rem;
+}
+.board-chip--week { font-variant-numeric: tabular-nums; }
+@media (max-width: 639px) {
+  .tasks-board-wrap {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* The Done column's week filter (from Pandora): a pill the height of the count badge beside it. */
+.work-done-filter {
+  margin-inline-start: auto;
+  margin-inline-end: var(--space-2);
+}
+.board-column-count,
+.work-done-filter-btn {
+  box-sizing: border-box;
+  height: var(--board-header-pill-height, 1.25rem);
+}
+.board-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 0;
+  line-height: 1;
+}
+.work-done-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+  padding-inline: 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-dimmed5);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.work-done-filter-btn:hover { background: var(--color-dimmed4); }
+.work-done-filter-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.work-done-filter-menu {
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+}
+.work-done-filter-menu .app-dropdown-item {
+  justify-content: space-between;
+  gap: var(--space-4, 1rem);
+  font-size: 0.8rem;
+}
+.work-done-filter-count { margin-inline-start: auto; }

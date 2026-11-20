@@ -1,0 +1,201 @@
+/**
+ * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
+ * A left sidebar on wide screens; on narrow ones it becomes a top bar with a dropdown menu.
+ *
+ * Hive's version is deliberately small: two navigation items (Notes and the Tasks board), and a hardcoded user at the bottom
+ * (there is no sign-in yet).
+ */
+
+// The signed-in user, hardcoded until Hive has authentication.
+const CURRENT_USER = Object.freeze({ name: 'Ramesh Thiruchelvam' });
+
+const NAVIGATION_ITEMS = Object.freeze([
+  { href: '/notes', label: 'Notes', icon: 'fa-solid fa-book-open', activePaths: ['/notes'] },
+  { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
+]);
+
+const COLLAPSED_KEY = 'hive:sidebar-collapsed';
+const DESKTOP = '(min-width: 1024px)';
+
+const escapeHtml = (value) =>
+  String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+
+const initialsOf = (name = '') =>
+  name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || 'U';
+
+const isEditable = (event) => {
+  const path = event.composedPath ? event.composedPath() : [event.target];
+  return path.some((target) => target instanceof Element
+    && (target.matches('input, textarea, select, [contenteditable="true"]')
+      || Boolean(target.closest?.('input, textarea, select, [contenteditable="true"], .cm-content, .cm-editor'))));
+};
+
+class AppSidebar extends HTMLElement {
+  static get observedAttributes() {
+    return ['active-href'];
+  }
+
+  constructor() {
+    super();
+    this._mobileMenuOpen = false;
+    this._shortcutHandler = null;
+  }
+
+  attributeChangedCallback() {
+    if (this.isConnected && this.querySelector('.nav-link')) this.updateActiveState();
+  }
+
+  connectedCallback() {
+    this.render();
+    this.restoreVisibilityPreference();
+    this._shortcutHandler = (event) => this.handleSidebarShortcut(event);
+    document.addEventListener('keydown', this._shortcutHandler);
+  }
+
+  disconnectedCallback() {
+    if (this._shortcutHandler) document.removeEventListener('keydown', this._shortcutHandler);
+    this._shortcutHandler = null;
+  }
+
+  /* --- visibility ------------------------------------------------------ */
+
+  restoreVisibilityPreference() {
+    if (!window.matchMedia(DESKTOP).matches) return;
+    try {
+      if (localStorage.getItem(COLLAPSED_KEY) === 'true') this.setSidebarVisible(false, false);
+    } catch (_) { /* storage unavailable: stay expanded */ }
+  }
+
+  isSidebarVisible() {
+    return window.matchMedia(DESKTOP).matches ? !this.classList.contains('sidebar-collapsed') : this._mobileMenuOpen;
+  }
+
+  setSidebarVisible(visible, persist = true) {
+    if (persist) {
+      try {
+        localStorage.setItem(COLLAPSED_KEY, String(!visible));
+      } catch (_) { /* ignore */ }
+    }
+    // The page content (and fixed bars) move over by the sidebar's width; a collapsed sidebar gives it back.
+    const shell = this.getRootNode()?.host;
+    if (shell?.localName === 'app-shell') {
+      if (visible) shell.style.removeProperty('--sidebar-content-offset');
+      else shell.style.setProperty('--sidebar-content-offset', '0px');
+    }
+    const collapseBtn = this.querySelector('.desktop-collapse-btn');
+    const expandBtn = this.querySelector('.sidebar-expand-btn');
+    collapseBtn?.setAttribute('aria-expanded', String(visible));
+    expandBtn?.setAttribute('aria-expanded', String(visible));
+
+    if (window.matchMedia(DESKTOP).matches) {
+      this.classList.toggle('sidebar-collapsed', !visible);
+      const focusTarget = visible ? collapseBtn : expandBtn;
+      if (focusTarget && document.activeElement && this.contains(document.activeElement)) {
+        requestAnimationFrame(() => focusTarget.focus());
+      }
+      return;
+    }
+    this._mobileMenuOpen = visible;
+    this.updateMobileMenu();
+  }
+
+  toggleMobileMenu() {
+    this._mobileMenuOpen = !this._mobileMenuOpen;
+    this.updateMobileMenu();
+  }
+
+  updateMobileMenu() {
+    const nav = this.querySelector('.sidebar-nav');
+    const button = this.querySelector('.mobile-menu-btn');
+    const menuIcon = this.querySelector('.menu-icon');
+    const closeIcon = this.querySelector('.close-icon');
+    button?.setAttribute('aria-expanded', String(this._mobileMenuOpen));
+    if (nav && menuIcon && closeIcon) {
+      nav.classList.toggle('open', this._mobileMenuOpen);
+      menuIcon.style.display = this._mobileMenuOpen ? 'none' : 'block';
+      closeIcon.style.display = this._mobileMenuOpen ? 'block' : 'none';
+    }
+  }
+
+  // Ctrl/Cmd + \ or B toggles the sidebar (not while typing, where B is bold-ish and the editor owns its keys).
+  handleSidebarShortcut(event) {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || isEditable(event)) return;
+    if (event.key === '\\' || event.code === 'Backslash' || event.key.toLowerCase() === 'b' || event.code === 'KeyB') {
+      event.preventDefault();
+      this.setSidebarVisible(!this.isSidebarVisible());
+    }
+  }
+
+  /* --- navigation ------------------------------------------------------ */
+
+  updateActiveState() {
+    const path = window.location.pathname;
+    const declared = this.getAttribute('active-href');
+    this.querySelectorAll('.nav-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      const item = NAVIGATION_ITEMS.find((candidate) => candidate.href === href);
+      const byPath = Boolean(item?.activePaths.some((p) => path === p || path.startsWith(`${p}/`)));
+      const active = declared ? declared === href : byPath;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  render() {
+    const stylesheet = `${new URL('./sidebar.css', import.meta.url).href}?v=1`;
+    this.innerHTML = `
+      <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+      <link rel="stylesheet" href="${stylesheet}">
+      <button class="sidebar-expand-btn" type="button" aria-label="Expand sidebar" aria-expanded="false" aria-controls="sidebar-nav" title="Expand sidebar (Ctrl+\\)">
+        <i class="fa-solid fa-angles-right" aria-hidden="true"></i>
+      </button>
+      <nav class="app-sidebar" aria-label="Main Navigation">
+        <div class="sidebar-header">
+          <button class="mobile-menu-btn" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar-nav">
+            <i class="fa-solid fa-bars menu-icon" aria-hidden="true"></i>
+            <i class="fa-solid fa-xmark close-icon" aria-hidden="true"></i>
+          </button>
+          <a href="/notes" class="logo" aria-label="Hive Home">
+            <i class="fa-solid fa-circle-nodes" aria-hidden="true"></i>
+            <span class="logo-text">Hive</span>
+          </a>
+          <button class="desktop-collapse-btn" type="button" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar-nav" title="Collapse sidebar (Ctrl+\\)">
+            <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="sidebar-nav" id="sidebar-nav">
+          ${NAVIGATION_ITEMS.map((item) => `
+            <a href="${escapeHtml(item.href)}" class="nav-link" title="${escapeHtml(item.label)}">
+              <i class="${escapeHtml(item.icon)}" aria-hidden="true"></i>
+              <span>${escapeHtml(item.label)}</span>
+            </a>`).join('')}
+        </div>
+        <div class="sidebar-profile" aria-label="Logged in user">
+          <span class="sidebar-profile-avatar" aria-hidden="true">${escapeHtml(initialsOf(CURRENT_USER.name))}</span>
+          <span class="sidebar-profile-details">
+            <span class="sidebar-profile-name">${escapeHtml(CURRENT_USER.name)}</span>
+          </span>
+        </div>
+      </nav>`;
+
+    this.querySelector('.mobile-menu-btn')?.addEventListener('click', () => this.toggleMobileMenu());
+    this.querySelector('.desktop-collapse-btn')?.addEventListener('click', () => this.setSidebarVisible(false));
+    this.querySelector('.sidebar-expand-btn')?.addEventListener('click', () => this.setSidebarVisible(true));
+    // Picking a destination closes the mobile menu. The page decides what the click does (it can ask about unsaved edits).
+    this.querySelectorAll('.nav-link, .logo').forEach((link) => link.addEventListener('click', () => {
+      if (this._mobileMenuOpen) this.toggleMobileMenu();
+    }));
+
+    // The shell hides its content until the sidebar's own stylesheets have loaded, then fades it in.
+    const sheets = [...this.querySelectorAll('link[rel="stylesheet"]')];
+    Promise.all(sheets.map((link) => new Promise((resolve) => {
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    }))).then(() => this.dispatchEvent(new CustomEvent('ready', { bubbles: true })));
+
+    this.updateActiveState();
+  }
+}
+
+if (!customElements.get('app-sidebar')) customElements.define('app-sidebar', AppSidebar);

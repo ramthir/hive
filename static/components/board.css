@@ -1,0 +1,275 @@
+app-board {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.board {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 30rem;
+  overflow-x: auto;
+  padding: 0 0 1rem;
+}
+.board-column {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 17.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-dimmed5);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  transition:
+    border-color 0.15s,
+    opacity 0.15s;
+}
+.board-column[aria-busy='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.board-column--drag-over {
+  border-color: var(--color-accent5);
+  border-style: dashed;
+}
+.board-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--color-dimmed5);
+}
+.board-column-title {
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.board-column-count {
+  min-width: 1.6rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-dimmed5);
+  color: var(--color-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+.board-cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 24rem;
+}
+.board-card {
+  flex: none;
+  padding: 1rem;
+  border: 1px solid var(--board-card-accent, var(--color-dimmed5));
+  border-radius: 7px;
+  background: var(--color-dark1);
+  color: inherit;
+  cursor: grab;
+  transition:
+    box-shadow 0.15s,
+    opacity 0.15s;
+}
+.board-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+.board-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.board-card.board-card--dialog-dismissed:focus-visible {
+  outline: 0;
+}
+.board-card--dragging {
+  opacity: 0.35;
+  cursor: grabbing;
+}
+.board-card--todo {
+  --board-card-accent: var(--color-status-todo);
+}
+.board-card--in-progress {
+  --board-card-accent: var(--color-status-in-progress);
+}
+.board-card--done {
+  --board-card-accent: var(--color-status-done);
+}
+.board-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.board-skeleton {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 4px;
+  background: var(--color-dimmed5);
+  opacity: 0.7;
+}
+.board-skeleton-count {
+  width: 1rem;
+  height: 0.65rem;
+}
+.board-skeleton-title {
+  width: 78%;
+  height: 0.85rem;
+  margin-bottom: 0.7rem;
+}
+.board-skeleton-chip {
+  width: 3.75rem;
+  height: 1.25rem;
+  border-radius: 5px;
+}
+.board-skeleton-chip--wide {
+  width: 5.25rem;
+}
+.board-card-title {
+  margin-bottom: 0.7rem;
+  color: var(--color-text);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+.board-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.board-card-heading .board-card-title {
+  flex: 1;
+}
+.board-card-note-link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 5px;
+  color: var(--color-dimmed3);
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+.board-card-note-link:hover,
+.board-card-note-link:focus-visible {
+  background: var(--color-dimmed5);
+  color: var(--color-accent5);
+  outline: none;
+}
+.board-card-heading app-row-action-menu {
+  flex: none;
+}
+.board-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.board-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--color-dimmed5);
+  border-radius: 5px;
+  background: var(--color-dark2);
+  color: var(--color-dimmed2);
+  font-size: 0.68rem;
+}
+.board-chip--link {
+  text-decoration: none;
+}
+.board-chip--link:hover,
+.board-chip--link:focus-visible {
+  border-color: var(--color-dimmed2);
+  color: var(--color-text);
+}
+.board-chip--link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.board-chip i {
+  color: var(--color-accent5);
+  font-size: 0.65rem;
+}
+.board-chip--priority {
+  font-weight: 600;
+}
+.board-chip--stage,
+.board-chip--must,
+.board-chip--important {
+  font-weight: 700;
+}
+.board-chip--must,
+.board-task-blocked {
+  border-color: color-mix(in srgb, var(--color-accent1) 45%, var(--color-dimmed5));
+  background: color-mix(in srgb, var(--color-accent1) 12%, var(--color-dark2));
+  color: var(--color-accent1);
+}
+.board-chip--must i,
+.board-task-blocked i {
+  color: var(--color-accent1);
+}
+.board-chip--important {
+  border-color: color-mix(in srgb, var(--color-accent3) 45%, var(--color-dimmed5));
+  background: color-mix(in srgb, var(--color-accent3) 12%, var(--color-dark2));
+  color: var(--color-accent3);
+}
+.board-chip--important i {
+  color: var(--color-accent3);
+}
+.board-chip--good-to-have {
+  border-color: color-mix(in srgb, var(--color-accent4) 45%, var(--color-dimmed5));
+  background: color-mix(in srgb, var(--color-accent4) 12%, var(--color-dark2));
+  color: var(--color-accent4);
+}
+.board-chip--good-to-have i {
+  color: var(--color-accent4);
+}
+.board-empty {
+  margin: 0;
+  padding: 2rem 0.5rem;
+  border: 1px dashed var(--color-dimmed5);
+  border-radius: 7px;
+  color: var(--color-dimmed2);
+  font-size: 0.78rem;
+  text-align: center;
+}
+.board-show-more {
+  padding: 0.5rem;
+  border: 1px dashed var(--color-dimmed5);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-dimmed2);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.board-show-more:hover,
+.board-show-more:focus-visible {
+  border-color: var(--color-dimmed2);
+  color: var(--color-dimmed1);
+}
+.board-show-more:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.board-chip--stage {
+  color: var(--board-stage-color);
+  border-color: color-mix(in srgb, var(--board-stage-color) 45%, var(--color-dimmed5));
+  background: color-mix(in srgb, var(--board-stage-color) 12%, var(--color-dark2));
+}
+.board-chip--stage i { color: inherit; }
+.board-stage--plan { --board-stage-color: var(--color-accent2); }
+.board-stage--build { --board-stage-color: var(--color-accent6); }
+.board-stage--review { --board-stage-color: var(--color-accent5); }
+.board-stage--approve { --board-stage-color: var(--color-accent3); }
+.board-stage--merged { --board-stage-color: var(--color-accent4); }

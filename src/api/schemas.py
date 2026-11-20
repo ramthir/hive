@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import re
 
 from pydantic import BaseModel, Field
 
 from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.tasks import WEEK_PATTERN, task_status
 from src.domain.notes.title import with_h1
 
 
@@ -23,13 +24,15 @@ class NoteSummary(BaseModel):
     created: str | None
     updated: str | None
     types: list[str] = []
+    status: str | None = None  # the stored `status:`; /api/tasks adds the derived one
+    week: str | None = None  # ISO week a task was finished, e.g. 2026-W47
     score: int | None = None
     snippet: str = ""
 
     @classmethod
     def of(cls, n: Note, score: int | None = None) -> "NoteSummary":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), score=score, snippet=snippet(n.content))
+                   types=list(n.types), status=n.status, week=n.week, score=score, snippet=snippet(n.content))
 
 
 class NoteDetail(NoteSummary):
@@ -39,7 +42,7 @@ class NoteDetail(NoteSummary):
     @classmethod
     def of(cls, n: Note) -> "NoteDetail":  # type: ignore[override]
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), extra=dict(n.extra))
 
 
 class NoteCreate(BaseModel):
@@ -55,6 +58,8 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     tags: list[str] | None = None
     types: list[str] | None = None  # omitted: unchanged; []: clear
+    status: Literal["TODO", "IN_PROGRESS", "DONE"] | None = None  # omitted: unchanged
+    week: str | None = Field(default=None, pattern=WEEK_PATTERN)  # omitted: unchanged (set automatically with status)
 
 
 class VersionOut(BaseModel):
@@ -89,3 +94,11 @@ class BacklinksOut(BaseModel):
 class ResolvedLink(BaseModel):
     slug: str
     title: str
+
+
+class TaskOut(NoteSummary):
+    """A task note on the board: `status` is the effective one (stored, else derived from the `done` tag)."""
+
+    @classmethod
+    def of(cls, n: Note) -> "TaskOut":  # type: ignore[override]
+        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n)})

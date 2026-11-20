@@ -5,7 +5,7 @@ import difflib
 from fastapi import APIRouter, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             ResolvedLink, VersionDetail, VersionOut)
+                             ResolvedLink, TaskOut, VersionDetail, VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
 
@@ -38,6 +38,12 @@ def create_note(request: Request, body: NoteCreate):
 def latest_note(request: Request):
     """The most recently edited note (what the app opens at /)."""
     return NoteDetail.of(svc(request).latest())
+
+
+@router.get("/tasks", response_model=list[TaskOut])
+def tasks(request: Request):
+    """The task board: every note of type `task`, most recently edited first, with its effective status."""
+    return [TaskOut.of(n) for n in svc(request).tasks()]
 
 
 @router.get("/tags", response_model=dict[str, int])
@@ -77,7 +83,7 @@ def update_note(request: Request, slug: str, body: NoteUpdate):
     return NoteDetail.of(svc(request).update(
         slug, title=body.title, content=body.content,
         tags=None if body.tags is None else tuple(body.tags),
-        types=None if body.types is None else tuple(body.types)))
+        types=None if body.types is None else tuple(body.types), status=body.status, week=body.week))
 
 
 @router.delete("/notes/{slug}", status_code=204)

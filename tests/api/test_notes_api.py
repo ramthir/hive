@@ -1,9 +1,11 @@
 import subprocess
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import create_app
+from src.domain.notes.tasks import week_label
 
 
 def git(root, *a):
@@ -161,3 +163,83 @@ def test_types_in_the_api(client, root):
     assert client.put("/api/notes/typed", json={"types": []}).json()["types"] == []
     assert client.get("/api/types").json() == {}
     assert "type:" not in (root / "typed.md").read_text()
+
+
+# -- task board ---------------------------------------------------------------
+
+def seed_tasks(root):
+    (root / "plain.md").write_text("---\ntitle: Plain\ntype: task\ntags: [todo]\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Plain\n")
+    (root / "finished.md").write_text("---\ntitle: Finished\ntype: [task]\ntags: [done, x]\ncreated: 2026-01-01\nupdated: 2026-01-02\n---\n\n# Finished\n")
+    (root / "going.md").write_text("---\ntitle: Going\ntype: task\nstatus: IN_PROGRESS\ntags: [done]\ncreated: 2026-01-01\nupdated: 2026-01-03\n---\n\n# Going\n")
+    (root / "other.md").write_text("---\ntitle: Other\ntype: note\nstatus: ApplicationStatus\n---\n\n# Other\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "seed")
+
+
+def test_tasks_lists_only_task_notes_with_an_effective_status(client, root):
+    seed_tasks(root)
+    rows = client.get("/api/tasks").json()
+    assert [(t["slug"], t["status"]) for t in rows] == [("going", "IN_PROGRESS"), ("finished", "DONE"), ("plain", "TODO")]
+
+
+def test_changing_status_rewrites_only_that_key_in_one_commit(client, root):
+    seed_tasks(root)
+    before = len(git(root, "rev-list", "HEAD").split())
+    r = client.put("/api/notes/plain", json={"status": "DONE"})
+    assert r.status_code == 200 and r.json()["status"] == "DONE"
+    text = (root / "plain.md").read_text()
+    week = week_label(date.today())
+    assert text.startswith(f"---\ntitle: Plain\ntype: task\nstatus: DONE\nweek: {week}\ntags: [todo]\n")  # new keys after `type`
+    assert len(git(root, "rev-list", "HEAD").split()) == before + 1
+    assert {t["slug"]: t["status"] for t in client.get("/api/tasks").json()}["plain"] == "DONE"
+
+
+def test_status_is_new_key_after_type_and_updates_in_place(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain", json={"status": "IN_PROGRESS"})
+    assert "type: task\nstatus: IN_PROGRESS\ntags: [todo]\n" in (root / "plain.md").read_text()
+    client.put("/api/notes/plain", json={"status": "DONE"})
+    assert (root / "plain.md").read_text().count("status:") == 1
+
+
+def test_saving_content_keeps_the_status(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/going", json={"content": "# Going\n\nmore"})
+    assert client.get("/api/notes/going").json()["status"] == "IN_PROGRESS"
+
+
+def test_unknown_status_is_rejected(client, root):
+    seed_tasks(root)
+    assert client.put("/api/notes/plain", json={"status": "DOING"}).status_code == 422
+
+
+def test_tasks_page_is_served(client):
+    r = client.get("/tasks")
+    assert r.status_code == 200 and "tasks-app" in r.text
+
+
+def test_finishing_a_task_records_the_week_and_leaving_done_clears_it(client, root):
+    seed_tasks(root)
+    week = week_label(date.today())
+    assert client.put("/api/notes/plain", json={"status": "DONE"}).json()["week"] == week
+    assert {t["slug"]: t["week"] for t in client.get("/api/tasks").json()}["plain"] == week
+    assert client.put("/api/notes/plain", json={"status": "IN_PROGRESS"}).json()["week"] is None
+    assert "week:" not in (root / "plain.md").read_text()
+
+
+def test_a_week_given_with_the_status_wins_and_is_validated(client, root):
+    seed_tasks(root)
+    r = client.put("/api/notes/plain", json={"status": "DONE", "week": "2026-W40"})
+    assert r.json()["week"] == "2026-W40" and "week: 2026-W40" in (root / "plain.md").read_text()
+    assert client.put("/api/notes/plain", json={"week": "2026-W54"}).status_code == 422
+    assert client.put("/api/notes/plain", json={"week": "last week"}).status_code == 422
+
+
+def test_saving_content_keeps_the_week_and_a_done_tag_task_gets_one_when_finished(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain", json={"status": "DONE", "week": "2026-W40"})
+    client.put("/api/notes/plain", json={"content": "# Plain\n\nedited"})
+    assert client.get("/api/notes/plain").json()["week"] == "2026-W40"
+    # `finished` is already Done through its tag, so re-saving DONE is not a transition: no week is invented
+    client.put("/api/notes/finished", json={"status": "DONE"})
+    assert client.get("/api/notes/finished").json()["week"] is None

@@ -1,0 +1,142 @@
+import { escapeHtml as esc } from '../html.js';
+
+export const COLUMNS = Object.freeze([
+  { value: 'TODO', label: 'To Do' },
+  { value: 'IN_PROGRESS', label: 'In Progress' },
+  { value: 'DONE', label: 'Done' },
+]);
+
+export const noteHref = (task) => `/notes/${encodeURIComponent(task.slug)}`;
+
+// ISO 8601 week of a `YYYY-MM-DD` day (weeks start on Monday; week 1 holds the year's first Thursday).
+export function isoWeek(day) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(day ?? ''));
+  if (!m) return null;
+  const date = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday); // the Thursday of this week decides the year
+  const year = date.getUTCFullYear();
+  const week = Math.ceil(((date - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+  return { year, week };
+}
+
+export const isoDay = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+// A task's week: its `week:` key (2026-W47) if it has one, else the week of its `updated` day.
+export function taskWeek(task) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(task?.week ?? ''));
+  return m ? { year: +m[1], week: +m[2], stored: true } : isoWeek(task?.updated);
+}
+
+export const ALL_WEEKS = 'all';
+
+/** `2026-W47`, the form of the `week:` key, for a week; null when the task has no week at all. */
+export function weekKey(task) {
+  const w = taskWeek(task);
+  return w ? `${w.year}-W${String(w.week).padStart(2, '0')}` : null;
+}
+
+export const currentWeekKey = (now = new Date()) => weekKey({ updated: isoDay(now) });
+
+/** `2026-W47` -> `Week 47 2026`, how Pandora names its weeks. */
+export const weekTitle = (key) => {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(key));
+  return m ? `Week ${m[2]} ${m[1]}` : String(key);
+};
+
+export const isDoneWeekChoice = (value) => value === ALL_WEEKS || /^\d{4}-W\d{2}$/.test(String(value));
+
+/**
+ * What the Done column's week filter offers: every week with finished tasks, newest first with its count, this
+ * week always (even with none yet), then "All weeks". `selected` is kept in the list even when it has no tasks
+ * (a shared link to an empty week still shows what it is).
+ */
+export function doneWeekOptions(tasks, selected, now = new Date()) {
+  const counts = new Map();
+  for (const task of tasks) {
+    if (task.status !== 'DONE') continue;
+    const key = weekKey(task);
+    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const current = currentWeekKey(now);
+  for (const key of [current, selected]) if (key && key !== ALL_WEEKS && !counts.has(key)) counts.set(key, 0);
+  const options = [...counts.keys()].sort().reverse().map((key) => ({ value: key, title: weekTitle(key), count: counts.get(key) }));
+  options.push({ value: ALL_WEEKS, title: 'All weeks', count: tasks.filter((t) => t.status === 'DONE').length });
+  return { options, selected };
+}
+
+/** The tasks the board shows: open ones always, finished ones only from the chosen week (or all weeks). */
+export const visibleTasks = (tasks, doneWeek) =>
+  doneWeek === ALL_WEEKS ? tasks : tasks.filter((task) => task.status !== 'DONE' || weekKey(task) === doneWeek);
+
+// `todo` / `done` only restate the column the card is in.
+const REDUNDANT_TAGS = ['todo', 'done'];
+
+// "1 Must / 2 Important / 3 Nice to have": the priority is marked with a `must` / `important` / `nice-to-have` tag.
+export const PRIORITIES = Object.freeze([
+  { tag: 'must', rank: 1, label: 'Must', cls: 'must', icon: 'fa-solid fa-flag' },
+  { tag: 'important', rank: 2, label: 'Important', cls: 'important', icon: 'fa-solid fa-flag' },
+  { tag: 'nice-to-have', rank: 3, label: 'Nice to have', cls: 'good-to-have', icon: 'fa-regular fa-flag' },
+]);
+const PRIORITY_TAGS = PRIORITIES.map((p) => p.tag);
+const tagName = (tag) => String(tag).replace(/^#/, '').toLowerCase();
+
+/** The most urgent priority a task is tagged with (`#must` beats `#important`), or null. */
+export function taskPriority(task) {
+  const tags = (task?.tags || []).map(tagName);
+  return PRIORITIES.find((p) => tags.includes(p.tag)) || null;
+}
+
+/** Most urgent first; tasks with the same priority (or none) keep their order. */
+export const sortByPriority = (tasks) =>
+  tasks
+    .map((task, i) => [task, i])
+    .sort(([a, i], [b, j]) => (taskPriority(a)?.rank ?? 4) - (taskPriority(b)?.rank ?? 4) || i - j)
+    .map(([task]) => task);
+
+export function renderCard(task) {
+  const priority = taskPriority(task);
+  const priorityChip = priority
+    ? `<span class="board-chip board-chip--priority board-chip--${priority.cls}" title="Priority ${priority.rank}: ${priority.label}"><i class="${priority.icon}" aria-hidden="true"></i>${priority.label}</span>`
+    : '';
+  const tags = (task.tags || [])
+    .filter((tag) => ![...REDUNDANT_TAGS, ...PRIORITY_TAGS].includes(tagName(tag)))
+    .map((tag) => `<span class="board-chip"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`)
+    .join('');
+  const week = taskWeek(task);
+  const weekChip = week
+    ? `<span class="board-chip board-chip--week" title="${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}"><i class="fa-regular fa-calendar" aria-hidden="true"></i>W${week.week}</span>`
+    : '';
+  return `<div class="board-card-heading">
+      <div class="board-card-title">${esc(task.title)}</div>
+      <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+    </div>
+    <div class="board-card-chips">${priorityChip}${weekChip}${tags}</div>`;
+}
+
+/** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */
+export function parseTags(text) {
+  const tags = String(text ?? '').split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
+  return [...new Set(tags)];
+}
+
+/** The tags the drawer's free-text field shows: all but the priority one, which has its own select. */
+export const editableTags = (task) => (task?.tags || []).filter((t) => !PRIORITY_TAGS.includes(tagName(t)));
+
+/**
+ * What the drawer's form changes about a task, as a `PUT /api/notes/{slug}` body holding only the changed keys
+ * (empty when nothing changed). `values` = {title, status, priority: a priority tag or '', tags: comma-separated}.
+ * The priority select replaces the priority tag; the other tags come from the text field.
+ */
+export function drawerChanges(task, values) {
+  const body = {};
+  const title = String(values.title ?? '').trim();
+  if (title && title !== task.title) body.title = title;
+  if (values.status && values.status !== task.status) body.status = values.status;
+  const tags = parseTags(values.tags).filter((t) => !PRIORITY_TAGS.includes(t.toLowerCase()));
+  if (values.priority) tags.push(values.priority);
+  const same = tags.length === (task.tags || []).length && tags.every((t) => (task.tags || []).includes(t));
+  if (!same) body.tags = tags;
+  return body;
+}

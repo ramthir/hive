@@ -14,7 +14,7 @@ from src.domain.notes.slug import validate_slug
 from src.infrastructure.fs_notes import frontmatter
 from src.infrastructure.git.client import GitClient
 
-MANAGED = ("title", "tags", "created", "updated", "type")
+MANAGED = ("title", "tags", "created", "updated", "type", "status", "week")
 
 
 def _day(value: Any) -> str | None:
@@ -82,6 +82,8 @@ class FileNoteRepository(NoteRepository):
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
             types=parse_types(meta.get("type")),
+            status=(str(meta["status"]).strip() or None) if meta.get("status") is not None else None,
+            week=(str(meta["week"]).strip() or None) if meta.get("week") is not None else None,
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
         )
@@ -111,6 +113,27 @@ class FileNoteRepository(NoteRepository):
                 keys = list(meta.keys())
                 after = keys.index("tags") if "tags" in keys else keys.index("title")
                 meta.insert(after + 1, "type", _types_value(note.types))
+        # `status` is only touched when it changed; a new key goes after `type` (or `tags`, or the title).
+        current_status = str(meta["status"]).strip() if meta.get("status") is not None else None
+        if note.status != (current_status or None):
+            if note.status is None:
+                meta.pop("status", None)
+            elif "status" in meta:
+                meta["status"] = note.status
+            else:
+                keys = list(meta.keys())
+                after = next(k for k in ("type", "tags", "title") if k in keys)
+                meta.insert(keys.index(after) + 1, "status", note.status)
+        current_week = str(meta["week"]).strip() if meta.get("week") is not None else None
+        if note.week != (current_week or None):
+            if note.week is None:
+                meta.pop("week", None)
+            elif "week" in meta:
+                meta["week"] = note.week
+            else:  # after `status` (or `type`, `tags`, the title)
+                keys = list(meta.keys())
+                after = next(k for k in ("status", "type", "tags", "title") if k in keys)
+                meta.insert(keys.index(after) + 1, "week", note.week)
         for k, v in note.extra.items():
             meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")

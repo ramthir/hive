@@ -177,6 +177,17 @@ class NotesApp extends HTMLElement {
     notesRouter.start();
     this._unsubscribe = notesRouter.subscribe((_path, route, params) => this.handleRouting(route, params));
 
+    this._shellRoot = this.closest('app-shell')?.shadowRoot;
+    this._sidebarClick = (event) => {
+      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.go(url.pathname === '/notes' ? '/notes' : url.pathname + url.search);
+    };
+    this._shellRoot?.addEventListener('click', this._sidebarClick, true);
     this._spotlightHandler = (event) => this.go(`/notes/${encodeURIComponent(event.detail.slug)}`);
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._keydownHandler = (event) => this.handleGlobalKeydown(event);
@@ -197,6 +208,7 @@ class NotesApp extends HTMLElement {
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
     window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
+    this._shellRoot?.removeEventListener('click', this._sidebarClick, true);
     window.removeEventListener('beforeunload', this._beforeUnloadHandler);
     this._unsubscribe?.();
     notesRouter.stop();
@@ -215,6 +227,11 @@ class NotesApp extends HTMLElement {
       });
       if (!confirmed) return;
       this.saveStatus = 'saved';
+    }
+    // Other pages of the app (the task board) are separate documents, not routes of the notes router.
+    if (path !== '/notes' && !path.startsWith('/notes/') && !path.startsWith('/notes?')) {
+      window.location.assign(path);
+      return;
     }
     notesRouter.navigate(path, options);
   }
@@ -442,6 +459,13 @@ class NotesApp extends HTMLElement {
   renderRouteLoading() {
     this.innerHTML = `
       <section class="notes-page notes-editor-page notes-editor--skeleton" aria-busy="true">
+        <app-header heading="Notes" variant="flush" attached>
+          <div slot="actions" class="notes-header-actions app-header-action-group">
+            <button id="search-notes-btn" class="notes-btn" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd class="notes-btn-key">${searchShortcutKey}</kbd>
+            </button>
+          </div>
+        </app-header>
         <div class="notes-editor-workspace preview">
           <div class="notes-preview-pane notes-preview-pane--skeleton" aria-hidden="true">
             <div class="note-skeleton-doc">
@@ -453,6 +477,7 @@ class NotesApp extends HTMLElement {
           </div>
         </div>
       </section>`;
+    this.bindHeader();
   }
 
   /* --- Editor view --------------------------------------------------- */
@@ -469,6 +494,13 @@ class NotesApp extends HTMLElement {
 
     this.innerHTML = `
       <section class="notes-page notes-editor-page">
+        <app-header heading="Notes" variant="flush" attached>
+          <div slot="actions" class="notes-header-actions app-header-action-group">
+            <button id="search-notes-btn" class="notes-btn" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search</span><kbd class="notes-btn-key">${searchShortcutKey}</kbd>
+            </button>
+          </div>
+        </app-header>
         <div class="notes-editor-workspace ${editing ? 'write' : 'preview'}">
           <div class="notes-preview-pane" id="notes-preview" tabindex="0">
             <div id="notes-md">${this.renderMarkdownPreview(note.content)}</div>
@@ -506,8 +538,6 @@ class NotesApp extends HTMLElement {
           </div>
           <div class="action-bar-right notes-footer-actions">
             <div class="map-toolbar" aria-label="Note actions">
-              <button id="search-notes-btn" class="tool-button" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
-              <span class="tool-divider" aria-hidden="true"></span>
               ${note.slug ? `
                 <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
@@ -527,7 +557,7 @@ class NotesApp extends HTMLElement {
     this.querySelector('#delete-note-btn')?.addEventListener('click', () => this.confirmDeleteCurrentNote());
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
-    this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
+    this.bindHeader();
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
     this.querySelector('#note-type')?.addEventListener('input', (event) => {
       this.querySelector('#note-type-icon').className = `fa-solid fa-${noteTypeIcon(parseTags(event.target.value))}`;
@@ -539,9 +569,27 @@ class NotesApp extends HTMLElement {
     this.refreshBacklinks();
   }
 
-  // No page header: the browser tab carries the note's title.
+  // The breadcrumb and the browser tab both carry the note's title.
   updateDocumentTitle() {
-    document.title = `${this.selectedNote?.title || 'New note'} - Hive`;
+    const title = this.selectedNote?.title || 'New note';
+    document.title = `${title} - Hive`;
+    const header = this.querySelector('app-header');
+    if (header) header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }, { label: title }];
+  }
+
+  bindHeader() {
+    const header = this.querySelector('app-header');
+    if (!header) return;
+    header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }];
+    if (this.selectedNote) this.updateDocumentTitle();
+    // The breadcrumb's "Notes" link lives in the header's shadow DOM: go through go() so unsaved edits are guarded.
+    header.shadowRoot?.addEventListener('click', (event) => {
+      const link = event.target instanceof Element ? event.target.closest('a[href="/notes"]') : null;
+      if (!link) return;
+      event.preventDefault();
+      this.go('/notes');
+    });
+    this.querySelector('#search-notes-btn')?.addEventListener('click', () => document.querySelector('note-spotlight')?.open());
   }
 
   updateSaveIndicator() {

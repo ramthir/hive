@@ -1,17 +1,4 @@
-/* Hive-specific layout and the pieces Pandora's notes.css does not have (no app-shell here). */
-body { overflow: auto; }
-notes-app { margin: 0; width: 100%; min-height: 100dvh; }
-.notes-page { padding-bottom: 2rem; }
-.notes-page > .notes-grid, .notes-page > .notes-tag-bar { margin-inline: var(--space-6, 1.5rem); }
-.notes-editor-page { height: 100dvh; }
-
-.notes-tag-bar { display: flex; flex-wrap: wrap; gap: .4rem; }
-.notes-tag { border: 1px solid var(--color-dimmed5); background: var(--color-dark2); color: var(--color-text);
-  border-radius: 999px; padding: .15rem .65rem; font: 600 .78rem var(--font-family); cursor: pointer; }
-.notes-tag:hover, .notes-tag.active { background: var(--color-dimmed5); }
-.notes-tag small { opacity: .6; margin-left: .25rem; }
-.note-card-tags { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .4rem; }
-.note-card-tags span { font-size: .72rem; opacity: .7; }
+/* Hive-specific pieces that Pandora's notes.css does not have. */
 
 /* Tags live in the bottom action bar; the input is a plain, borderless field until it is edited. */
 .notes-footer-tags { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 0 1 20rem; opacity: .85; }
@@ -42,8 +29,6 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 .hive-dialog-input { width: 100%; background: var(--color-dark2); border: 1px solid var(--color-dimmed5);
   border-radius: var(--radius-md); color: var(--color-text); padding: .5rem .7rem; font: inherit; }
 
-/* No sidebar in Hive: pin Pandora's fixed bars to the viewport edge. */
-:root { --sidebar-width: 0px; --sidebar-content-offset: 0px; }
 
 /* Narrow windows: let the left side of the action bar shrink instead of overlapping the buttons. */
 .notes-footer-left { min-width: 0; flex: 1 1 auto; overflow: hidden; }
@@ -71,3 +56,9 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 .notes-diagram pre { margin: 0; }
 .notes-diagram-status, .notes-diagram-error { margin-top: .4rem; font: 500 .8rem var(--font-family); color: var(--color-dimmed2); }
 .notes-diagram-error { color: var(--color-red, #ff6188); }
+
+/* Header search button: opens the spotlight; the key hint sits at its right edge. */
+.notes-header-actions .notes-btn .notes-btn-key {
+  margin-left: .5rem; padding: .1rem .4rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-sm);
+  background: var(--color-dark2); color: var(--color-dimmed2); font: 600 .7rem/1.2 var(--font-family);
+}

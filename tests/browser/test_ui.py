@@ -1,5 +1,6 @@
 """End-to-end UI flows against a real server and a temp notes repo."""
 import socket
+from datetime import date
 import subprocess
 import threading
 import time
@@ -103,7 +104,7 @@ def test_empty_notes_repo_opens_a_new_note(page, tmp_path_factory):
 
 def test_spotlight_lists_recent_notes_then_filters(page, server):
     page.goto(f"{server}/notes/alpha")
-    assert page.locator("app-header").count() == 0  # no page header
+    expect(page.locator("app-header")).to_have_count(1)
     page.keyboard.press("Control+k")
     rows = page.locator("note-spotlight .spotlight-item")
     expect(rows).to_have_count(2)
@@ -215,7 +216,9 @@ def test_layout_and_hard_wrapped_paragraphs(page, notes_dir, server):
     expect(page.locator("#notes-md p")).to_have_count(1)
     assert page.locator("#notes-md p br").count() == 0  # a single newline is not a line break
     bar = page.locator(".notes-action-bar").bounding_box()
-    assert bar["x"] == 0 and bar["width"] == page.viewport_size["width"]  # no sidebar offset
+    sidebar = page.locator("app-sidebar .app-sidebar").bounding_box()
+    assert abs(bar["x"] - sidebar["width"]) < 1  # the bar starts where the sidebar ends...
+    assert abs(bar["x"] + bar["width"] - page.viewport_size["width"]) < 1  # ...and runs to the right edge
 
 
 def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes_dir):
@@ -248,11 +251,13 @@ def test_tag_field_is_hidden_for_untagged_notes_until_editing(page, server, note
     assert page.errors == []
 
 
-def test_heading_starts_at_the_top_of_the_page(page, server):
+def test_heading_starts_right_below_the_header(page, server):
     page.goto(f"{server}/notes/alpha")
     expect(page.locator("#notes-md h1")).to_be_visible()
-    assert page.locator(".notes-editor-workspace").bounding_box()["y"] == 0  # nothing above the note
-    assert page.locator("#notes-md h1").bounding_box()["y"] <= 24  # only the pane's own padding
+    header = page.locator("app-header").bounding_box()
+    workspace = page.locator(".notes-editor-workspace").bounding_box()
+    assert abs(workspace["y"] - (header["y"] + header["height"])) < 2  # the note fills the space under the header
+    assert page.locator("#notes-md h1").bounding_box()["y"] - workspace["y"] <= 24  # only the pane's own padding between them
 
 
 def test_spotlight_navigation_keeps_unsaved_edits_safe(page, server, notes_dir):
@@ -502,4 +507,211 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
     expect(icon("A Holiday")).to_have_class("fa-solid fa-umbrella-beach")  # a scalar `type:` works too
     expect(icon("Alpha")).to_have_class("fa-solid fa-note-sticky")  # no type: the default
     expect(rows.filter(has_text="A Contact").locator(".spotlight-item-icon")).to_have_attribute("title", "contact, interview")
+    assert page.errors == []
+
+
+
+# --- Pandora's shell: header and sidebar --------------------------------------------------------------------------------
+
+def test_sidebar_has_notes_tasks_and_the_hardcoded_user(page, server):
+    page.goto(f"{server}/notes/alpha")
+    links = page.locator("app-sidebar .nav-link")
+    expect(links).to_have_count(2)
+    expect(links.first).to_have_text("Notes")
+    expect(links.first).to_have_class("nav-link active")
+    expect(links.first).to_have_attribute("aria-current", "page")
+    expect(links.nth(1)).to_have_text("Tasks")
+    expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
+    expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
+    # The user sits at the bottom of the sidebar, below the navigation.
+    nav, profile, bar = (page.locator(s).bounding_box() for s in ("app-sidebar .sidebar-nav", "app-sidebar .sidebar-profile", "app-sidebar .app-sidebar"))
+    assert profile["y"] > nav["y"] + nav["height"] and profile["y"] + profile["height"] <= bar["y"] + bar["height"] + 1
+    assert profile["y"] + profile["height"] > page.viewport_size["height"] - 40
+    assert page.errors == []
+
+
+def test_header_has_the_notes_heading_and_a_breadcrumb_for_the_note(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Notes")
+    expect(page.locator("#search-notes-btn")).to_be_visible()
+    labels = lambda: page.evaluate("document.querySelector('app-header').breadcrumbs.map((c) => c.label)")  # noqa: E731
+    assert labels() == ["Notes", "Alpha"]
+    page.goto(f"{server}/notes/new")
+    page.wait_for_selector(".cm-content")
+    assert labels() == ["Notes", "New note"]
+    assert page.errors == []
+
+
+def test_sidebar_collapse_gives_the_space_back_and_is_remembered(page, server):
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator("#notes-md h1")).to_be_visible()
+    assert page.locator(".notes-action-bar").bounding_box()["x"] > 200
+    page.click("app-sidebar .desktop-collapse-btn")
+    expect(page.locator("app-sidebar")).to_have_class("sidebar-collapsed")
+    assert page.locator(".notes-action-bar").bounding_box()["x"] == 0
+    page.reload()
+    expect(page.locator("app-sidebar")).to_have_class("sidebar-collapsed")  # remembered across page loads
+    expect(page.locator("#notes-md h1")).to_be_visible()
+    page.click("app-sidebar .sidebar-expand-btn")
+    expect(page.locator("app-sidebar")).not_to_have_class("sidebar-collapsed")
+    assert page.locator(".notes-action-bar").bounding_box()["x"] > 200
+    assert page.errors == []
+
+
+def test_sidebar_notes_link_opens_the_latest_note_without_reloading(page, server):
+    page.goto(f"{server}/notes/beta")
+    expect(page.locator("#notes-md")).to_contain_text("Beta body text")
+    page.evaluate("window.__stillHere = true")
+    page.click("app-sidebar .nav-link")
+    page.wait_for_url("**/notes/alpha")  # alpha is the most recently edited
+    expect(page.locator("#notes-md h1")).to_have_text("Alpha")
+    assert page.evaluate("window.__stillHere === true")  # in-app navigation, not a page load
+    assert page.errors == []
+
+
+def test_sidebar_link_asks_before_dropping_unsaved_edits(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("unsaved words")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.click("app-sidebar .nav-link")
+    page.click("[data-action=cancel]")
+    assert page.url.endswith("/notes/beta?mode=edit")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.click("app-sidebar .nav-link")
+    page.click("[data-action=confirm]")
+    page.wait_for_url("**/notes/alpha")
+    assert "unsaved words" not in (notes_dir / "beta.md").read_text()
+    assert page.errors == []
+
+
+# -- task board -----------------------------------------------------------------
+
+@pytest.fixture
+def task_notes(notes_dir):
+    (notes_dir / "write-report.md").write_text("---\ntitle: Write report\ntype: task\ntags: [todo, work]\ncreated: 2026-01-01\nupdated: 2026-03-01\n---\n\n# Write report\n")
+    today = date.today().isoformat()
+    (notes_dir / "ship-it.md").write_text(f"---\ntitle: Ship it\ntype: task\ntags: [done]\ncreated: 2026-01-01\nupdated: {today}\n---\n\n# Ship it\n")
+    (notes_dir / "old-win.md").write_text("---\ntitle: Old win\ntype: task\ntags: [done]\ncreated: 2026-01-01\nupdated: 2020-06-01\n---\n\n# Old win\n")
+    (notes_dir / "review.md").write_text("---\ntitle: Review\ntype: [task]\nstatus: IN_PROGRESS\ncreated: 2026-01-01\nupdated: 2026-03-03\n---\n\n# Review\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "tasks")
+    return notes_dir
+
+
+def column(page, value):
+    return page.locator(f'.board-column[data-column-value="{value}"]')
+
+
+def test_tasks_board_groups_task_notes_by_status(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    expect(page).to_have_title("Tasks - Hive")
+    expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report"])
+    expect(column(page, "IN_PROGRESS").locator(".board-card-title")).to_have_text(["Review"])
+    expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Ship it"])
+    expect(column(page, "TODO").locator(".board-chip")).to_have_text(["work"])  # `todo` only restates the column
+    expect(page.locator("app-sidebar .nav-link.active")).to_have_text("Tasks")
+    assert page.errors == []
+
+
+def test_tasks_board_drag_saves_the_status_as_a_commit(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    before = len(git(task_notes, "rev-list", "HEAD").split())
+    card = column(page, "TODO").locator(".board-card", has_text="Write report")
+    card.drag_to(column(page, "IN_PROGRESS"))
+    expect(column(page, "IN_PROGRESS").locator(".board-card", has_text="Write report")).to_have_count(1)
+    wait_for_commits(task_notes, before + 1)
+    text = (task_notes / "write-report.md").read_text()
+    assert "status: IN_PROGRESS" in text and "tags: [todo, work]" in text
+    page.reload()
+    expect(column(page, "IN_PROGRESS").locator(".board-card", has_text="Write report")).to_have_count(1)
+    assert page.errors == []
+
+
+def pick(drawer, name, label):
+    """Choose an option of one of the drawer's comboboxes."""
+    combo = drawer.locator(f'app-combobox:has([name="{name}"])')
+    combo.locator(".combobox-input").click()
+    combo.locator(".combobox-option", has_text=label).click()
+
+
+def test_tasks_card_opens_a_drawer_and_its_link_opens_the_note(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    column(page, "DONE").locator(".board-card", has_text="Ship it").click()
+    expect(page.locator("#task-drawer-title")).to_be_visible()
+    expect(page.locator('.task-drawer-host [name="title"]')).to_have_value("Ship it")
+    page.click("[data-open-note]")
+    page.wait_for_url("**/notes/ship-it")
+    expect(page.locator("#notes-md h1")).to_have_text("Ship it")
+    page.click('app-sidebar .nav-link[href="/tasks"]')  # from the notes page: a full navigation, not the notes router
+    page.wait_for_url("**/tasks")
+    expect(column(page, "TODO").locator(".board-card")).to_have_count(1)
+    assert page.errors == []
+
+
+def test_tasks_drawer_saves_title_status_priority_and_tags_as_one_commit(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    before = len(git(task_notes, "rev-list", "HEAD").split())
+    column(page, "TODO").locator(".board-card", has_text="Write report").click()
+    drawer = page.locator(".task-drawer-host")
+    drawer.locator('[name="title"]').fill("Write the report")
+    pick(drawer, "status", "In Progress")
+    pick(drawer, "priority", "Must")
+    drawer.locator('[name="tags"]').fill("todo, work, q4")
+    drawer.locator("[data-save]").click()
+    card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write the report")
+    expect(card).to_have_count(1)
+    expect(card.locator(".board-chip--must")).to_have_text("Must")
+    wait_for_commits(task_notes, before + 1)
+    text = (task_notes / "write-the-report.md").read_text()
+    assert "status: IN_PROGRESS" in text and "tags: [todo, work, q4, must]" in text
+    assert not (task_notes / "write-report.md").exists()
+    assert len(git(task_notes, "rev-list", "HEAD").split()) == before + 1
+    assert page.errors == []
+
+
+def test_tasks_show_week_numbers_and_done_has_a_week_filter(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    this_week = date.today().isocalendar().week
+    key = f"{date.today().isocalendar().year}-W{this_week:02d}"
+    expect(column(page, "DONE").locator(".board-card", has_text="Ship it").locator(".board-chip--week")).to_have_text(f"W{this_week}")
+    expect(column(page, "TODO").locator(".board-card", has_text="Write report").locator(".board-chip--week")).to_have_text("W9")  # updated 2026-03-01
+    # Pandora's pill sits in the Done column header and starts on this week; the address names the week.
+    pill = column(page, "DONE").locator(".work-done-filter-btn")
+    expect(pill).to_have_text(f"Week {this_week:02d} {date.today().isocalendar().year}")
+    page.wait_for_url(f"**/tasks?done={key}")
+    expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Ship it"])
+    expect(column(page, "TODO").locator(".board-card")).to_have_count(1)  # open tasks are never filtered
+    expect(page.locator("#tasks-week-btn")).to_have_count(0)  # no toggle in the page header any more
+    # The list has every week with finished tasks (with counts), newest first, then All weeks.
+    pill.click()
+    items = column(page, "DONE").locator(".work-done-filter-menu .app-dropdown-item")
+    expect(items.last).to_have_attribute("aria-label", "All weeks (2)")
+    items.last.click()
+    page.wait_for_url("**/tasks?done=all")
+    expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Ship it", "Old win"])
+    page.reload()  # the choice is in the address
+    expect(column(page, "DONE").locator(".work-done-filter-btn")).to_have_text("All weeks")
+    page.goto(f"{server}/tasks?done=2020-W23")  # a shared link to the week of "Old win" (updated 2020-06-01)
+    expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Old win"])
+    assert page.errors == []
+
+
+def test_tasks_page_fills_the_width_and_has_the_same_header_as_notes(page, server, task_notes):
+    page.goto(f"{server}/notes/alpha")
+    notes_header = page.locator("app-header").bounding_box()
+    notes_app = page.locator("notes-app").bounding_box()
+    page.goto(f"{server}/tasks")
+    expect(column(page, "TODO")).to_be_visible()
+    header = page.locator("app-header").bounding_box()
+    app = page.locator("tasks-app").bounding_box()
+    # Same box as the notes page: edge to edge beside the sidebar, header at the same place and height.
+    assert (app["x"], app["width"]) == (notes_app["x"], notes_app["width"])
+    assert (header["x"], header["y"], header["width"], header["height"]) == (notes_header["x"], notes_header["y"], notes_header["width"], notes_header["height"])
+    # The board spans the page: first column starts at the page padding and the last ends at the right padding.
+    cols = page.locator(".board-column")
+    first, last = cols.first.bounding_box(), cols.last.bounding_box()
+    assert first["x"] - app["x"] <= 32 and (app["x"] + app["width"]) - (last["x"] + last["width"]) <= 32
+    expect(page.locator("app-header #search-notes-btn")).to_be_visible()  # the header buttons match the notes page: just Search
     assert page.errors == []

@@ -86,6 +86,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     static = Path(__file__).resolve().parents[2] / "static"
     app.mount("/static", StaticFiles(directory=static), name="static")
 
+    @app.get("/tasks", include_in_schema=False)
+    def tasks_page() -> FileResponse:
+        return FileResponse(static / "tasks.html", headers={"Cache-Control": "no-cache"})
+
     @app.get("/", include_in_schema=False)
     @app.get("/notes", include_in_schema=False)
     @app.get("/notes/{path:path}", include_in_schema=False)
