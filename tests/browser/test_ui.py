@@ -101,18 +101,27 @@ def test_empty_notes_repo_opens_a_new_note(page, tmp_path_factory):
         thread.join(5)
 
 
-def test_search_box_lists_recent_notes_then_filters(page, server):
+def test_spotlight_lists_recent_notes_then_filters(page, server):
     page.goto(f"{server}/notes/alpha")
-    page.click("#notes-note-search-input")
-    expect(page.locator("#notes-note-search .autocomplete-option, #notes-note-search [role=option]").first).to_be_visible()
-    options = page.locator("#notes-note-search [role=option]")
-    expect(options).to_have_count(2)
-    expect(options.first).to_contain_text("Alpha")  # most recently edited first
-    page.fill("#notes-note-search-input", "beta body")
-    expect(options).to_have_count(1)
-    options.first.click()
+    assert page.locator("app-header").count() == 0  # no page header
+    page.keyboard.press("Control+k")
+    rows = page.locator("note-spotlight .spotlight-item")
+    expect(rows).to_have_count(2)
+    expect(rows.first).to_contain_text("Alpha")  # most recently edited first
+    page.fill("note-spotlight .spotlight-input", "beta body")
+    expect(rows).to_have_count(1)
+    expect(rows.first).to_contain_text("Beta Note")
+    page.keyboard.press("Enter")
     page.wait_for_url("**/notes/beta")
+    expect(page.locator("note-spotlight .spotlight-backdrop")).to_be_hidden()
+    assert page.title() == "Beta Note - Hive"
+    # The action bar's search button opens it too, and Escape closes it.
+    page.click("#search-notes-btn")
+    expect(page.locator("note-spotlight .spotlight-backdrop")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.locator("note-spotlight .spotlight-backdrop")).to_be_hidden()
     assert page.errors == []
+
 
 
 def test_view_note_resolves_links_and_backlinks(page, server):
@@ -239,8 +248,37 @@ def test_tag_field_is_hidden_for_untagged_notes_until_editing(page, server, note
     assert page.errors == []
 
 
-def test_heading_starts_right_below_the_header(page, server):
+def test_heading_starts_at_the_top_of_the_page(page, server):
     page.goto(f"{server}/notes/alpha")
     expect(page.locator("#notes-md h1")).to_be_visible()
-    top = page.locator("#notes-md h1").bounding_box()["y"] - page.locator(".notes-editor-workspace").bounding_box()["y"]
-    assert top <= 24, f"{top}px between the header and the heading"  # the pane's own padding only
+    assert page.locator(".notes-editor-workspace").bounding_box()["y"] == 0  # nothing above the note
+    assert page.locator("#notes-md h1").bounding_box()["y"] <= 24  # only the pane's own padding
+
+
+def test_spotlight_navigation_keeps_unsaved_edits_safe(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("unsaved words")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.keyboard.press("Control+k")  # works while the editor has focus
+    page.fill("note-spotlight .spotlight-input", "alpha")
+    expect(page.locator("note-spotlight .spotlight-item")).to_have_count(1)  # wait for the results
+    page.keyboard.press("Enter")
+    page.click("[data-action=cancel]")  # "Leave this note without saving?" -> Cancel
+    assert page.url.endswith("/notes/beta?mode=edit")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.keyboard.press("Control+k")
+    page.fill("note-spotlight .spotlight-input", "alpha")
+    expect(page.locator("note-spotlight .spotlight-item")).to_have_count(1)  # wait for the results
+    page.keyboard.press("Enter")
+    page.click("[data-action=confirm]")  # Discard
+    page.wait_for_url("**/notes/alpha")
+    assert "unsaved words" not in (notes_dir / "beta.md").read_text()
+    assert page.errors == []
+
+
+def test_there_is_no_new_note_button(page, server):
+    page.goto(f"{server}/notes/alpha")
+    assert page.locator("#add-note-btn").count() == 0
+    expect(page.locator("#search-notes-btn")).to_be_visible()

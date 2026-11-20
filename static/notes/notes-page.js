@@ -5,6 +5,7 @@ import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/time-format.js';
 import '/static/components/action-bar.js';
+import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 
 const notesRouter = new ScopedRouter({ basename: '/notes' });
@@ -15,6 +16,7 @@ notesRouter.registerFallback({ view: 'list' });
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
+const searchShortcutKey = isMac ? '⌘K' : 'Ctrl+K';
 const READING_WORDS_PER_MINUTE = 75;
 
 /* --- API ------------------------------------------------------------- */
@@ -160,8 +162,6 @@ class NotesApp extends HTMLElement {
     this.saveStatus = 'saved'; // 'saved' | 'saving' | 'dirty'
     this.isNoteEditing = false;
     this.cmEditor = null;
-    this._autocompleteTimer = null;
-    this._autocompleteController = null;
     this._unsubscribe = null;
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
   }
@@ -171,6 +171,8 @@ class NotesApp extends HTMLElement {
     notesRouter.start();
     this._unsubscribe = notesRouter.subscribe((_path, route, params) => this.handleRouting(route, params));
 
+    this._spotlightHandler = (event) => this.go(`/notes/${encodeURIComponent(event.detail.slug)}`);
+    window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._keydownHandler = (event) => this.handleGlobalKeydown(event);
     window.addEventListener('keydown', this._keydownHandler);
     this._beforeUnloadHandler = (event) => {
@@ -184,11 +186,10 @@ class NotesApp extends HTMLElement {
   }
 
   disconnectedCallback() {
-    clearTimeout(this._autocompleteTimer);
     clearTimeout(this._copyTimer);
-    this._autocompleteController?.abort();
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
+    window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     window.removeEventListener('beforeunload', this._beforeUnloadHandler);
     this._unsubscribe?.();
     notesRouter.stop();
@@ -349,7 +350,7 @@ class NotesApp extends HTMLElement {
         this.renderEditorView();
       } else {
         this.updateUpdatedStamp();
-        this.updateBreadcrumbs();
+        this.updateDocumentTitle();
         this.refreshBacklinks();
       }
       showToast(`Saved · ${saved.title}`, 'success');
@@ -431,7 +432,6 @@ class NotesApp extends HTMLElement {
   renderRouteLoading() {
     this.innerHTML = `
       <section class="notes-page notes-editor-page notes-editor--skeleton" aria-busy="true">
-        <app-header heading="Notes" variant="flush" attached></app-header>
         <div class="notes-editor-workspace preview">
           <div class="notes-preview-pane notes-preview-pane--skeleton" aria-hidden="true">
             <div class="note-skeleton-doc">
@@ -443,16 +443,6 @@ class NotesApp extends HTMLElement {
           </div>
         </div>
       </section>`;
-    this.querySelector('app-header').breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }];
-  }
-
-  bindHeaderHomeLink(header) {
-    header.shadowRoot?.addEventListener('click', (event) => {
-      const link = event.target instanceof Element ? event.target.closest('a[href="/notes"]') : null;
-      if (!link) return;
-      event.preventDefault();
-      this.go('/notes');
-    });
   }
 
   /* --- Editor view --------------------------------------------------- */
@@ -469,15 +459,6 @@ class NotesApp extends HTMLElement {
 
     this.innerHTML = `
       <section class="notes-page notes-editor-page">
-        <app-header heading="Notes" variant="flush" attached>
-          <div slot="actions" class="notes-header-actions app-header-action-group">
-            <app-autocomplete id="notes-note-search" class="notes-note-search-wrapper" input-id="notes-note-search-input" placeholder="Find a note…"></app-autocomplete>
-            <button id="add-note-btn" class="notes-btn primary" type="button" title="Create a new note">
-              <i class="fa-solid fa-plus"></i><span>New Note</span>
-            </button>
-          </div>
-        </app-header>
-
         <div class="notes-editor-workspace ${editing ? 'write' : 'preview'}">
           <div class="notes-preview-pane" id="notes-preview" tabindex="0">
             <div id="notes-md">${this.renderMarkdownPreview(note.content)}</div>
@@ -511,6 +492,8 @@ class NotesApp extends HTMLElement {
           </div>
           <div class="action-bar-right notes-footer-actions">
             <div class="map-toolbar" aria-label="Note actions">
+              <button id="search-notes-btn" class="tool-button" type="button" title="Search notes (${searchShortcutKey})" aria-label="Search notes"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
+              <span class="tool-divider" aria-hidden="true"></span>
               ${note.slug ? `
                 <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
@@ -524,14 +507,13 @@ class NotesApp extends HTMLElement {
         </app-action-bar>
       </section>`;
 
-    this.updateBreadcrumbs();
-    this.setupNoteSearch();
+    this.updateDocumentTitle();
     this.querySelector('#copy-note-btn').addEventListener('click', () => this.copyCurrentNote());
     this.querySelector('#note-versions-btn')?.addEventListener('click', () => this.openNoteVersions());
     this.querySelector('#delete-note-btn')?.addEventListener('click', () => this.confirmDeleteCurrentNote());
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
-    this.querySelector('#add-note-btn').addEventListener('click', () => this.createNewNote());
+    this.querySelector('#search-notes-btn').addEventListener('click', () => document.querySelector('note-spotlight')?.open());
     this.querySelector('#note-tags').addEventListener('input', () => this.markDirty());
 
     if (editing) this.initCodeMirror();
@@ -539,14 +521,9 @@ class NotesApp extends HTMLElement {
     this.refreshBacklinks();
   }
 
-  updateBreadcrumbs() {
-    const header = this.querySelector('app-header');
-    if (!header) return;
-    header.breadcrumbs = [{ label: 'Notes', href: '/notes', icon: 'fa-solid fa-book-open' }, { label: this.selectedNote?.title || 'New note' }];
-    if (!header._hiveBound) {
-      header._hiveBound = true;
-      this.bindHeaderHomeLink(header);
-    }
+  // No page header: the browser tab carries the note's title.
+  updateDocumentTitle() {
+    document.title = `${this.selectedNote?.title || 'New note'} - Hive`;
   }
 
   updateSaveIndicator() {
@@ -567,52 +544,6 @@ class NotesApp extends HTMLElement {
   updateUpdatedStamp() {
     const stamp = this.querySelector('.stat-updated span');
     if (stamp && this.selectedNote?.updated) stamp.textContent = `Updated ${formatRelativeTime(this.selectedNote.updated)}`;
-  }
-
-  setupNoteSearch() {
-    const autocomplete = this.querySelector('#notes-note-search');
-    if (!autocomplete) return;
-    autocomplete.addEventListener('input', () => {
-      clearTimeout(this._autocompleteTimer);
-      this._autocompleteController?.abort();
-      const query = autocomplete.value.trim();
-      if (!query) {
-        this.showRecentNotes(autocomplete);
-        return;
-      }
-      this._autocompleteTimer = setTimeout(async () => {
-        const controller = new AbortController();
-        this._autocompleteController = controller;
-        try {
-          const notes = await api(`/notes?q=${encodeURIComponent(query)}&limit=8`, { signal: controller.signal });
-          if (controller.signal.aborted || autocomplete.value.trim() !== query) return;
-          autocomplete.options = notes.map((note) => ({
-            value: note.slug,
-            label: note.title,
-            icon: 'fa-regular fa-file-lines',
-          }));
-        } catch (error) {
-          if (error.name !== 'AbortError') autocomplete.options = [];
-        }
-      }, 120);
-    });
-    autocomplete.addEventListener('focusin', () => {
-      if (!autocomplete.value.trim()) this.showRecentNotes(autocomplete);
-    });
-    autocomplete.addEventListener('select', (event) => {
-      autocomplete.value = '';
-      this.go(`/notes/${encodeURIComponent(event.detail.value)}`);
-    });
-  }
-
-  async showRecentNotes(autocomplete) {
-    try {
-      const notes = await api('/notes?sort=recent&limit=8');
-      if (autocomplete.value.trim()) return;
-      autocomplete.options = notes.map((note) => ({ value: note.slug, label: note.title, icon: 'fa-regular fa-clock' }));
-    } catch (error) {
-      console.error('Failed to load recent notes:', error);
-    }
   }
 
   /* --- Backlinks ----------------------------------------------------- */
