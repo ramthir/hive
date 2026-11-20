@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import threading
 from collections import OrderedDict
@@ -73,7 +74,10 @@ class DiagramService:
             problem = "Java was not found. Set PLANTUML_JAVA to the java executable."
         elif not self.jar or not self.jar.is_file():
             problem = f"plantuml.jar was not found at {self.jar}. Set PLANTUML_JAR."
-        return {"available": problem is None, "reason": problem}
+        # Graphviz is optional: without it PlantUML still draws, but with a simpler layout that ignores a
+        # theme's `LineType ortho` (connectors come out diagonal instead of boxed at right angles).
+        graphviz = bool(shutil.which("dot") or os.environ.get("GRAPHVIZ_DOT"))
+        return {"available": problem is None, "reason": problem, "graphviz": graphviz}
 
     # -- includes ---------------------------------------------------------
     @staticmethod

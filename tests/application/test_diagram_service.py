@@ -1,4 +1,6 @@
 import os
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -165,3 +167,28 @@ def test_real_plantuml_inlines_a_theme_include_and_reports_syntax_errors_as_an_i
     assert "#112233" in svc.render("@startuml\n!include dark.puml\nA -> B\n@enduml").lower() or "112233" in svc.render("@startuml\n!include dark.puml\nA -> B\n@enduml")
     bad = svc.render("@startuml\nthis is not valid ((( \n@enduml")
     assert bad.startswith("<svg")  # PlantUML draws its own syntax-error image
+
+
+def _connector_paths(svg: str) -> list[list[tuple[float, float]]]:
+    out = []
+    for d in re.findall(r'<path[^>]* d="([^"]+)"', svg):
+        nums = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", d)]
+        out.append(list(zip(nums[0::2], nums[1::2])))
+    return out
+
+
+@needs_java
+def test_real_class_diagram_connectors_are_boxed_when_the_theme_asks_for_ortho(tmp_path):
+    """The Monokai theme sets `LineType ortho`. Only Graphviz honours it; without `dot` PlantUML falls back to a
+    layout that draws diagonal connectors, so a missing Graphviz must fail loudly rather than quietly look wrong."""
+    assert shutil.which("dot") or os.environ.get("GRAPHVIZ_DOT"), (
+        "Graphviz is not installed, so the theme's boxed (ortho) connectors cannot be drawn. "
+        "Install it (apt-get install graphviz) or set GRAPHVIZ_DOT.")
+    svc = DiagramService(REAL_JAVA, REAL_JAR, tmp_path)
+    svg = svc.render("@startuml\n!include monokai-theme.puml\nclass Customer\nclass Order\nclass Line\n"
+                     "Customer --> Order\nCustomer --> Line\nOrder *-- Line\n@enduml")
+    connectors = [p for p in _connector_paths(svg) if len(p) >= 4]
+    assert len(connectors) >= 3
+    for path in connectors:
+        for (x1, y1), (x2, y2) in zip(path, path[1:]):
+            assert abs(x1 - x2) < 0.5 or abs(y1 - y2) < 0.5, f"diagonal segment {(x1, y1)} -> {(x2, y2)}"

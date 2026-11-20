@@ -25,7 +25,8 @@ def client_with(root, runner=None, java=True):
 
 def test_status_and_render(root):
     c = client_with(root)
-    assert c.get("/api/diagram/status").json() == {"available": True, "reason": None}
+    status = c.get("/api/diagram/status").json()
+    assert status["available"] is True and status["reason"] is None and isinstance(status["graphviz"], bool)
     r = c.post("/api/diagram/render", json={"source": "@startuml\nA -> B\n@enduml"})
     assert r.status_code == 200 and r.json() == {"svg": FAKE_SVG}
 
