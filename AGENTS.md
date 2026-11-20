@@ -13,3 +13,6 @@ File-backed notes app: markdown files in `NOTES_DIR` (default `~/Workspace/notes
 - Benchmark: `uv run python scripts/bench.py <COPY of notes> [--with-hook] [--no-watch]` (edits files and commits: use a copy).
 - Design: the watcher (watchfiles/inotify, `step=250ms`, `debounce=400ms`) only invalidates the index; it is rebuilt lazily on the next request, so bursts coalesce into one rebuild and an idle app does nothing.
 - `commit --only` runs hooks on a temp index, so `GitClient.commit_paths` re-syncs the real index afterwards; do not remove that or formatter hooks leave phantom staged changes.
+
+## Running
+`NOTES_DIR=~/Workspace/notes uv run python main.py` serves on port 80 (needs `net.ipv4.ip_unprivileged_port_start` <= 80 or root). Binds 127.0.0.1 by default because there is no auth; `HOST=0.0.0.0` exposes it to the network. `PORT` overrides the port. Every save is a real git commit in `NOTES_DIR`.
