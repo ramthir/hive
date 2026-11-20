@@ -20,7 +20,7 @@ class TimeEntriesApp extends HTMLElement {
     this.rows = [];
     this.innerHTML = `
       <section class="time-page">
-        <app-header heading="Time entries" variant="flush" attached>
+        <app-header heading="Time Entries" variant="flush" attached>
           <div slot="actions" class="time-header-actions notes-header-actions app-header-action-group">
             <input class="time-search" type="search" placeholder="Search time entries" aria-label="Search time entries" title="${esc(SEARCH_HELP)}" value="${esc(this.state.q)}" autocomplete="off" />
             <button type="button" class="primary" data-add><i class="fa-solid fa-plus" aria-hidden="true"></i> Add time</button>
@@ -95,7 +95,7 @@ class TimeEntriesApp extends HTMLElement {
   createDrawer() {
     return createCrudDrawer({
       host: this.querySelector('.time-drawer-host'),
-      singularLabel: 'time entry',
+      singularLabel: 'Time Entry',
       initialFocus: '[name="slug"] .combobox-input',
       fieldsHtml: `<label class="field">Task or meeting<app-combobox name="slug" required placeholder="Search tasks and meetings"></app-combobox></label>
         <div class="time-form-row">

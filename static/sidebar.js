@@ -12,7 +12,7 @@ const CURRENT_USER = Object.freeze({ name: 'Ramesh Thiruchelvam' });
 const NAVIGATION_ITEMS = Object.freeze([
   { href: '/notes', label: 'Notes', icon: 'fa-solid fa-book-open', activePaths: ['/notes'] },
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
-  { href: '/time-entries', label: 'Time entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
+  { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
 ]);
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';
