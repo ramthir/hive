@@ -15,7 +15,7 @@ Under `/api`: `GET/POST /notes`, `GET/PUT/DELETE /notes/{slug}`, `/notes/{slug}/
 ## Performance monitoring
 - Live: `GET /api/metrics` -> counters (`watcher_batches`, `watcher_events`, `index_invalidations`), timings (`index_rebuild`, `git_commit`: count/avg/max ms) and process stats (`cpu_s`, `rss_kb`, `threads`). Poll `cpu_s` twice to get CPU use over an interval.
 - Benchmark: `uv run python scripts/bench.py <COPY of notes> [--with-hook] [--no-watch]` (edits files and commits: use a copy).
-- Design: the watcher (watchfiles/inotify, `step=250ms`, `debounce=400ms`) only invalidates the index; it is rebuilt lazily on the next request, so bursts coalesce into one rebuild and an idle app does nothing.
+- Design: the watcher (watchfiles/inotify, `step=250ms`, `debounce=400ms`) only invalidates the index; it is rebuilt lazily on the next request, so bursts coalesce into one rebuild and an idle app does nothing. The rebuild is incremental twice over: `FileNoteRepository.list()` re-parses only files whose (mtime, size) changed, and the watcher and service writes name the slugs they touched, so `NoteIndex.updated` patches just those notes (`index_patch` timing; copy-on-write, so readers never see a half-updated index). More than `PATCH_LIMIT` (50) changed notes, `POST /api/reindex` or a file the repository cannot load by name fall back to a full rebuild.
 - `commit --only` runs hooks on a temp index, so `GitClient.commit_paths` re-syncs the real index afterwards; do not remove that or formatter hooks leave phantom staged changes.
 
 ## Running

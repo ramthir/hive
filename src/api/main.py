@@ -36,7 +36,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        watcher = NotesWatcher(root, lambda _paths: service.invalidate(), metrics) if watch else None
+        watcher = NotesWatcher(root, service.invalidate, metrics) if watch else None
         if watcher:
             watcher.start()
         try:

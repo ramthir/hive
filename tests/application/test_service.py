@@ -396,3 +396,52 @@ def test_time_notes_follow_the_service_clock(clock_svc, root, day):
     assert [week for _, week in svc.time_notes()] == [True]
     day["today"] = date(2026, 11, 30)  # a later week: the same note is no longer this week's
     assert [week for _, week in svc.time_notes()] == [False]
+
+
+def test_index_is_patched_not_rebuilt_after_a_write(svc, root):
+    svc.create("One", "[[Two]]")
+    svc.create("Two", "")
+    assert svc.index.backlinks("two")[0].slug == "one"
+    rebuilds = svc.metrics.timings["index_rebuild"]["count"]
+
+    svc.update("two", content="# Two\n\nedited")
+    svc.create("Three", "[[Two]]")
+    assert [n.slug for n in svc.index.backlinks("two")] == ["one", "three"]
+    assert svc.metrics.timings["index_rebuild"]["count"] == rebuilds  # patched
+    assert svc.metrics.timings["index_patch"]["count"] >= 1
+
+    svc.update("two", title="Deux")  # rename: links in other notes are rewritten
+    assert "[[Deux]]" in svc.get("one").content
+    assert [n.slug for n in svc.index.backlinks("deux")] == ["one", "three"]
+    svc.delete("three")
+    assert "three" not in svc.index.notes
+    assert svc.metrics.timings["index_rebuild"]["count"] == rebuilds
+
+
+def test_edits_made_outside_the_app_patch_the_named_notes(svc, root):
+    svc.create("One", "")
+    assert set(svc.index.notes) == {"one"}
+    (root / "ext.md").write_text("---\ntitle: Ext\n---\n\n# Ext\n\n[[One]]\n")
+    (root / "one.md").unlink()
+    svc.invalidate(["ext", "one"])
+    assert set(svc.index.notes) == {"ext"}
+    assert svc.index.unresolved == {"ext": ["One"]}
+
+
+def test_a_big_batch_of_changes_rebuilds(svc, root):
+    svc.create("One", "")
+    assert svc.index
+    rebuilds = svc.metrics.timings["index_rebuild"]["count"]
+    for i in range(60):
+        (root / f"x{i}.md").write_text(f"# X{i}\n")
+    svc.invalidate([f"x{i}" for i in range(60)])
+    assert len(svc.index.notes) == 61
+    assert svc.metrics.timings["index_rebuild"]["count"] == rebuilds + 1
+
+
+def test_invalidate_without_slugs_rebuilds_everything(svc, root):
+    svc.create("One", "")
+    assert svc.index
+    (root / "late.md").write_text("# Late\n")
+    svc.invalidate()
+    assert set(svc.index.notes) == {"one", "late"}

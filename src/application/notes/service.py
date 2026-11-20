@@ -6,6 +6,7 @@ Changing the heading renames the file, and links to the note are rewritten so th
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterable
 from datetime import date
 from dataclasses import replace
 
@@ -27,6 +28,9 @@ def _clean(types) -> tuple[str, ...]:
     return tuple(dict.fromkeys(t.strip() for t in types if t and t.strip()))
 
 
+# More changed notes than this (a git pull, a checkout) are cheaper to rebuild than to patch one by one.
+PATCH_LIMIT = 50
+
 EMPTY_TITLE = "The note needs a title: start it with a '# Title' heading."
 
 
@@ -36,23 +40,46 @@ class NoteService:
         self._today = today
         self.metrics = metrics or Metrics()
         self._index: NoteIndex | None = None
+        self._dirty: set[str] = set()
         self._lock = threading.Lock()
 
     # -- index -----------------------------------------------------------
-    def invalidate(self) -> None:
-        """Drop the index (call after writes, or when files change outside the app).
-        The rebuild is lazy: nothing is read until the next query."""
+    def invalidate(self, slugs: Iterable[str] | None = None) -> None:
+        """Mark the index stale (call after writes, or when files change outside the app). With ``slugs`` only those
+        notes are re-read on the next query; without, everything is. Nothing is read until the next query."""
         with self._lock:
-            self._index = None
+            if slugs is None:
+                self._index, self._dirty = None, set()
+            else:
+                self._dirty.update(slugs)
         self.metrics.incr("index_invalidations")
 
     @property
     def index(self) -> NoteIndex:
         with self._lock:
+            dirty, self._dirty = self._dirty, set()
+            if self._index is not None and dirty and len(dirty) <= PATCH_LIMIT:
+                with self.metrics.time("index_patch"):
+                    self._index = self._patched(self._index, dirty)
+            elif self._index is not None and dirty:
+                self._index = None  # a big change (git pull, checkout): one rebuild is cheaper than patching
             if self._index is None:
                 with self.metrics.time("index_rebuild"):
                     self._index = NoteIndex(self.repo.list())
             return self._index
+
+    def _patched(self, index: NoteIndex, slugs: set[str]) -> NoteIndex | None:
+        """``index`` with just these notes re-read, or None when that cannot be done (a file the repository
+        will not load by name), in which case the caller rebuilds."""
+        changed, removed = [], []
+        for slug in sorted(slugs):
+            try:
+                changed.append(self.repo.get(slug))
+            except NoteNotFound:
+                removed.append(slug)
+            except Exception:
+                return None
+        return index.updated(changed, removed)
 
     # -- queries ---------------------------------------------------------
     def list(self, tag: str | None = None) -> list[Note]:
@@ -139,7 +166,7 @@ class NoteService:
         note = self.repo.create(Note(
             slug=self._unique_slug(title), title=title, content=with_h1(title, content), tags=tuple(tags),
             types=_clean(types)))
-        self.invalidate()
+        self.invalidate([note.slug])
         return note
 
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
@@ -180,7 +207,7 @@ class NoteService:
         if new_slug != slug:
             linking = [n.slug for n in self.index.backlinks(slug)]
             self.repo.rename(slug, new_slug)
-            self.invalidate()
+            self.invalidate([slug, new_slug])
             note = self.repo.update(replace(
                 current, slug=new_slug, title=new_title, content=body, types=new_types,
                 status=new_status, week=new_week, extra=extra,
@@ -191,7 +218,7 @@ class NoteService:
                 current, title=new_title, content=body, types=new_types,
                 status=new_status, week=new_week, extra=extra,
                 tags=new_tags))
-        self.invalidate()
+        self.invalidate([slug, new_slug, *(linking if new_slug != slug else [])])
         return note
 
     def log_time(self, slug: str, day: str, minutes: int, *, add: bool = False) -> time_entries.TimeRow:
@@ -207,7 +234,7 @@ class NoteService:
         if not 1 <= total <= MAX_MINUTES_PER_DAY:
             raise InvalidTime(f"A day holds 1 to {MAX_MINUTES_PER_DAY} minutes, not {total}.")
         note = self.repo.update(replace(current, time={**current.time, iso: total}))
-        self.invalidate()
+        self.invalidate([slug])
         return next(r for r in time_entries.rows_of(note) if r.day == iso)
 
     def remove_time(self, slug: str, day: str) -> None:
@@ -217,7 +244,7 @@ class NoteService:
         if iso is None or iso not in current.time:
             raise NoteNotFound(f"{slug} has no time logged on {day}")
         self.repo.update(replace(current, time={d: m for d, m in current.time.items() if d != iso}))
-        self.invalidate()
+        self.invalidate([slug])
 
     def _relink(self, linking: list[str], old_slug: str, new_slug: str, old_title: str, new_title: str) -> None:
         """Keep `[[old-slug]]` and `[[Old Title]]` links in other notes pointing at the renamed note."""
@@ -236,18 +263,20 @@ class NoteService:
 
     def delete(self, slug: str) -> None:
         self.repo.delete(slug)
-        self.invalidate()
+        self.invalidate([slug])
 
     def restore(self, slug: str, sha: str) -> Note:
         """Restoring an old version also restores its title; if that changes the title the file is renamed too."""
         before = self.repo.get(slug).title
         linking = [n.slug for n in self.index.backlinks(slug)]
         note = self.repo.restore(slug, sha)
+        renamed: list[str] = []
         if note.title != before and slugify(note.title) != slug:
             new_slug = self._unique_slug(note.title, keep=slug)
             if new_slug != slug:
                 note = self.repo.rename(slug, new_slug)
-                self.invalidate()
+                self.invalidate([slug, new_slug])
                 self._relink(linking, slug, new_slug, before, note.title)
-        self.invalidate()
+                renamed = [new_slug, *linking]
+        self.invalidate([slug, *renamed])
         return note
