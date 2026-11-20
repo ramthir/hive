@@ -104,3 +104,7 @@ tasks-app {
   font-size: 0.8rem;
 }
 .work-done-filter-count { margin-inline-start: auto; }
+
+/* Task drawer */
+.field--wide { grid-column: 1 / -1; }
+.drawer-open-note { margin-right: auto; text-decoration: none; }

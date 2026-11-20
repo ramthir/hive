@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/dropdown-menu.js';
+import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import { COLUMNS, ALL_WEEKS, currentWeekKey, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
 import { createTaskDrawer } from '/static/tasks/drawer.js';
@@ -9,19 +10,6 @@ import { renderSearchTrigger, wireSearchTrigger } from '/static/components/searc
 const VARIANTS = Object.freeze({ TODO: 'todo', IN_PROGRESS: 'in-progress', DONE: 'done' });
 // A column shows this many cards until "Show N more" is pressed: the Done column grows without bound.
 const COLUMN_LIMITS = Object.freeze({ DONE: 12 });
-
-async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}));
-    throw new Error(typeof detail.detail === 'string' ? detail.detail : `Request failed (${res.status})`);
-  }
-  return res.status === 204 ? null : res.json();
-}
 
 class TasksApp extends HTMLElement {
   connectedCallback() {

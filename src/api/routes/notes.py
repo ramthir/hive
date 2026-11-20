@@ -43,7 +43,7 @@ def latest_note(request: Request):
 @router.get("/tasks", response_model=list[TaskOut])
 def tasks(request: Request):
     """The task board: every note of type `task`, most recently edited first, with its effective status."""
-    return [TaskOut.of(n) for n in svc(request).tasks()]
+    return [TaskOut.from_task(n) for n in svc(request).tasks()]
 
 
 @router.get("/tags", response_model=dict[str, int])

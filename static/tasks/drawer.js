@@ -14,7 +14,7 @@ export function createTaskDrawer({ host, onSave }) {
     <div class="modal-panel modal-panel--drawer" tabindex="-1">
       <div class="modal-header"><h2 class="modal-title" id="task-drawer-title">Edit task</h2><button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
       <form class="modal-body crud-drawer-form" autocomplete="off"></form>
-      <div class="modal-footer"><a class="crud-drawer-btn" style="margin-right:auto;text-decoration:none" data-open-note>Open note</a><button type="button" class="crud-drawer-btn" data-dialog-close>Cancel</button><button type="button" class="crud-drawer-btn primary" data-save>Save</button></div>
+      <div class="modal-footer"><a class="crud-drawer-btn drawer-open-note" data-open-note>Open note</a><button type="button" class="crud-drawer-btn" data-dialog-close>Cancel</button><button type="button" class="crud-drawer-btn primary" data-save>Save</button></div>
     </div></app-dialog>`;
   const element = host.querySelector('app-dialog');
   const form = host.querySelector('form');
@@ -24,8 +24,8 @@ export function createTaskDrawer({ host, onSave }) {
   const dialog = createDialog(element, { initialFocus: '[name="title"]' });
   let task = null;
 
-  const field = (icon, label, control) =>
-    `<label class="field"><span class="property-label"><i class="fa-solid fa-${icon}" aria-hidden="true"></i> ${label}</span>${control}</label>`;
+  const field = (icon, label, control, { wide = false } = {}) =>
+    `<label class="field${wide ? ' field--wide' : ''}"><span class="property-label"><i class="fa-solid fa-${icon}" aria-hidden="true"></i> ${label}</span>${control}</label>`;
   const values = () => Object.fromEntries(new FormData(form));
   const snapshot = () => JSON.stringify(values());
 
@@ -61,10 +61,10 @@ export function createTaskDrawer({ host, onSave }) {
       link.href = noteHref(task);
       const priority = taskPriority(task);
       form.innerHTML = `<div class="properties-form-grid">
-        ${field('heading', 'Title', `<input name="title" required maxlength="255" value="${esc(task.title)}">`).replace('class="field"', 'class="field" style="grid-column:1/-1"')}
+        ${field('heading', 'Title', `<input name="title" required maxlength="255" value="${esc(task.title)}">`, { wide: true })}
         ${field('list-check', 'Status', `<app-combobox name="status" required value="${esc(task.status)}" placeholder="Select status">${options(COLUMNS)}</app-combobox>`)}
         ${field('flag', 'Priority', `<app-combobox name="priority" value="${esc(priority?.tag ?? '')}" placeholder="None">${options(PRIORITIES.map((p) => ({ value: p.tag, label: p.label })))}</app-combobox>`)}
-        ${field('tag', 'Tags', `<input name="tags" placeholder="comma, separated" value="${esc(editableTags(task).join(', '))}">`).replace('class="field"', 'class="field" style="grid-column:1/-1"')}
+        ${field('tag', 'Tags', `<input name="tags" placeholder="comma, separated" value="${esc(editableTags(task).join(', '))}">`, { wide: true })}
       </div>`;
       error.className = 'crud-drawer-error';
       error.hidden = true;

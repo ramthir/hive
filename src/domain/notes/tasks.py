@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal, get_args
 
 from src.domain.notes.entities import Note
 
@@ -14,7 +15,8 @@ def week_label(day: date) -> str:
     return f"{year}-W{week:02d}"
 
 
-STATUSES = ("TODO", "IN_PROGRESS", "DONE")
+TaskStatus = Literal["TODO", "IN_PROGRESS", "DONE"]
+STATUSES: tuple[str, ...] = get_args(TaskStatus)
 
 
 def is_task(note: Note) -> bool:

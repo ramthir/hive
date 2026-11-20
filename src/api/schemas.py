@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 import re
 
 from pydantic import BaseModel, Field
 
 from src.domain.notes.entities import Note, NoteVersion
-from src.domain.notes.tasks import WEEK_PATTERN, task_status
+from src.domain.notes.tasks import WEEK_PATTERN, TaskStatus, task_status
 from src.domain.notes.title import with_h1
 
 
@@ -58,7 +58,7 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     tags: list[str] | None = None
     types: list[str] | None = None  # omitted: unchanged; []: clear
-    status: Literal["TODO", "IN_PROGRESS", "DONE"] | None = None  # omitted: unchanged
+    status: TaskStatus | None = None  # omitted: unchanged
     week: str | None = Field(default=None, pattern=WEEK_PATTERN)  # omitted: unchanged (set automatically with status)
 
 
@@ -100,5 +100,5 @@ class TaskOut(NoteSummary):
     """A task note on the board: `status` is the effective one (stored, else derived from the `done` tag)."""
 
     @classmethod
-    def of(cls, n: Note) -> "TaskOut":  # type: ignore[override]
+    def from_task(cls, n: Note) -> "TaskOut":
         return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n)})
