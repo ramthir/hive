@@ -99,3 +99,10 @@ test('the drawer sends only what changed; tags always travel with the priority',
   assert.deepEqual(drawerChanges(task, { ...same, tags: 'todo, work, extra' }), { tags: ['todo', 'work', 'extra'], priority: 'must' });
   assert.deepEqual(drawerChanges({ ...task, priority: null }, { ...same, priority: '', tags: 'work' }), { tags: ['work'], priority: '' });
 });
+
+test('a card shows its ticket id, escaped, and nothing without one', () => {
+  const html = renderCard({ slug: 'x', title: 'X', tags: [], ticket: 'PROJ-12' });
+  assert.match(html, /board-chip--ticket[^>]*>.*PROJ-12/s);
+  assert.ok(renderCard({ slug: 'x', title: 'X', tags: [], ticket: '<b>' }).includes('&lt;b&gt;'));
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--ticket'));
+});

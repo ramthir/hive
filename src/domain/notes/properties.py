@@ -60,6 +60,7 @@ TASK = Form(
         Field("project", "Project", "briefcase", "note", group="context", note_types=("project",), placeholder="Select project..."),
         Field("specification", "Specification", "certificate", "note", group="context", note_types=("spec", "specification"),
               placeholder="Select specification..."),
+        Field("ticket", "Ticket ID", "ticket", group="context", placeholder="e.g. PROJ-123"),
         Field("status", "Status", "list-check", "select", target="status", group="execution", choices=TASK_STATUS),
         Field("priority", "Priority", "flag", "select", target="priority", group="execution", choices=TASK_PRIORITY,
               placeholder="None"),

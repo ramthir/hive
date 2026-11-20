@@ -43,7 +43,7 @@ def test_a_note_says_whether_its_type_has_properties(client):
 
 def test_each_type_gets_its_own_fields(client):
     keys = lambda slug: list(form(client, slug))
-    assert keys(make(client, "T", "task")) == ["project", "specification", "status", "priority", "assignee", "week"]
+    assert keys(make(client, "T", "task")) == ["project", "specification", "ticket", "status", "priority", "assignee", "week"]
     assert keys(make(client, "M", "meeting")) == ["week", "project"]
     assert keys(make(client, "P", "project")) == ["billing"]
     assert keys(make(client, "C", "contact")) == ["role", "project", "team", "billing", "acting_for"]
@@ -82,12 +82,12 @@ def test_saving_properties_writes_frontmatter_in_one_commit(client, root):
     slug = make(client, "Job", "task")
     before = int(git(root, "rev-list", "--count", "HEAD"))
     r = client.put(f"/api/notes/{slug}", json={"status": "IN_PROGRESS", "priority": "must", "week": "2026-W40",
-                                               "properties": {"project": "Acme", "assignee": "  Bo   Lee "}})
+                                               "properties": {"project": "Acme", "assignee": "  Bo   Lee ", "ticket": " PROJ-12 "}})
     assert r.status_code == 200, r.text
     text = (root / "job.md").read_text()
-    assert "project: Acme" in text and "assignee: Bo Lee" in text and "status: IN_PROGRESS" in text and "week: 2026-W40" in text
+    assert "project: Acme" in text and "ticket: PROJ-12" in text and "assignee: Bo Lee" in text and "status: IN_PROGRESS" in text and "week: 2026-W40" in text
     assert int(git(root, "rev-list", "--count", "HEAD")) == before + 1
-    assert r.json()["extra"] == {"project": "Acme", "assignee": "Bo Lee"}
+    assert r.json()["extra"] == {"project": "Acme", "assignee": "Bo Lee", "ticket": "PROJ-12"}
     assert form(client, slug)["priority"]["value"] == "must"
 
 
@@ -145,3 +145,10 @@ def test_saving_the_body_keeps_properties(client, root):
     client.put(f"/api/notes/{slug}", json={"properties": {"project": "Acme"}})
     client.put(f"/api/notes/{slug}", json={"content": "# Job\n\nmore"})
     assert "project: Acme" in (root / "job.md").read_text()
+
+
+def test_tasks_board_carries_the_ticket_id(client):
+    slug = make(client, "Job", "task")
+    assert client.get("/api/tasks").json()[0]["ticket"] is None
+    client.put(f"/api/notes/{slug}", json={"properties": {"ticket": "PROJ-12"}})
+    assert client.get("/api/tasks").json()[0]["ticket"] == "PROJ-12"

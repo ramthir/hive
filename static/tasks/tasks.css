@@ -49,6 +49,7 @@ tasks-app {
   margin-top: 0.7rem;
 }
 .board-chip--week { font-variant-numeric: tabular-nums; }
+.board-chip--ticket { font-variant-numeric: tabular-nums; }
 @media (max-width: 639px) {
   .tasks-board-wrap {
     padding-inline: var(--space-4);

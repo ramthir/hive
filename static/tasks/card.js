@@ -82,11 +82,15 @@ export function renderCard(task) {
   const weekChip = week
     ? `<span class="board-chip board-chip--week" title="${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}"><i class="fa-regular fa-calendar" aria-hidden="true"></i>W${week.week}</span>`
     : '';
+  const ticket = String(task.ticket ?? '').trim();
+  const ticketChip = ticket
+    ? `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}"><i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}</span>`
+    : '';
   return `<div class="board-card-heading">
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
-    <div class="board-card-chips">${priorityChip}${weekChip}${tags}</div>`;
+    <div class="board-card-chips">${ticketChip}${priorityChip}${weekChip}${tags}</div>`;
 }
 
 /** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */
