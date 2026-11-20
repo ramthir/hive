@@ -465,6 +465,7 @@ class NotesApp extends HTMLElement {
     const chars = (note.content || '').length;
     const readingMinutes = words ? Math.max(1, Math.ceil(words / READING_WORDS_PER_MINUTE)) : 0;
     const ro = editing ? '' : ' readonly';
+    const hideTags = !editing && !(note.tags || []).length; // nothing to show or edit
 
     this.innerHTML = `
       <section class="notes-page notes-editor-page">
@@ -476,10 +477,6 @@ class NotesApp extends HTMLElement {
             </button>
           </div>
         </app-header>
-
-        <div class="notes-meta-bar">
-          <input id="note-tags" class="notes-tags-input" placeholder="tags, comma separated" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />
-        </div>
 
         <div class="notes-editor-workspace ${editing ? 'write' : 'preview'}">
           <div class="notes-preview-pane" id="notes-preview" tabindex="0">
@@ -506,6 +503,11 @@ class NotesApp extends HTMLElement {
                 <span>${note.updated ? `Updated ${esc(formatRelativeTime(note.updated))}` : 'Draft'}</span>
               </span>
             </div>
+            <span class="action-bar-divider notes-footer-divider notes-footer-tags-divider" aria-hidden="true"${hideTags ? ' hidden' : ''}></span>
+            <label class="notes-footer-tags"${hideTags ? ' hidden' : ''}>
+              <i class="fa-solid fa-tags" aria-hidden="true"></i>
+              <input id="note-tags" class="notes-tags-input" placeholder="tags, comma separated" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />
+            </label>
           </div>
           <div class="action-bar-right notes-footer-actions">
             <div class="map-toolbar" aria-label="Note actions">

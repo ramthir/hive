@@ -207,3 +207,33 @@ def test_layout_and_hard_wrapped_paragraphs(page, notes_dir, server):
     assert page.locator("#notes-md p br").count() == 0  # a single newline is not a line break
     bar = page.locator(".notes-action-bar").bounding_box()
     assert bar["x"] == 0 and bar["width"] == page.viewport_size["width"]  # no sidebar offset
+
+
+def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha")
+    assert page.locator(".notes-meta-bar").count() == 0  # no extra bar above the note
+    tags = page.locator(".notes-action-bar #note-tags")
+    expect(tags).to_have_value("one")
+    expect(tags).to_have_attribute("readonly", "")  # read-only until the note is being edited
+    page.click("#edit-note-btn")
+    page.wait_for_selector(".cm-content")
+    tags.fill("one, two, three")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 2)
+    text = (notes_dir / "alpha.md").read_text()
+    assert "tags:\n  - one\n  - two\n  - three\n" in text
+    page.click("#edit-note-btn")  # close the editor: tags stay visible, read-only
+    expect(tags).to_have_value("one, two, three")
+    assert page.errors == []
+
+
+def test_tag_field_is_hidden_for_untagged_notes_until_editing(page, server, notes_dir):
+    (notes_dir / "plain.md").write_text("---\ntitle: Plain\n---\n\n# Plain\n\ntext\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "plain")
+    page.goto(f"{server}/notes/plain")
+    expect(page.locator("#note-tags")).to_be_hidden()
+    page.click("#edit-note-btn")
+    expect(page.locator("#note-tags")).to_be_visible()
+    assert page.errors == []

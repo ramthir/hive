@@ -13,13 +13,13 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 .note-card-tags { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .4rem; }
 .note-card-tags span { font-size: .72rem; opacity: .7; }
 
-.notes-meta-bar { display: flex; gap: .75rem; align-items: center; padding: .6rem 1.5rem;
-  border-bottom: 1px solid var(--color-dimmed5); flex-shrink: 0; }
-.notes-title-input, .notes-tags-input { background: var(--color-dark2); border: 1px solid var(--color-dimmed5);
-  border-radius: var(--radius-md); color: var(--color-text); font: 600 1rem var(--font-family); padding: .45rem .7rem; }
-.notes-title-input { flex: 2; min-width: 0; }
-.notes-tags-input { flex: 1; min-width: 0; font-size: .85rem; }
-.notes-title-input[readonly], .notes-tags-input[readonly] { background: transparent; border-color: transparent; }
+/* Tags live in the bottom action bar; the input is a plain, borderless field until it is edited. */
+.notes-footer-tags { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 0 1 20rem; opacity: .85; }
+.notes-footer-tags[hidden], .notes-footer-tags-divider[hidden] { display: none; }
+.notes-tags-input { flex: 1; min-width: 6rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
+  color: var(--color-text); font: 500 .8rem var(--font-family); padding: .25rem .5rem; }
+.notes-tags-input:not([readonly]) { background: var(--color-dark2); border-color: var(--color-dimmed5); }
+.notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
 
 .notes-backlinks { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--color-dimmed5);
   font-family: var(--font-family); font-size: .9rem; }
@@ -44,3 +44,13 @@ notes-app { margin: 0; width: 100%; min-height: 100dvh; }
 
 /* No sidebar in Hive: pin Pandora's fixed bars to the viewport edge. */
 :root { --sidebar-width: 0px; --sidebar-content-offset: 0px; }
+
+/* Narrow windows: let the left side of the action bar shrink instead of overlapping the buttons. */
+.notes-footer-left { min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.notes-footer-left .notes-type-label { min-width: 0; flex: 0 1 auto; }
+.notes-footer-left .notes-type-label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notes-footer-actions { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .notes-footer-stats, .notes-footer-status, .notes-footer-left .notes-footer-divider:not(.notes-footer-tags-divider) { display: none; }
+  .notes-footer-tags { flex: 1 1 8rem; }
+}
