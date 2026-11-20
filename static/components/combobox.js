@@ -286,14 +286,18 @@ class AppCombobox extends HTMLElement {
       seen.add(key);
       return true;
     });
+    // An option with a `group` gets a heading above it where the group changes.
+    let group = '';
     this.popup.innerHTML = options.length
       ? options
           .map((option, index) => {
+            const heading = option.group && option.group !== group ? `<div class="combobox-group" role="presentation">${esc(option.group)}</div>` : '';
+            group = option.group || group;
             const selected = this.isMultiple
               ? this.selectedValues.has(String(option.value))
               : String(option.value) === String(this.value);
             const icon = option.icon ? `<i class="combobox-option-icon ${esc(option.icon)}" aria-hidden="true"></i>` : '';
-            return `<button type="button" class="combobox-option${selected ? ' selected' : ''}${index === this.active ? ' active' : ''}" data-index="${index}" role="option" aria-selected="${selected}" title="${esc(option.label)}">${icon}<span class="combobox-option-label">${esc(option.label)}</span>${selected ? '<i class="fa-solid fa-check combobox-option-check" aria-hidden="true"></i>' : ''}</button>`;
+            return `${heading}<button type="button" class="combobox-option${selected ? ' selected' : ''}${index === this.active ? ' active' : ''}" data-index="${index}" role="option" aria-selected="${selected}" title="${esc(option.label)}">${icon}<span class="combobox-option-label">${esc(option.label)}</span>${selected ? '<i class="fa-solid fa-check combobox-option-check" aria-hidden="true"></i>' : ''}</button>`;
           })
           .join('')
       : '<div class="combobox-empty">No options found</div>';

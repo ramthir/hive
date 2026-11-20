@@ -352,3 +352,37 @@ def test_time_rows_search_every_task_and_meeting(svc):
     summary = svc.time_summary(svc.time_rows())
     assert {k: summary[k] for k in ("total_entries", "total_minutes", "task_minutes", "meeting_minutes", "today_minutes")} == {
         "total_entries": 2, "total_minutes": 105, "task_minutes": 90, "meeting_minutes": 15, "today_minutes": 105}
+
+
+def _seed_note(root, name, types, updated, time=""):
+    (root / f"{name}.md").write_text(
+        f"---\ntitle: {name.title()}\ntype: {types}\ncreated: 2026-01-01\nupdated: {updated}\n{time}---\n\n# {name.title()}\n")
+
+
+@pytest.fixture
+def clock_svc(root, day):
+    """A service whose own clock is the fixed `day` (the `svc` fixture fixes only the repository's)."""
+    return NoteService(FileNoteRepository(root, today=lambda: day["today"]), today=lambda: day["today"])
+
+
+def test_time_notes_put_this_weeks_first(clock_svc, root):
+    svc = clock_svc
+    # today is Fri 2026-11-20, in week 2026-W47 (Mon 16th to Sun 22nd)
+    _seed_note(root, "archive", "task", "2026-10-01")
+    _seed_note(root, "billing", "task", "2026-10-01", "time: {2026-11-18: 30}\n")   # logged this week
+    _seed_note(root, "standup", "meeting", "2026-11-17")                            # edited this week
+    _seed_note(root, "deploy", "task", "2026-11-19")                                # edited this week, newest
+    _seed_note(root, "idea", "idea", "2026-11-19")                                  # takes no time
+    _seed_note(root, "old-log", "task", "2026-10-01", "time: {2026-11-15: 30}\n")  # logged the Sunday before the week
+    svc.invalidate()
+    assert [(n.slug, week) for n, week in svc.time_notes()] == [
+        ("deploy", True), ("standup", True), ("billing", True), ("archive", False), ("old-log", False)]
+
+
+def test_time_notes_follow_the_service_clock(clock_svc, root, day):
+    svc = clock_svc
+    _seed_note(root, "deploy", "task", "2026-11-19")
+    svc.invalidate()
+    assert [week for _, week in svc.time_notes()] == [True]
+    day["today"] = date(2026, 11, 30)  # a later week: the same note is no longer this week's
+    assert [week for _, week in svc.time_notes()] == [False]

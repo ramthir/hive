@@ -15,14 +15,25 @@ test('an ISO day is shown as that calendar day, whatever the time zone', () => {
   assert.equal(today(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
 });
 
-test('only tasks and meetings can take time, listed by title', () => {
+test('the picker keeps the server\'s order, with a type icon and headings once this week\'s notes are followed by others', () => {
   const notes = [
-    { slug: 'z', title: 'Zeta', types: ['task'] },
-    { slug: 'i', title: 'Idea', types: ['idea'] },
-    { slug: 'a', title: 'alpha', types: ['contact', 'Meeting'] },
-    { slug: 'n', title: 'None' },
+    { slug: 'd', title: 'Deploy', type: 'task', this_week: true },
+    { slug: 's', title: 'Standup', type: 'meeting', this_week: true },
+    { slug: 'a', title: 'Archive', type: 'task', this_week: false },
   ];
-  assert.deepEqual(timeNoteOptions(notes), [{ value: 'a', label: 'alpha' }, { value: 'z', label: 'Zeta' }]);
+  assert.deepEqual(timeNoteOptions(notes), [
+    { value: 'd', label: 'Deploy', icon: 'fa-solid fa-list-check', group: 'This week' },
+    { value: 's', label: 'Standup', icon: 'fa-solid fa-calendar-check', group: 'This week' },
+    { value: 'a', label: 'Archive', icon: 'fa-solid fa-list-check', group: 'Earlier' },
+  ]);
+});
+
+test('the picker has no headings when all notes are on one side of the week', () => {
+  for (const this_week of [true, false]) {
+    const options = timeNoteOptions([{ slug: 'a', title: 'A', type: 'task', this_week }, { slug: 'b', title: 'B', type: 'task', this_week }]);
+    assert.ok(options.every((o) => !('group' in o)));
+  }
+  assert.deepEqual(timeNoteOptions(undefined), []);
 });
 
 test('the summary tiles show the month with each kind\'s share', () => {

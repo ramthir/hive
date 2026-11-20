@@ -353,3 +353,15 @@ def test_time_entries_ignore_notes_that_are_not_tasks_or_meetings(client, root):
     git(root, "commit", "-qm", "seed")
     client.post("/api/reindex")
     assert client.get("/api/time-entries").json()["items"] == []
+
+
+def test_time_notes_lists_tasks_and_meetings_this_weeks_first(client, root):
+    for name, kind, updated in [("old", "task", "2020-01-01"), ("idea", "idea", "2020-01-01")]:
+        (root / f"{name}.md").write_text(f"---\ntitle: {name.title()}\ntype: {kind}\nupdated: {updated}\n---\n\n# {name.title()}\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "seed")
+    make(client, "Fresh", types=["meeting"])  # created now, so edited this week
+    client.post("/api/reindex")
+    assert client.get("/api/time-notes").json() == [
+        {"slug": "fresh", "title": "Fresh", "type": "meeting", "this_week": True},
+        {"slug": "old", "title": "Old", "type": "task", "this_week": False}]

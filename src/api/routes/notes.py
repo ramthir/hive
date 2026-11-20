@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, VersionDetail,
+                             ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
@@ -67,6 +67,13 @@ def time_entries(request: Request, q: str = "", start: date | None = None, end: 
     shown = rows[page * page_size:(page + 1) * page_size]
     return TimeEntriesOut(items=[TimeEntryOut.of(r) for r in shown], total=len(rows), page=page, page_size=page_size,
                           total_pages=max(1, -(-len(rows) // page_size)), **s.time_summary(rows))
+
+
+@router.get("/time-notes", response_model=list[TimeNoteOut])
+def time_notes(request: Request):
+    """The tasks and meetings time can be logged on: this week's first (edited or logged this week, newest first),
+    then the rest by title."""
+    return [TimeNoteOut.of(n, this_week) for n, this_week in svc(request).time_notes()]
 
 
 @router.post("/notes/{slug}/time", response_model=TimeEntryOut, status_code=201)

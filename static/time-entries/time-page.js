@@ -82,7 +82,7 @@ class TimeEntriesApp extends HTMLElement {
 
   async loadNotes() {
     try {
-      this.noteOptions = timeNoteOptions(await api('/notes?limit=1000'));
+      this.noteOptions = timeNoteOptions(await api('/time-notes'));
     } catch (error) {
       this.noteOptions = [];
       showToast(`Could not load notes: ${error.message}`, 'error');

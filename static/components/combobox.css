@@ -231,6 +231,14 @@ app-combobox {
 .combobox-option-check {
   flex: none;
 }
+.combobox-group {
+  padding: 0.55rem 0.8rem 0.25rem;
+  color: var(--color-dimmed2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .combobox-empty {
   padding: 0.8rem;
   color: var(--color-dimmed2);

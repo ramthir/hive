@@ -27,12 +27,19 @@ export function today(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-/** The notes minutes can be logged on (tasks and meetings), by title, as combobox options. */
+/**
+ * The notes minutes can be logged on, as combobox options in the order the server sent (this week's first). Each
+ * carries its type's icon and, once this week's notes are followed by others, a heading above each group.
+ */
 export function timeNoteOptions(notes) {
-  return (notes || [])
-    .filter((n) => (n.types || []).some((t) => ['task', 'meeting'].includes(String(t).toLowerCase())))
-    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
-    .map((n) => ({ value: n.slug, label: n.title }));
+  const list = notes || [];
+  const split = list.some((n) => n.this_week) && list.some((n) => !n.this_week);
+  return list.map((n) => ({
+    value: n.slug,
+    label: n.title,
+    icon: `fa-solid ${n.type === 'meeting' ? 'fa-calendar-check' : 'fa-list-check'}`,
+    ...(split ? { group: n.this_week ? 'This week' : 'Earlier' } : {}),
+  }));
 }
 
 export const TOTAL_TARGET_MINUTES = 160 * 60;

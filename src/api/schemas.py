@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from src.application.notes.time_entries import TimeRow
 from src.domain.notes.entities import Note, NoteVersion
-from src.domain.notes.time import MAX_MINUTES_PER_DAY
+from src.domain.notes.time import MAX_MINUTES_PER_DAY, time_type
 from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
@@ -91,6 +91,18 @@ class TimeEntriesOut(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class TimeNoteOut(BaseModel):
+    """A note that takes time, for the picker: `this_week` when it was edited or had time logged this week."""
+    slug: str
+    title: str
+    type: Literal["task", "meeting"]
+    this_week: bool
+
+    @classmethod
+    def of(cls, n: Note, this_week: bool) -> "TimeNoteOut":
+        return cls(slug=n.slug, title=n.title, type=time_type(n), this_week=this_week)
 
 
 class TimeLog(BaseModel):
