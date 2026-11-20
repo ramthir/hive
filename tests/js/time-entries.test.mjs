@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  deleteCall, formatDay, formatDuration, listQuery, readState, savePlan, stateSearch, summaryTiles, tableColumns, timeNoteOptions, today,
+  canLogTime, dayHint, deleteCall, loggedLabel, loggedMinutes, formatDay, formatDuration, listQuery, readState, savePlan, stateSearch, summaryTiles, tableColumns, timeNoteOptions, today,
 } from '../../static/time-entries/entries.js';
 
 test('durations read as hours and minutes', () => {
@@ -85,4 +85,24 @@ test('table cells escape what comes from notes', () => {
   assert.match(project.render(''), /—/);
   assert.equal(project.render('Acme'), 'Acme');
   assert.equal(minutes.render(90), '1h 30m');
+});
+
+test('only a saved task or meeting note can have time logged', () => {
+  assert.ok(canLogTime({ slug: 'a', types: ['task'] }));
+  assert.ok(canLogTime({ slug: 'a', types: ['idea', 'Meeting'] }));
+  assert.ok(!canLogTime({ slug: 'a', types: ['idea'] }));
+  assert.ok(!canLogTime({ slug: null, types: ['task'] }));
+  assert.ok(!canLogTime(null));
+});
+
+test('the footer says how much time a note has, and nothing when there is none', () => {
+  assert.equal(loggedMinutes({ '2026-11-20': 90, '2026-11-21': 45 }), 135);
+  assert.equal(loggedLabel({ '2026-11-20': 90, '2026-11-21': 45 }), '2h 15m logged');
+  assert.equal(loggedLabel({}), '');
+  assert.equal(loggedLabel(undefined), '');
+});
+
+test('the dialog tells what the chosen day already holds', () => {
+  assert.equal(dayHint({ '2026-11-20': 90 }, '2026-11-20'), '1h 30m already logged on Fri, Nov 20, 2026. This adds to it.');
+  assert.equal(dayHint({}, '2026-11-20'), 'Nothing logged on Fri, Nov 20, 2026 yet.');
 });

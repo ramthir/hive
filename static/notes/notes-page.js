@@ -14,6 +14,8 @@ import { DiagramPreviews } from '/static/notes/diagrams.js';
 import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
+import { openLogTime, updateLogged } from '/static/notes/log-time.js';
+import { canLogTime, formatDuration, loggedLabel } from '/static/time-entries/entries.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
@@ -428,6 +430,7 @@ class NotesApp extends HTMLElement {
                 <span>${note.updated ? `Updated ${esc(formatRelativeTime(note.updated))}` : 'Draft'}</span>
               </span>
             </div>
+            ${canLogTime(note) ? `<span class="stat-logged" title="Time logged on this note"${loggedLabel(note.time) ? '' : ' hidden'}><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> <span>${esc(loggedLabel(note.time))}</span></span>` : ''}
             <span class="action-bar-divider notes-footer-divider notes-footer-tags-divider" aria-hidden="true"${hideTags ? ' hidden' : ''}></span>
             <label class="notes-footer-tags"${hideTags ? ' hidden' : ''}>
               <i class="fa-solid fa-tags" aria-hidden="true"></i>
@@ -439,6 +442,7 @@ class NotesApp extends HTMLElement {
               ${note.slug ? `
                 <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+              ${canLogTime(note) ? '<button id="log-time-btn" class="tool-button" type="button" title="Log time" aria-label="Log time"><i class="fa-solid fa-clock" aria-hidden="true"></i></button>' : ''}
               ${note.slug ? '<button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>' : ''}
               ${editing ? `
                 <span class="tool-divider" aria-hidden="true"></span>
@@ -452,6 +456,7 @@ class NotesApp extends HTMLElement {
     this.updateDocumentTitle();
     this.querySelector('#copy-note-btn').addEventListener('click', () => this.copyCurrentNote());
     this.querySelector('#note-versions-btn')?.addEventListener('click', () => this.openNoteVersions());
+    this.querySelector('#log-time-btn')?.addEventListener('click', () => this.openLogTime());
     this.querySelector('#delete-note-btn')?.addEventListener('click', () => this.confirmDeleteCurrentNote());
     this.querySelector('#edit-note-btn').addEventListener('click', () => this.setNoteEditing(!this.isNoteEditing));
     this.querySelector('#save-note-btn')?.addEventListener('click', () => this.saveCurrentNote());
@@ -700,6 +705,23 @@ class NotesApp extends HTMLElement {
     } catch (error) {
       console.error('Failed to copy note:', error);
     }
+  }
+
+  /* --- Time ----------------------------------------------------------- */
+
+  // Logging time commits only the note's `time` key; the text in the editor (saved or not) is left alone.
+  openLogTime() {
+    const note = this.selectedNote;
+    if (!note || !canLogTime(note)) return;
+    openLogTime(note, {
+      onLogged: (fresh, minutes) => {
+        if (this.selectedNote?.slug !== note.slug) return;
+        this.selectedNote = { ...this.selectedNote, time: fresh.time, updated: fresh.updated };
+        updateUpdatedStamp(this, this.selectedNote);
+        updateLogged(this, this.selectedNote);
+        showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success');
+      },
+    });
   }
 
   /* --- History (git) ------------------------------------------------- */

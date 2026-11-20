@@ -148,3 +148,9 @@
   }
 }
 
+
+/* Time logged on a task or meeting note, beside the updated stamp. */
+.stat-logged { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: 0.9rem; color: var(--color-dimmed2); white-space: nowrap; }
+.stat-logged[hidden] { display: none; }
+.log-time-title { margin: 0 0 0.75rem; font-weight: 600; }
+.log-time-hint { margin: 0.75rem 0 0; color: var(--color-dimmed2); font-size: 0.85rem; min-height: 1.2em; }

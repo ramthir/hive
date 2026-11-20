@@ -375,3 +375,7 @@ body.dialog-open {
     -webkit-backdrop-filter: blur(0);
   }
 }
+
+/* Two fields side by side in a drawer or dialog form (date and duration of a time entry). */
+.time-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+@media (max-width: 640px) { .time-form-row { grid-template-columns: 1fr; } }
