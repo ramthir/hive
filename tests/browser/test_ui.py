@@ -66,13 +66,22 @@ class _UsageCollector:
 
 @pytest.fixture
 def agents_server(notes_dir, tmp_path_factory):
+    from src.application.agents.quota import AgentQuota
     from src.application.agents.usage import AgentUsage
+    from src.domain.agents.quota import QuotaError, parse_snapshot
     from src.infrastructure.agents.usage_files import ReportStore
-    usage = AgentUsage(ReportStore(tmp_path_factory.mktemp("agents") / "usage.json"), _UsageCollector())
+    from tests.agent_reports import quota_snapshot
+    folder = tmp_path_factory.mktemp("agents")
+
+    class Quota:
+        def collect(self, now):
+            return quota_snapshot(now, ok=("claude", "codex"), five=40.0, week=29.0)
+    usage = AgentUsage(ReportStore(folder / "usage.json"), _UsageCollector())
+    quota = AgentQuota(ReportStore(folder / "quota.json", parse_snapshot, (QuotaError,), "quota snapshot"), Quota(), background=False)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, agent_usage=usage), port=port, log_level="warning"))
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, agent_usage=usage, agent_quota=quota), port=port, log_level="warning"))
     thread = threading.Thread(target=srv.run, daemon=True)
     thread.start()
     while not srv.started:
@@ -1469,6 +1478,22 @@ def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_t
     expect(rows.first).to_contain_text("Codex")  # newest activity first
     page.locator("agents-tab app-table th", has_text="Total").click()  # a server-side sort reloads the rows without errors
     expect(rows).to_have_count(3)
+    assert page.errors == []
+
+
+def test_agents_tab_draws_the_quota_rings_with_their_tooltip(page, agents_server):
+    page.goto(f"{agents_server}/dashboard/agents")
+    donuts = page.locator("agents-tab .quota-donut")
+    expect(donuts).to_have_count(2)  # Claude and Codex have a reading; Antigravity has none, so no ring
+    expect(page.locator('.card[data-provider="antigravity"] .quota-donut')).to_have_count(0)
+    claude = page.locator('.card[data-provider="claude"] .quota-donut')
+    expect(claude.locator("circle.arc")).to_have_count(2)  # 5 hour and weekly
+    expect(claude).to_have_attribute("aria-label", "Claude Code Quota")
+    claude.hover()
+    tip = page.locator("app-tooltip")
+    expect(tip).to_be_attached()
+    text = page.evaluate("document.querySelector('app-tooltip').shadowRoot.textContent")
+    assert "5 hour" in text and "60%" in text and "Weekly" in text and "71%" in text  # what is left, not what is used
     assert page.errors == []
 
 

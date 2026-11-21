@@ -7,6 +7,7 @@ import { copySessionResume } from '/static/agents/session-resume.js';
 import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsQuery } from '/static/agents/usage-render.js';
 
 const REFRESH_MS = 60000; // the server makes a new report every 15 minutes; the page just asks again
+const QUOTA_RETRY_MS = 8000; // the first quota run takes a few seconds: ask again soon instead of after a minute
 const MESSAGE = 'Hive could not load the usage report.';
 
 /** The Agents tab: this month's usage of Claude, Codex and Antigravity. */
@@ -19,6 +20,8 @@ class AgentsTab extends HTMLElement {
     this.direction = 'desc';
     this.page = 0;
     this.sessions = null;
+    this.quota = null; // optional: without it the cards draw no rings and the usage still shows
+    this.view = null;
     this.seq = 0; // the latest sessions answer wins
     this.addEventListener('click', (event) => copySessionResume(event, copyTextToClipboard, showToast));
     this.addEventListener('sort-change', ({ detail }) => {
@@ -50,16 +53,18 @@ class AgentsTab extends HTMLElement {
 
   stop() {
     clearInterval(this.timer);
+    clearTimeout(this.quotaTimer);
     this.timer = null;
   }
 
   draw(view) {
     // The report changes every 15 minutes: redrawing identical data would reset the table's sort arrow.
-    const key = JSON.stringify(view);
+    this.view = view;
+    const key = JSON.stringify([view, this.quota]);
     if (key === this.drawn) return;
     this.drawn = key;
     this.appliedKey = null;
-    this.body.innerHTML = renderUsage(view);
+    this.body.innerHTML = renderUsage(view, this.quota);
     this.table = this.querySelector('#sessions-table');
     this.pager = this.querySelector('#sessions-pager');
     this.table.setColumns(sessionColumns);
@@ -107,7 +112,20 @@ class AgentsTab extends HTMLElement {
     }
   }
 
+  /** The quota rings. They come from their own request, so a slow CLI never holds the usage back. */
+  async loadQuota() {
+    try {
+      this.quota = await api('/agents/quota');
+    } catch (error) {
+      this.quota = null;
+    }
+    if (this.view) this.draw(this.view);
+    clearTimeout(this.quotaTimer);
+    if (this.timer && this.quota && !this.quota.generated_at) this.quotaTimer = setTimeout(() => this.loadQuota(), QUOTA_RETRY_MS);
+  }
+
   async load() {
+    this.loadQuota();
     const seq = ++this.seq;
     try {
       const [view, sessions] = await Promise.all([api('/agents/usage'), this.fetchSessions()]);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsQuery, shortSession } from '../../static/agents/usage-render.js';
+import { quotaDonut, resetText } from '../../static/agents/quota-donuts.js';
 import { sessionResumeCommand } from '../../static/agents/session-resume.js';
 import { TABS, tabBarTabs, tabForPath } from '../../static/dashboard/tabs.js';
 
@@ -20,9 +21,10 @@ test('there is a card for each provider, and one without usage shows zero sessio
   assert.match(html, /0 sessions/);
 });
 
-test('the page says nothing about quota, tasks or the old product names', () => {
+test('the page names no old product and has no rings until a quota arrives', () => {
   const html = renderUsage(view());
-  assert.doesNotMatch(html, /quota|donut|Na'vi|navi|Pandora/i);
+  assert.doesNotMatch(html, /donut|Na'vi|navi|Pandora/i);
+  assert.equal(html.includes('quota-donut'), false);
 });
 
 test('a stale or unavailable report shows a banner with the reason', () => {
@@ -61,6 +63,7 @@ test('the axis tops at a round number', () => {
 
 test('numbers are compact and session ids short', () => {
   assert.equal(compact(1234567), '1.23M');
+  assert.deepEqual([275632881, 9183000, 70394, 740620, 754, 0].map(compact), ['276M', '9.18M', '70.4K', '741K', '754', '0']); // at most five characters
   assert.equal(shortSession('2026/11/21/rollout-2026-11-21T02-37-07-0199abcd-1234-5678-9abc-def012345678'), '0199abcd');
   assert.equal(shortSession('0123456789abcdef'), '01234567');
 });
@@ -108,4 +111,60 @@ test('an address opens its tab, with or without a trailing slash, and anything e
   assert.equal(tabForPath('/dashboard'), 'debian');
   assert.equal(tabForPath('/dashboard/nope'), 'debian');
   assert.equal(tabForPath(undefined), 'debian');
+});
+
+const win = (used, minutes = 120, state = 'ok') => ({ state, used_pct: used, resets_at: new Date(Date.now() + minutes * 60000).toISOString() });
+const quota = (extra = {}) => ({ providers: { claude: { status: 'ok', windows: { '5h': win(40), '7d': win(29, 4 * 24 * 60) } }, codex: { status: 'unavailable', reason: 'x', windows: {} }, antigravity: { status: 'unavailable', windows: {} }, ...extra } });
+
+test('a provider with a reading gets rings and the others none', () => {
+  const html = renderUsage(view(), quota());
+  assert.equal((html.match(/class="quota-donut"/g) || []).length, 1);
+  assert.match(html, /<article class="card" data-provider="claude"[^]*?quota-donut[^]*?<article class="card" data-provider="codex"/);
+});
+
+test('the rings show what is left, not what is used, and the tooltip lists each ring', () => {
+  const svg = quotaDonut('claude', quota().providers.claude);
+  assert.equal((svg.match(/class="arc /g) || []).length, 2);
+  const rows = JSON.parse(svg.match(/data-tooltip-details="([^"]*)"/)[1].replaceAll('&quot;', '"'));
+  assert.deepEqual(rows.map((r) => [r.label, r.value]), [['5 hour', '60%'], ['Weekly', '71%']]);
+  assert.match(rows[0].note, /^· resets in 1h \d+m$|^· resets in 2h$/);
+  assert.match(svg, /data-tooltip-no-total/);
+});
+
+test('Antigravity has three rings, Argon innermost', () => {
+  const windows = { '5h': win(0), '7d': win(1), 'argon-7d': win(45) };
+  const svg = quotaDonut('antigravity', { status: 'ok', windows });
+  assert.deepEqual([...svg.matchAll(/class="arc (\w+)"/g)].map((m) => m[1]), ['outer', 'middle', 'argon']);
+});
+
+test('a ring without a reading is dashed and says why, never a percentage', () => {
+  const svg = quotaDonut('claude', { status: 'ok', windows: { '5h': win(null, 120, 'stale'), '7d': win(null, 60, 'expired') } });
+  assert.equal((svg.match(/class="unknown"/g) || []).length, 2);
+  assert.doesNotMatch(svg, /class="arc/);
+  assert.match(svg, /no recent reading/);
+  assert.match(svg, /reset, not measured yet/);
+});
+
+test('an exhausted window draws only its track so a round cap leaves no dot', () => {
+  const svg = quotaDonut('claude', { status: 'ok', windows: { '5h': win(100), '7d': win(50, 4 * 24 * 60) } });
+  assert.equal((svg.match(/class="arc /g) || []).length, 1);
+});
+
+test('reset times are short', () => {
+  const now = new Date('2026-11-21T09:00:00Z');
+  const at = (minutes) => resetText({ resets_at: new Date(now.getTime() + minutes * 60000).toISOString() }, now);
+  assert.equal(at(52), 'in 52m');
+  assert.equal(at(5 * 60 + 30), 'in 5h 30m');
+  assert.equal(at(5 * 60), 'in 5h');
+  assert.equal(at(3 * 24 * 60 + 90), 'in 3d 1h');
+  assert.equal(at(2 * 24 * 60), 'in 2d');
+  assert.equal(at(-1), 'reset');
+  assert.equal(resetText(null), '');
+  assert.equal(resetText({ resets_at: 'soon' }), '');
+});
+
+test('a provider the quota calls unavailable has no rings, and the usage still draws', () => {
+  assert.equal(quotaDonut('claude', { status: 'unavailable', windows: {} }), '');
+  assert.equal(quotaDonut('claude', undefined), '');
+  assert.match(renderUsage(view(), { providers: {} }), /data-provider="claude"/);
 });

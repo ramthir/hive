@@ -1,4 +1,5 @@
 import { sessionResumeCommand } from './session-resume.js';
+import { quotaDonut } from './quota-donuts.js';
 import { escapeHtml as esc } from '../html.js';
 import { formatRelativeTime } from '../relative-time.js';
 
@@ -7,7 +8,8 @@ const formatFullDateTime = (value) => { const date = new Date(value); return Num
 export const PROVIDER_LABELS = { claude: 'Claude', codex: 'Codex', antigravity: 'Antigravity' };
 const PROVIDER_COLORS = { claude: 'var(--color-orange)', codex: 'var(--color-blue)', antigravity: 'var(--color-purple)' };
 export const SESSION_PAGE_SIZE = 10;
-const compactFormat = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 });
+// Three significant digits (275M, 9.18M, 70.4K) so the largest figure still fits the small Input, Cached and Output tiles.
+const compactFormat = new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 3 });
 export const compact = (value) => compactFormat.format(value);
 const amountFormat = new Intl.NumberFormat('en-US', { notation: 'compact', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** Tooltip amounts always carry two decimals so the values line up in a column. */
@@ -53,26 +55,27 @@ function modelsTooltip(provider) {
   return ` data-tooltip-title="${provider.models.length === 1 ? 'Model' : 'Models'}" data-tooltip-details="${esc(JSON.stringify(rows))}"`;
 }
 
-/** The Totals tile above the Input, Cached and Output tiles. */
-const metricsBlock = (label, t) =>
-  `<div class="metrics" role="group" aria-label="${esc(label)} token summary"><div class="totals-row">${metric(label, 'Totals', 'fa-layer-group', t.total, totalsTip(t))}</div><div class="subs">${metric(label, 'Input', 'fa-arrow-right-to-bracket', t.input)}${metric(label, 'Cached', 'fa-bolt', t.cached_input)}${metric(label, 'Output', 'fa-arrow-right-from-bracket', t.output)}</div></div>`;
+/** The Totals tile (with the quota rings beside it) above the Input, Cached and Output tiles. */
+const metricsBlock = (label, t, donut) =>
+  `<div class="metrics" role="group" aria-label="${esc(label)} token summary"><div class="totals-row">${metric(label, 'Totals', 'fa-layer-group', t.total, totalsTip(t))}${donut}</div><div class="subs">${metric(label, 'Input', 'fa-arrow-right-to-bracket', t.input)}${metric(label, 'Cached', 'fa-bolt', t.cached_input)}${metric(label, 'Output', 'fa-arrow-right-from-bracket', t.output)}</div></div>`;
 
-function card(name, provider) {
+function card(name, provider, quota) {
   const label = PROVIDER_LABELS[name] || name;
+  const donut = quota ? quotaDonut(name, quota) : '';
   let body;
   let facts = '';
   if (provider.status === 'available' && provider.tokens) {
     const t = provider.tokens;
     const models = provider.models.length;
-    body = metricsBlock(label, t);
+    body = metricsBlock(label, t, donut);
     facts = `<ul class="facts">${fact('fa-solid fa-comments', `${exact(provider.sessions)} ${provider.sessions === 1 ? 'session' : 'sessions'}`)}${fact('fa-solid fa-brain', `${models} ${models === 1 ? 'model' : 'models'}`, modelsTooltip(provider))}</ul>`;
   } else if (provider.status === 'no_usage') {
     const t = provider.tokens || { input: 0, cached_input: 0, output: 0, total: 0 };
-    body = metricsBlock(label, t);
+    body = metricsBlock(label, t, donut);
     facts = `<ul class="facts">${fact('fa-solid fa-comments', '0 sessions')}</ul>`;
   } else if (provider.status === 'waiting') {
     const text = '<p class="state"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i><span>Waiting for this month\'s first report.</span></p>';
-    body = text;
+    body = donut ? `<div class="totals-row">${text}${donut}</div>` : text;
   } else {
     body = `<p class="state error"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Unavailable: ${esc(provider.reason || 'no report')}</span></p>`;
   }
@@ -187,7 +190,7 @@ function sessionsPanel() {
 /** Placeholders shown until the first answer arrives, so the page does not jump from a text line to a full layout. */
 function skeleton() {
   const tile = (label) => `<dl class="metric ${label.toLowerCase()}"><dt><i class="skeleton skeleton-icon"></i><span>${label}</span></dt><dd><span class="skeleton skeleton-value"></span></dd></dl>`;
-  const card = (name) => `<article class="card" aria-hidden="true"><header><h3><span class="dot ${esc(name)}"></span>${esc(PROVIDER_LABELS[name])}</h3><ul class="facts skeleton-facts"><li><span class="skeleton skeleton-fact"></span></li><li><span class="skeleton skeleton-fact"></span></li></ul></header><div class="metrics"><div class="totals-row">${tile('Totals')}</div><div class="subs">${['Input', 'Cached', 'Output'].map(tile).join('')}</div></div></article>`;
+  const card = (name) => `<article class="card" aria-hidden="true"><header><h3><span class="dot ${esc(name)}"></span>${esc(PROVIDER_LABELS[name])}</h3><ul class="facts skeleton-facts"><li><span class="skeleton skeleton-fact"></span></li><li><span class="skeleton skeleton-fact"></span></li></ul></header><div class="metrics"><div class="totals-row">${tile('Totals')}<span class="skeleton quota-skeleton"></span></div><div class="subs">${['Input', 'Cached', 'Output'].map(tile).join('')}</div></div></article>`;
   // Stable pseudo-random heights keep loading rerenders from jumping.
   const heights = [42, 76, 28, 63, 85, 37, 54, 22, 71, 46, 81, 33, 59, 25, 68, 49, 79, 35, 56, 20, 73, 44, 83, 31, 61, 26, 66, 51, 78, 39, 57];
   const bars = heights.map(height => `<li class="bar"><span class="stack"><span class="skeleton day-skeleton" style="--skeleton-height:${height}"></span></span><span class="tick"><span class="skeleton tick-skeleton"></span></span></li>`).join('');
@@ -202,9 +205,9 @@ function legend(view) {
 }
 
 /** The whole tab body for one /api/agents/usage answer; `null` renders the loading state. */
-export function renderUsage(view) {
+export function renderUsage(view, quota = null) {
   if (!view) return skeleton();
-  const cards = Object.entries(view.providers || {}).map(([name, provider]) => card(name, provider)).join('');
+  const cards = Object.entries(view.providers || {}).map(([name, provider]) => card(name, provider, quota?.providers?.[name])).join('');
   const trend = view.status === 'unavailable' || view.status === 'waiting' ? '<p class="state">No daily usage to show.</p>' : renderTrend(view);
   return `${banner(view)}
     <div class="cards">${cards}</div>

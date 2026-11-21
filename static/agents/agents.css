@@ -1,6 +1,8 @@
 /* The Agents tab of the dashboard: usage cards, daily trend and sessions. Every rule is scoped to <agents-tab> (light DOM),
    so the class names cannot leak into the Debian tab. */
 agents-tab { display: block; }
+agents-tab .totals-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+agents-tab .totals-row .metric, agents-tab .totals-row .state { flex: 1; min-width: 0; }
 .agents-body { display: block; padding: var(--space-4); min-width: 0; }
 agents-tab { --chart-height: 160px; --tick-height: 1.2rem; color: var(--color-text); font-family: var(--font-family); }
 agents-tab h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: var(--space-2); }
@@ -64,3 +66,12 @@ agents-tab .day-skeleton { width: 100%; height: calc(var(--skeleton-height) * 1%
 agents-tab .axis-skeleton { width: 2rem; height: 0.65rem; }
 agents-tab .tick-skeleton { width: 0.65rem; height: 0.65rem; margin-top: var(--space-1); }
 agents-tab .note { color: var(--color-dimmed1); font-size: var(--btn-header-font-size, 0.8rem); margin: var(--space-2) 0 0; }
+agents-tab .quota-donut { flex: none; width: 3.5rem; height: 3.5rem; }
+agents-tab .quota-donut .track { fill: none; stroke: var(--color-dimmed5); opacity: 0.45; }
+agents-tab .quota-donut .unknown { fill: none; stroke: var(--color-dimmed3); opacity: 0.7; stroke-dasharray: 3 5; }
+agents-tab .quota-donut .arc { fill: none; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 60px 60px; }
+agents-tab .quota-donut .arc.outer { stroke: var(--color-yellow); }
+agents-tab .quota-donut .arc.inner, agents-tab .quota-donut .arc.middle { stroke: var(--color-green); }
+agents-tab .quota-donut .arc.argon { stroke: var(--color-purple); }
+agents-tab .quota-donut:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); border-radius: var(--radius-full); }
+agents-tab .quota-skeleton { flex: none; width: 3.5rem; height: 3.5rem; border-radius: var(--radius-full); }
