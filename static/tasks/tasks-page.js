@@ -5,7 +5,6 @@ import { showToast } from '/static/toast.js';
 import { debounce, watchChanges } from '/static/events.js';
 import { COLUMNS, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
 import { openProperties } from '/static/notes/properties.js';
-import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 
 const VARIANTS = Object.freeze({ TODO: 'todo', IN_PROGRESS: 'in-progress', DONE: 'done' });
@@ -37,11 +36,6 @@ class TasksApp extends HTMLElement {
       onDrop: (task, status, previous) => this.move(task, status, previous),
     });
     this.board.addEventListener('board-error', (event) => showToast(event.detail.error.message, 'error'));
-    this._spotlight = (event) => {
-      event.preventDefault();
-      window.location.assign(`/notes/${encodeURIComponent(event.detail.slug)}`);
-    };
-    window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.load();
     // Task notes changed in another tab or outside Hive (an editor, git pull): ask the server again. Not while a card is mid-move.
     this._reload = debounce(() => { if (!this._moving) this.reloadTasks().catch(() => {}); }, 400);
@@ -51,7 +45,6 @@ class TasksApp extends HTMLElement {
   disconnectedCallback() {
     this._changes?.close();
     this._reload?.cancel();
-    window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
   }
 
   // `?done=2026-W47` (or `all`) names the week the Done column shows; a bare /tasks shows this week.

@@ -1,5 +1,4 @@
 import { confirmDialog } from '/static/components/dialog.js';
-import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { typeIcon, typeLabel } from '/static/type-icons.js';
@@ -29,16 +28,10 @@ class TablesApp extends HTMLElement {
         updateUpdatedStamp(this, saved);
       },
     });
-    this._spotlight = (event) => {
-      event.preventDefault();
-      window.location.assign(notePath(event.detail.slug));
-    };
-    window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.load();
   }
 
   disconnectedCallback() {
-    window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.view?.destroy();
   }
 
