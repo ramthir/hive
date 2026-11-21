@@ -40,12 +40,13 @@ export function renderSummary(version) {
     <div class="git-message">${esc(version.message)}</div></div></div>`;
 }
 
-/** The compare toggle and the size of the change. */
+/** The compare tabs (the common tab bar, filled in by `COMPARE_TABS` once it is in the page) and the size of the change. */
+export const COMPARE_TABS = { previous: { label: 'Previous version' }, current: { label: 'Current note' } };
+
 export function renderCompareBar(against, info, counts) {
   const lines = counts.added || counts.removed ? `<span class="add">+${counts.added}</span> <span class="del">−${counts.removed}</span>` : '';
   const props = info.properties.filter((change) => !change.minor).length;
-  const toggle = (id, label) => `<button type="button" data-against="${id}" aria-pressed="${against === id}">${label}</button>`;
-  return `<div class="hive-vd-bar"><div class="hive-vd-toggle" role="group" aria-label="Compare with">${toggle('previous', 'Previous version')}${toggle('current', 'Current note')}</div>
+  return `<div class="hive-vd-bar"><app-tab-bar class="hive-vd-compare" size="drawer" aria-label="Compare with" data-active="${esc(against)}"></app-tab-bar>
     <div class="stat">${lines}${props ? `<span class="dim">${lines ? ' · ' : ''}${props} ${props === 1 ? 'property' : 'properties'}</span>` : ''}</div></div>`;
 }
 

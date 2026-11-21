@@ -222,12 +222,17 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     expect(page.locator(".hive-version-stat").first).to_be_visible()
     expect(rows.first).to_contain_text("Edited text")
     expect(rows.last).to_contain_text("Created the note")
-    page.click("[data-filter=restores]")  # filters the loaded versions by kind
+    expect(page.locator("app-tab-bar [role=tab]")).to_have_count(5)
+    expect(page.locator("[data-tab=all]")).to_have_attribute("aria-selected", "true")
+    page.click("[data-tab=restores]")  # filters the loaded versions by kind
+    expect(page.locator("[data-tab=restores]")).to_have_attribute("aria-selected", "true")
     expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(0)
     expect(page.locator(".hive-version-filter-note")).to_contain_text("Nothing matches")
-    page.click("[data-filter=text]")
+    page.keyboard.press("Home")  # arrow keys and Home/End move between the tabs
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("[data-tab=text]")).to_have_attribute("aria-selected", "true")
     expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(1)
-    page.click("[data-filter=all]")
+    page.click("[data-tab=all]")
     expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(3)
     rows.nth(2).click()
     expect(page.locator(".hive-diff")).to_be_visible()
@@ -238,8 +243,8 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     rows.nth(2).click()
     expect(page.locator(".hive-diff")).to_be_visible()
     expect(page.locator(".hive-diff-row.add").first).to_be_visible()
-    page.click("[data-against=current]")  # what restoring would change
-    expect(page.locator("[data-against=current]")).to_have_attribute("aria-pressed", "true")
+    page.click(".hive-vd-compare [data-tab=current]")  # what restoring would change
+    expect(page.locator(".hive-vd-compare [data-tab=current]")).to_have_attribute("aria-selected", "true")
     expect(page.locator(".hive-diff-row.del").first).to_be_visible()
     expect(page.locator("#version-position")).to_have_text("3 of 3")
     expect(page.locator("#version-older")).to_be_disabled()

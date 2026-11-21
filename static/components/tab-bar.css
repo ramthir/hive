@@ -1,0 +1,74 @@
+/* Shared segmented tab-bar presentation. */
+.tab-bar {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--tab-bar-header-height, var(--header-control-height, 2.8125rem));
+  gap: var(--tab-bar-header-gap, 2px);
+  padding: var(--tab-bar-header-padding, 3px);
+  border: var(--header-control-border, 1px solid var(--color-dimmed5));
+  border-radius: var(--radius-md);
+  background: var(--header-control-bg, var(--color-dark2));
+}
+.tab-bar-item {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--tab-bar-header-item-padding-x, 1rem);
+  border: 0;
+  border-radius: var(--tab-bar-header-item-radius, 6px);
+  background: transparent;
+  color: var(--color-dimmed2);
+  font: inherit;
+  font-size: var(--tab-bar-header-font-size, 0.78rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.tab-bar-item:hover {
+  color: var(--color-text);
+}
+.tab-bar-item--active,
+.tab-bar-item--active:hover {
+  background: var(--color-state-selected-bg);
+  color: var(--color-state-selected-text);
+}
+.tab-bar-item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset-tight);
+}
+/* Explicit drawer size. Compact remains a compatible variant with its legacy overrides. */
+.tab-bar[size='drawer'] {
+  height: var(--tab-bar-drawer-height, var(--tab-bar-compact-height, 2.25rem));
+  gap: var(--tab-bar-drawer-gap, var(--tab-bar-compact-gap, 2px));
+  padding: var(--tab-bar-drawer-padding, var(--tab-bar-compact-padding, 2px));
+}
+.tab-bar[size='drawer'] .tab-bar-item {
+  padding: 0 var(--tab-bar-drawer-item-padding-x, var(--tab-bar-compact-item-padding-x, 0.75rem));
+  border-radius: var(--tab-bar-drawer-item-radius, var(--tab-bar-compact-item-radius, 6px));
+  font-size: var(--tab-bar-drawer-font-size, var(--tab-bar-compact-font-size, 0.72rem));
+}
+.tab-bar[size='compact'],
+.tab-bar--compact {
+  height: var(--tab-bar-compact-height);
+  gap: var(--tab-bar-compact-gap);
+  padding: var(--tab-bar-compact-padding);
+}
+.tab-bar[size='compact'] .tab-bar-item,
+.tab-bar--compact .tab-bar-item {
+  padding: 0 var(--tab-bar-compact-item-padding-x);
+  border-radius: var(--tab-bar-compact-item-radius);
+  font-size: var(--tab-bar-compact-font-size);
+}
+@media (max-width: 640px) {
+  .tab-bar {
+    align-self: flex-start;
+    min-width: max-content;
+  }
+}
+
+.tab-bar[hidden] {
+  display: none;
+}

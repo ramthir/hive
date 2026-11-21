@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeBar, changeChip, dayLabel, matchesFilter, renderVersionList, renderVersionRow } from '../../static/notes/history-list.js';
+import { changeBar, changeChip, dayLabel, filterTabs, matchesFilter, renderVersionList, renderVersionRow } from '../../static/notes/history-list.js';
 
 const now = new Date(2026, 10, 21, 15, 0, 0);
 const at = (y, m, d, h = 12) => new Date(y, m, d, h).toISOString();
@@ -81,7 +81,7 @@ test('the version view has the summary, the compare toggle, the properties and t
   const info = { diff: '--- a\n+++ b\n@@ -1 +1 @@\n-one\n+two\n', properties: [{ key: 'status', old: 'TODO', new: 'DONE', minor: false }], index: 3, total: 47 };
   const html = renderVersionDetail(version, 'current', info);
   assert.match(html, /Moved to Done/);
-  assert.match(html, /data-against="current" aria-pressed="true"/);
+  assert.match(html, /class="hive-vd-compare" size="drawer" aria-label="Compare with" data-active="current"/);
   assert.match(html, /\+1.*−1.*1 property/s);
   assert.match(html, /Properties/);
   assert.match(html, /hive-diff-row add/);
@@ -92,4 +92,9 @@ test('the version view has the summary, the compare toggle, the properties and t
 test('the restore confirmation mentions a rename only when the title changes', () => {
   assert.equal(restoreDetails({ version_title: 'A', current_title: 'A' }).length, 2);
   assert.match(restoreDetails({ version_title: 'Fresh Idea', current_title: 'Beta' })[1], /Fresh Idea/);
+});
+
+test('the filters become the tab bar\'s tabs, in order', () => {
+  assert.deepEqual(Object.entries(filterTabs()).map(([id, tab]) => [id, tab.label]),
+    [['all', 'All'], ['text', 'Text'], ['properties', 'Properties'], ['time', 'Time'], ['restores', 'Restores']]);
 });

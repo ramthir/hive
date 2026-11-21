@@ -35,6 +35,9 @@ export const FILTERS = [
   { id: 'restores', label: 'Restores', kind: 'restore' },
 ];
 
+/** The filters as the tab bar wants them: `{ id: { label } }`. */
+export const filterTabs = () => Object.fromEntries(FILTERS.map((filter) => [filter.id, { label: filter.label }]));
+
 /** Whether `version` shows under `filterId`; a version can have several kinds (text and status in one save). */
 export function matchesFilter(version, filterId) {
   const kind = FILTERS.find((filter) => filter.id === filterId)?.kind;

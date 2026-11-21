@@ -3,8 +3,9 @@ import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { api } from '/static/notes/api.js';
 import { openDialog } from '/static/notes/dialogs.js';
-import { FILTERS, renderVersionList } from '/static/notes/history-list.js';
-import { positionLabel, renderVersionDetail, restoreDetails, restoreTitle } from '/static/notes/history-detail.js';
+import '/static/components/tab-bar.js';
+import { FILTERS, filterTabs, renderVersionList } from '/static/notes/history-list.js';
+import { COMPARE_TABS, positionLabel, renderVersionDetail, restoreDetails, restoreTitle } from '/static/notes/history-detail.js';
 
 /* The note's git history: a timeline of versions, each openable as a diff and restorable. */
 
@@ -12,8 +13,9 @@ import { positionLabel, renderVersionDetail, restoreDetails, restoreTitle } from
 export async function openVersionHistory(slug, { onRestored }) {
   const base = `/notes/${encodeURIComponent(slug)}`;
   const { dialog, close } = openDialog(`
-    <div class="modal-header">
+    <div class="modal-header modal-header--tabs">
       <h2 class="modal-title">History</h2>
+      <app-tab-bar id="version-tabs" size="drawer" aria-label="Kind of change"></app-tab-bar>
       <div class="note-versions-header-actions">
         <button type="button" class="crud-drawer-btn" id="version-back" hidden><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <span>All versions</span></button>
         <span class="hive-version-position" id="version-position" aria-live="polite" hidden></span>
@@ -24,8 +26,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     </div>
     <div class="modal-body">
       <p class="note-version-message" role="status" aria-live="polite"></p>
-      <div class="hive-version-filters" id="version-filters" role="group" aria-label="Show">${FILTERS.map((filter) => `<button type="button" class="hive-version-filter" data-filter="${filter.id}" aria-pressed="${filter.id === 'all'}">${filter.label}</button>`).join('')}</div>
-      <div class="hive-version-list" id="version-list" aria-live="polite"></div>
+      <div class="hive-version-list" id="version-list" role="tabpanel" aria-live="polite"></div>
       <div id="version-detail" hidden></div>
     </div>
     <div class="modal-footer hive-version-footer" id="version-footer" hidden>
@@ -41,7 +42,9 @@ export async function openVersionHistory(slug, { onRestored }) {
   const position = dialog.querySelector('#version-position');
   const older = dialog.querySelector('#version-older');
   const newer = dialog.querySelector('#version-newer');
-  const filters = dialog.querySelector('#version-filters');
+  const filters = dialog.querySelector('#version-tabs');
+  filters.tabs = filterTabs();
+  filters.active = 'all';
   const filterNote = document.createElement('p');
   filterNote.className = 'hive-version-filter-note';
   filterNote.hidden = true;
@@ -87,11 +90,8 @@ export async function openVersionHistory(slug, { onRestored }) {
     filterNote.hidden = filter === 'all';
     filterNote.textContent = `${visible ? `${visible} shown` : 'Nothing matches'} among the ${loaded.length} loaded versions${hasMore ? '. Load older versions to search further.' : '.'}`;
   };
-  filters.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-filter]');
-    if (!button) return;
-    filter = button.dataset.filter;
-    for (const other of filters.querySelectorAll('button')) other.setAttribute('aria-pressed', String(other === button));
+  filters.addEventListener('tab-switch', (event) => {
+    filter = event.detail.tab;
     applyFilter();
   });
 
@@ -169,17 +169,19 @@ export async function openVersionHistory(slug, { onRestored }) {
   const showDiff = async (against) => {
     info = await withFreshSha(() => api(`${base}/versions/${open.sha}/diff?against=${against}`));
     detail.innerHTML = renderVersionDetail(openVersionData(), against, info);
+    const compare = detail.querySelector('.hive-vd-compare');
+    compare.tabs = COMPARE_TABS;
+    compare.active = against;
     position.textContent = positionLabel(info);
     const rows = visibleRows();
     const at = rows.indexOf(open.row);
     older.disabled = at < 0 || (at === rows.length - 1 && !hasMore);
     newer.disabled = at <= 0;
   };
-  detail.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-against]');
-    if (!button || !open) return;
+  detail.addEventListener('tab-switch', async (event) => {
+    if (!open) return;
     try {
-      await showDiff(button.dataset.against);
+      await showDiff(event.detail.tab);
     } catch (error) {
       showError(error, 'Could not load the comparison.');
     }
