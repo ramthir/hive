@@ -1,4 +1,5 @@
 """The `colab` CLI runner and the fixed probes: what is sent, what is accepted, and how failures end."""
+import types
 from pathlib import Path
 
 import pytest
@@ -314,3 +315,63 @@ async def test_invalid_shared_snapshot_is_not_cached(monkeypatch, output):
     with pytest.raises(ColabCliError):
         await colab_cli.get_colab_stats('malformed-test')
     assert 'malformed-test' not in colab_cli._snapshots
+
+
+@pytest.mark.asyncio
+async def test_callers_that_arrive_together_share_one_cli_run_and_its_answer_is_kept_briefly(monkeypatch):
+    import asyncio
+    runs = []
+
+    async def read():
+        runs.append(1)
+        await asyncio.sleep(0.05)
+        return {"balance": len(runs)}
+
+    now = [100.0]
+    monkeypatch.setattr(colab_cli, "time", types.SimpleNamespace(monotonic=lambda: now[0]))  # not time.monotonic itself: the event loop runs on it
+    shared = colab_cli.SharedCall(read, ttl=10)
+    first, second = await asyncio.gather(shared(), shared())
+    assert first == second == {"balance": 1} and len(runs) == 1
+    first["balance"] = 99  # callers get their own copy
+    assert await shared() == {"balance": 1} and len(runs) == 1
+    now[0] += 11
+    assert await shared() == {"balance": 2} and len(runs) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_failed_cli_run_is_shared_by_those_waiting_but_never_kept(monkeypatch):
+    import asyncio
+    calls = []
+
+    async def read():
+        calls.append(1)
+        await asyncio.sleep(0.02)
+        if len(calls) == 1:
+            raise ColabCliError("colab usage timed out")
+        return "ok"
+
+    shared = colab_cli.SharedCall(read, ttl=10)
+    results = await asyncio.gather(shared(), shared(), return_exceptions=True)
+    assert [type(r) for r in results] == [ColabCliError, ColabCliError] and len(calls) == 1
+    assert await shared() == "ok" and len(calls) == 2  # the next caller tries again at once
+
+
+@pytest.mark.asyncio
+async def test_a_caller_that_gives_up_does_not_cancel_the_run_the_others_wait_for():
+    import asyncio
+
+    async def read():
+        await asyncio.sleep(0.05)
+        return "done"
+
+    shared = colab_cli.SharedCall(read, ttl=10)
+    impatient = asyncio.create_task(shared())
+    patient = asyncio.create_task(shared())
+    await asyncio.sleep(0.01)
+    impatient.cancel()
+    assert await patient == "done"
+
+
+def test_the_usage_and_session_reads_are_shared_calls():
+    assert isinstance(colab_cli.get_colab_usage, colab_cli.SharedCall)
+    assert isinstance(colab_cli.get_colab_sessions, colab_cli.SharedCall)

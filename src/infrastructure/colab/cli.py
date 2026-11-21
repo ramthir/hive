@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import os
@@ -118,16 +119,55 @@ async def run_colab_command(
     return stdout
 
 
-async def get_colab_usage() -> dict[str, Any]:
-    """Run `colab usage` and return parsed usage metrics."""
-    stdout = await run_colab_command(["usage"])
-    return parse_usage_output(stdout)
+class SharedCall:
+    """Runs `fn` once for callers that arrive together and keeps a good answer for `ttl` seconds.
+
+    Every open dashboard tab, the collector and each stream connect ask the same read-only CLI questions; this makes
+    them one subprocess per `ttl`. A failure is shared by the callers waiting at that moment and is never kept, and a
+    caller that gives up does not cancel the run the others wait for."""
+
+    def __init__(self, fn, ttl: float) -> None:
+        self.fn = fn
+        self.ttl = ttl
+        self.clear()
+
+    def clear(self) -> None:
+        self._answer: tuple[float, Any] | None = None
+        self._running: asyncio.Task | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    async def __call__(self) -> Any:
+        loop = asyncio.get_running_loop()
+        if self._loop is not loop:  # a new event loop (tests): nothing from the old one can be awaited
+            self.clear()
+            self._loop = loop
+        if self._answer and time.monotonic() - self._answer[0] < self.ttl:
+            return copy.deepcopy(self._answer[1])
+        if self._running is None or self._running.done():
+            self._running = loop.create_task(self._run())
+            self._running.add_done_callback(lambda task: task.cancelled() or task.exception())  # a run nobody waits for any more is not an error
+        return copy.deepcopy(await asyncio.shield(self._running))
+
+    async def _run(self) -> Any:
+        value = await self.fn()
+        self._answer = (time.monotonic(), value)
+        return value
 
 
-async def get_colab_sessions() -> list[dict[str, str]]:
-    """Run `colab sessions` and return parsed active sessions."""
-    stdout = await run_colab_command(["sessions"])
-    return parse_sessions_output(stdout)
+CLI_READ_TTL = 10.0  # seconds: compute units and the runtime list move slowly
+
+
+async def _read_usage() -> dict[str, Any]:
+    return parse_usage_output(await run_colab_command(["usage"]))
+
+
+async def _read_sessions() -> list[dict[str, str]]:
+    return parse_sessions_output(await run_colab_command(["sessions"]))
+
+
+# `colab usage` and `colab sessions`, shared between callers (see SharedCall).
+get_colab_usage = SharedCall(_read_usage, CLI_READ_TTL)
+get_colab_sessions = SharedCall(_read_sessions, CLI_READ_TTL)
 
 
 # One application worker owns these bindings and creation attempts. A failed or
