@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, stepIcon } from '../../static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, parseSse, sessionId, stepIcon } from '../../static/chat/format.js';
 
 test('parseSse returns whole events and keeps the unfinished tail', () => {
   const first = parseSse('data: {"type":"step","id":"1"}\n\ndata: {"type":"mess');
@@ -98,4 +98,11 @@ test('only the last turns are kept and the conversation starts with a question',
 
 test('rubbish in storage gives an empty chat', () => {
   for (const raw of [null, '', 'nope', '{}', '[1,"x",null,{"role":"system"}]']) assert.deepEqual(restoreTurns(raw), []);
+});
+
+test('only a UUID is kept as the Codex session, and the turn ignores the event', () => {
+  assert.equal(sessionId('01a1fe57-662c-77f0-bf0c-d522d9b8d05b'), '01a1fe57-662c-77f0-bf0c-d522d9b8d05b');
+  for (const bad of ['', null, undefined, '--last', 'abc', '01a1fe57-662c-77f0-bf0c-d522d9b8d05b --x']) assert.equal(sessionId(bad), '');
+  const turn = newTurn();
+  assert.equal(applyEvent(turn, { type: 'session', id: '01a1fe57-662c-77f0-bf0c-d522d9b8d05b' }), turn);
 });

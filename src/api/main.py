@@ -51,7 +51,8 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
 def chat_codex(root: Path) -> CodexChat | None:
     """The chat runs Codex (HIVE_CODEX, else the one on PATH); without it the chat page says so."""
     program = codex_program(os.environ.get("HIVE_CODEX"))
-    return CodexChat(program, root, os.environ.get("HIVE_CODEX_MODEL") or None, os.environ.get("HIVE_CODEX_EFFORT") or None) if program else None
+    scratch = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser() / "chat"
+    return CodexChat(program, root, os.environ.get("HIVE_CODEX_MODEL") or None, os.environ.get("HIVE_CODEX_EFFORT") or None, scratch=scratch) if program else None
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,

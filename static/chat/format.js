@@ -66,6 +66,10 @@ export const SUGGESTIONS = Object.freeze([
 ]);
 
 export const STORAGE_KEY = 'hive:chat';
+export const SESSION_KEY = 'hive:chat-session';
+
+/** A Codex session id as the server sent it (a UUID), or '' for anything else: it is sent back with the next question. */
+export const sessionId = (value) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(value ?? '')) ? String(value) : '');
 const MAX_SAVED_TURNS = 40;
 
 /** The conversation as text for the browser's storage: the last turns, nothing else. */

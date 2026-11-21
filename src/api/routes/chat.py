@@ -1,4 +1,4 @@
-"""Chat with the notes through Codex. Nothing is stored: the page sends the recent turns with each question."""
+"""Chat with the notes through Codex. Nothing is stored here: the page keeps the conversation and the id of its Codex session."""
 from __future__ import annotations
 
 import json
@@ -20,6 +20,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=100)
+    session: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
 @router.get("/chat/status")
@@ -31,7 +32,7 @@ def status(request: Request) -> dict:
 
 @router.post("/chat")
 def chat(request: Request, body: ChatRequest) -> StreamingResponse:
-    """Server-sent events: `step` (a notes tool running), `message` (Codex's latest text; the last one is the answer), `done`,
+    """Server-sent events: `session` (the Codex session to send back with the next question), `step` (a notes tool running), `message` (Codex's latest text; the last one is the answer), `done`,
     `error` and `changed` (the notes the answer saved). A plain `def` stream: it runs in a worker thread, and a client that
     leaves stops Codex."""
     service = request.app.state.chat
@@ -39,7 +40,7 @@ def chat(request: Request, body: ChatRequest) -> StreamingResponse:
 
     def events():
         try:
-            for event in service.stream(messages):
+            for event in service.stream(messages, body.session):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as error:  # the stream is already open: tell the page instead of cutting it
             yield f"data: {json.dumps({'type': 'error', 'message': str(error) or type(error).__name__})}\n\n"

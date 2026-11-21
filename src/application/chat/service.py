@@ -12,7 +12,7 @@ from src.infrastructure.git.client import GitClient
 
 log = logging.getLogger("hive.chat")
 
-MAX_TURNS = 12  # earlier turns are dropped: the page keeps no history and Codex keeps none either
+MAX_TURNS = 12  # a chat without a Codex session to resume replays this many turns; earlier ones are dropped
 MAX_MESSAGE_CHARS = 8_000
 MAX_INSTRUCTION_CHARS = 20_000
 INSTRUCTION_FILES = ("AGENTS.md", "agents.md", "AGENT.md", "agent.md")
@@ -33,7 +33,7 @@ Rules:
 
 
 class Runner(Protocol):
-    def run(self, prompt: str) -> Iterator[dict]: ...
+    def run(self, prompt: str, session: str | None = None) -> Iterator[dict]: ...
 
 
 def instructions(root: Path) -> str:
@@ -47,6 +47,12 @@ def instructions(root: Path) -> str:
                 continue
             return text[:MAX_INSTRUCTION_CHARS] + ("\n[instructions cut]" if len(text) > MAX_INSTRUCTION_CHARS else "")
     return ""
+
+
+def build_resume_prompt(messages: list[dict], today: date | None = None) -> str:
+    """The next question of a Codex session that already has the rules, the vault's instructions and the earlier turns."""
+    question = str(messages[-1].get("content") or "")[:MAX_MESSAGE_CHARS]
+    return (f"Today is {today:%A} {today.isoformat()}.\n\n" if today else "") + f"Question from the user (answer this one):\n{question}"
 
 
 def build_prompt(messages: list[dict], vault_instructions: str = "", today: date | None = None) -> str:
@@ -88,7 +94,20 @@ class ChatService:
                 continue
         return out
 
-    def stream(self, messages: list[dict]) -> Iterator[dict]:
+    def _run(self, messages: list[dict], session: str | None) -> Iterator[dict]:
+        """Resumes the chat's Codex session with just the question. If that cannot be done (the session file is gone) it starts
+        a new session with the recent turns replayed; its `session` event then replaces the id."""
+        today = self.notes.today()
+        if session:
+            for event in self.runner.run(build_resume_prompt(messages, today), session):
+                if event["type"] == "error":
+                    break
+                yield event
+            else:
+                return
+        yield from self.runner.run(build_prompt(messages, instructions(self.root), today))
+
+    def stream(self, messages: list[dict], session: str | None = None) -> Iterator[dict]:
         """Codex's events for the question (the last message), then `changed` (notes it saved) when it ends."""
         if self.runner is None:
             yield {"type": "error", "message": "Codex is not available (set HIVE_CODEX or put codex on PATH)."}
@@ -99,7 +118,7 @@ class ChatService:
         before = self._head()
         changed: list[dict] = []
         try:
-            yield from self.runner.run(build_prompt(messages, instructions(self.root), self.notes.today()))
+            yield from self._run(messages, session)
         finally:
             self.notes.invalidate()  # the tools saved from another process: re-read what changed on the next request
             try:

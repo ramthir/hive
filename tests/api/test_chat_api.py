@@ -9,10 +9,11 @@ from src.api.main import create_app
 
 class FakeRunner:
     def __init__(self):
-        self.prompts = []
+        self.prompts, self.sessions = [], []
 
-    def run(self, prompt):
+    def run(self, prompt, session=None):
         self.prompts.append(prompt)
+        self.sessions.append(session)
         yield {"type": "step", "id": "1", "tool": "read_note", "label": "Reading alpha", "write": False, "status": "running"}
         yield {"type": "message", "text": "It says **first**."}
         yield {"type": "done", "usage": {}}
@@ -71,3 +72,18 @@ def test_a_bad_body_is_refused(client):
 
 def test_the_chat_page_is_served(client):
     assert client.get("/chat").status_code == 200
+
+
+SESSION = "01a1fe57-662c-77f0-bf0c-d522d9b8d05b"
+
+
+def test_the_session_comes_back_with_the_next_question_and_only_the_question_is_sent(client, runner):
+    client.post("/api/chat", json={"messages": [{"role": "user", "content": "first q"}, {"role": "assistant", "content": "first a"}, {"role": "user", "content": "and then?"}], "session": SESSION})
+    assert runner.sessions == [SESSION]
+    assert "and then?" in runner.prompts[0] and "first q" not in runner.prompts[0] and "search_notes" not in runner.prompts[0]
+
+
+def test_a_session_that_is_not_an_id_is_refused(client, runner):
+    for bad in ("--last", "x", SESSION + " --dangerously-bypass-approvals-and-sandbox"):
+        assert client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}], "session": bad}).status_code == 422
+    assert runner.prompts == []

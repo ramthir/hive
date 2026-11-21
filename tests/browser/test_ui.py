@@ -1805,7 +1805,7 @@ class ChatRunner:
         self.notes_dir, self.prompts, self.gate = notes_dir, [], threading.Event()
         self.gate.set()
 
-    def run(self, prompt):
+    def run(self, prompt, session=None):
         from src.application.chat.tools import NotesTools
         self.prompts.append(prompt)
         yield {"type": "message", "text": "Let me look."}

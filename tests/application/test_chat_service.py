@@ -19,11 +19,16 @@ def root(tmp_path):
 class Scripted:
     """Stands in for Codex: records the prompt and edits through the same tools Codex would call."""
 
-    def __init__(self, notes, script=None, events=()):
+    def __init__(self, notes, script=None, events=(), resume_fails=False):
         self.notes, self.script, self.events, self.prompt = notes, script, list(events), None
+        self.resume_fails, self.runs = resume_fails, []
 
-    def run(self, prompt):
+    def run(self, prompt, session=None):
         self.prompt = prompt
+        self.runs.append((session, prompt))
+        if session and self.resume_fails:
+            yield {"type": "error", "message": "no such session"}
+            return
         yield {"type": "message", "text": "Working."}
         if self.script:
             self.script(NotesTools(self.notes))
@@ -101,3 +106,25 @@ def test_bad_requests_and_a_missing_codex_are_errors_not_runs(root):
     assert runner.prompt is None
     nobody = ChatService(None, notes, GitClient(root), root)
     assert not nobody.available and "not available" in list(nobody.stream([{"role": "user", "content": "x"}]))[0]["message"]
+
+
+SESSION = "01a1fe57-662c-77f0-bf0c-d522d9b8d05b"
+TURNS = [{"role": "user", "content": "first q"}, {"role": "assistant", "content": "first a"}, {"role": "user", "content": "and then?"}]
+
+
+def test_a_resumed_session_gets_only_the_question_and_today(root):
+    (root / "AGENTS.md").write_text("Log meetings as type: meeting.")
+    service, runner, _ = make(root)
+    list(service.stream(TURNS, SESSION))
+    (session, prompt), = runner.runs
+    assert session == SESSION and prompt.endswith("Question from the user (answer this one):\nand then?")
+    assert "Today is" in prompt and "first q" not in prompt and "search_notes" not in prompt and "vault_instructions" not in prompt
+
+
+def test_a_session_that_cannot_be_resumed_starts_a_new_one_with_the_turns_replayed(root):
+    service, runner, notes = make(root)
+    runner.resume_fails = True
+    events = list(service.stream(TURNS, SESSION))
+    assert [r[0] for r in runner.runs] == [SESSION, None]
+    assert "User: first q" in runner.runs[1][1] and "search_notes" in runner.runs[1][1]
+    assert [e["type"] for e in events] == ["message", "done"]  # the failed resume is not shown

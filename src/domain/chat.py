@@ -25,7 +25,8 @@ def tool_label(tool: str, arguments: dict | None) -> str:
 
 def parse_line(line: str) -> dict | None:
     """One line of `codex exec --json` as an event for the page, or None for what the page does not show.
-    Events: step (id, tool, label, write, status running|done|failed), message (text), done (usage), error (message)."""
+    Events: session (id: Codex's thread, to resume), step (id, tool, label, write, status running|done|failed), message (text),
+    done (usage), error (message)."""
     try:
         event = json.loads(line)
     except (TypeError, ValueError):
@@ -34,6 +35,8 @@ def parse_line(line: str) -> dict | None:
         return None
     kind = event.get("type")
     item = event.get("item") if isinstance(event.get("item"), dict) else {}
+    if kind == "thread.started" and event.get("thread_id"):
+        return {"type": "session", "id": str(event["thread_id"])}
     if kind in ("item.started", "item.completed") and item.get("type") == "mcp_tool_call":
         tool = str(item.get("tool") or "")
         result = item.get("result") if isinstance(item.get("result"), dict) else {}

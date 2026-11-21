@@ -4,21 +4,22 @@ import { api } from '/static/notes/api.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { showToast } from '/static/toast.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, SESSION_KEY, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
 
-/* Chat with the notes. The answers come from Codex (server side) using only the notes tools. Nothing is saved: the turns
-   live in this element, are sent back with each question so follow-ups work, and are gone on reload or "New chat". */
+/* Chat with the notes. The answers come from Codex (server side) using only the notes tools. A chat is one Codex session: the
+   server tells us its id, we keep it with the turns in this browser and send it back so follow-ups resume it. "New chat" forgets both. */
 
 class ChatApp extends HTMLElement {
   connectedCallback() {
     this.turns = this.load();
+    this.session = this.loadSession();
     this.abort = null;
     this.available = true;
     this.innerHTML = `
       <section class="chat-page">
         <app-header heading="Chat" variant="flush" attached>
           <div slot="actions" class="app-header-action-group">
-            <button type="button" id="chat-new" title="Start over (nothing is saved)"><i class="fa-solid fa-plus"></i><span>New chat</span></button>
+            <button type="button" id="chat-new" title="Start a new chat"><i class="fa-solid fa-plus"></i><span>New chat</span></button>
           </div>
         </app-header>
         <div class="chat-scroll" id="chat-scroll">
@@ -81,16 +82,23 @@ class ChatApp extends HTMLElement {
     try { return restoreTurns(localStorage.getItem(STORAGE_KEY)); } catch (_error) { return []; }
   }
 
+  loadSession() {
+    try { return this.turns.length ? sessionId(localStorage.getItem(SESSION_KEY)) : ''; } catch (_error) { return ''; }
+  }
+
   save() {
     try {
       if (this.turns.length) localStorage.setItem(STORAGE_KEY, serializeTurns(this.turns));
       else localStorage.removeItem(STORAGE_KEY);
+      if (this.turns.length && this.session) localStorage.setItem(SESSION_KEY, this.session);
+      else localStorage.removeItem(SESSION_KEY);
     } catch (_error) { /* storage unavailable: the chat just is not kept */ }
   }
 
   reset() {
     this.abort?.abort();
     this.turns = [];
+    this.session = '';
     this.save();
     this.render();
     this.input.focus();
@@ -119,7 +127,7 @@ class ChatApp extends HTMLElement {
     let turn = { role: 'assistant', ...newTurn() };
     this.turns.push(turn);
     this.save();
-    const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)) });
+    const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)), ...(this.session ? { session: this.session } : {}) });
     this.abort = new AbortController();
     this.updateControls();
     this.render();
@@ -135,7 +143,10 @@ class ChatApp extends HTMLElement {
         if (done) break;
         const parsed = parseSse(buffer + decoder.decode(value, { stream: true }));
         buffer = parsed.rest;
-        for (const event of parsed.events) set(applyEvent(turn, event));
+        for (const event of parsed.events) {
+          if (event.type === 'session') { this.session = sessionId(event.id) || this.session; this.save(); }
+          set(applyEvent(turn, event));
+        }
       }
       set(finishTurn(turn));
     } catch (error) {

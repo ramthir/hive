@@ -49,3 +49,8 @@ def test_labels():
     assert tool_label("list_time", {}) == "Listing time"
     assert tool_label("move_time", {"slug": "x"}) == "Moving time from x"
     assert tool_label("something_new", {}) == "Something new"
+
+
+def test_the_thread_start_is_the_session_to_resume():
+    assert parse_line(json.dumps({"type": "thread.started", "thread_id": "abc"})) == {"type": "session", "id": "abc"}
+    assert parse_line(json.dumps({"type": "thread.started"})) is None
