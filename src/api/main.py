@@ -21,7 +21,7 @@ from src.application.colab.collector import ColabCollector
 from src.application.chat.service import ChatService
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
-from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteNotFound
+from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteLinked, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.agents.codex_chat import CodexChat
@@ -124,6 +124,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.add_exception_handler(NoteNotFound, err(404))
     app.add_exception_handler(NoteExists, err(409))
     app.add_exception_handler(NoteConflict, err(412))
+    app.add_exception_handler(NoteLinked, err(409))
     app.add_exception_handler(InvalidSlug, err(422))
     app.add_exception_handler(InvalidTitle, err(422))
     app.add_exception_handler(InvalidTime, err(422))

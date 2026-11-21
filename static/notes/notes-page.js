@@ -383,13 +383,22 @@ class NotesApp extends HTMLElement {
   async confirmDeleteCurrentNote() {
     const note = this.selectedNote;
     if (!note?.slug) return;
-    // Notes that link here keep their [[links]]; say which ones will point at nothing.
-    const linking = await api(`/notes/${encodeURIComponent(note.slug)}/backlinks`).then((data) => data.backlinks, () => []);
-    const names = linking.slice(0, 5).map((other) => other.title).join(', ') + (linking.length > 5 ? `, and ${linking.length - 5} more` : '');
+    // A note that others link to cannot be deleted: list them so each can be opened and its link removed.
+    const linking = await api(`/notes/${encodeURIComponent(note.slug)}/backlinks`).then((data) => data.backlinks.filter((other) => other.slug !== note.slug), () => []);
+    if (linking.length) {
+      const items = linking.map((other) => `<li><a class="notes-wikilink" href="/notes/${esc(encodeURIComponent(other.slug))}" data-route>${esc(other.title)}</a></li>`).join('');
+      const { dialog, close } = openDialog(`
+        ${dialogHeader('Cannot Delete Note')}
+        <div class="modal-body modal-alert-body"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>"${esc(note.title)}" is linked from ${linking.length === 1 ? '1 other note' : `${linking.length} other notes`}. Open ${linking.length === 1 ? 'it' : 'them'} and remove the link before deleting.<ul class="confirm-dialog-details" id="linked-notes">${items}</ul></span></div>
+        <div class="modal-footer"><button type="button" class="crud-drawer-btn primary" data-dialog-close>Close</button></div>`,
+      { className: 'notes-save-error-dialog-host', initialFocus: '.modal-footer [data-dialog-close]' });
+      dialog.setAttribute('role', 'alertdialog');
+      dialog.querySelectorAll('#linked-notes a').forEach((a) => a.addEventListener('click', close));
+      return;
+    }
     const confirmed = await confirmDialog({
       title: 'Delete Note?',
       message: `Delete "${note.title}"? The file is removed and the deletion is committed; you can recover it from git history.`,
-      ...(linking.length ? { details: [`${linking.length === 1 ? '1 note links' : `${linking.length} notes link`} to it and will show a broken link: ${names}.`] } : {}),
       confirmText: 'Delete',
       cancelText: 'Cancel',
       danger: true,

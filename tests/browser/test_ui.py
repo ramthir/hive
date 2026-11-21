@@ -1338,18 +1338,19 @@ def test_a_tag_changed_by_the_properties_drawer_updates_the_footer_tags(page, se
     assert page.errors == []
 
 
-def test_deleting_a_note_that_others_link_to_names_them(page, server, notes_dir):
+def test_a_note_that_others_link_to_cannot_be_deleted_and_the_dialog_opens_them(page, server, notes_dir):
     page.goto(f"{server}/notes/beta")  # alpha links to [[beta]]
     page.click("#delete-note-btn")
-    expect(page.locator(".confirm-dialog-details")).to_contain_text("1 note links to it")
-    expect(page.locator(".confirm-dialog-details")).to_contain_text("Alpha")
-    page.click(".confirm-dialog-host [data-action=cancel]")
+    expect(page.locator(".modal-title")).to_have_text("Cannot Delete Note")
+    expect(page.locator("#linked-notes")).to_contain_text("Alpha")
+    page.click("#linked-notes a")
+    page.wait_for_url("**/notes/alpha")
+    expect(page.locator(".modal-title")).to_have_count(0)
     assert (notes_dir / "beta.md").exists()
 
-    page.goto(f"{server}/notes/alpha")  # nobody links to alpha: no warning
+    page.goto(f"{server}/notes/alpha")  # nobody links to alpha: it can be deleted
     page.click("#delete-note-btn")
     expect(page.locator(".confirm-dialog-host .modal-title")).to_have_text("Delete Note?")
-    expect(page.locator(".confirm-dialog-details")).to_have_count(0)
     assert page.errors == []
 
 

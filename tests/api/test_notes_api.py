@@ -62,6 +62,15 @@ def test_errors(client):
     assert client.post("/api/notes/a/rename", json={"slug": "b"}).status_code in (404, 405)  # no manual rename
 
 
+def test_a_note_that_others_link_to_cannot_be_deleted(client, root):
+    make(client, "Target")
+    make(client, "Linker", content="see [[target]]")
+    r = client.delete("/api/notes/target")
+    assert r.status_code == 409 and "Linker" in r.json()["detail"] and (root / "target.md").exists()
+    assert client.delete("/api/notes/linker").status_code == 204  # nothing links to it
+    assert client.delete("/api/notes/target").status_code == 204  # the link is gone with its note
+
+
 def test_search_tags_and_filter(client):
     make(client, "Python tips", content="x", tags=["code"])
     make(client, "Other", content="python mention", tags=["misc"])

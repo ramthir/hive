@@ -13,7 +13,7 @@ from dataclasses import replace
 from src.application.notes import properties as properties_view, time_entries
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Comparison, Note, NoteVersion
-from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, NoteNotFound
+from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, NoteLinked, NoteNotFound
 from src.domain.notes.properties import apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
@@ -310,6 +310,10 @@ class NoteService:
                 self.repo.update(replace(current, content=fixed))
 
     def delete(self, slug: str) -> None:
+        self.repo.get(slug)  # raises NoteNotFound
+        linking = [n.title for n in self.index.backlinks(slug) if n.slug != slug]
+        if linking:
+            raise NoteLinked(f"Other notes link to this note: {', '.join(linking)}. Remove those links first.")
         self.repo.delete(slug)
         self.invalidate([slug])
 
