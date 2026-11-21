@@ -218,9 +218,8 @@ test('every dashboard tab links to its own address', () => {
   assert.deepEqual(Object.values(tabBarTabs()).map((t) => t.href), ['/dashboard', '/dashboard/agents', '/dashboard/colab']);
 });
 
-test('sessionsQuery includes provider only when filtering and tooltips are keyboard focusable', () => {
-  assert.equal(sessionsQuery({ sort: 'total', dir: 'desc', page: 0, pageSize: 10, provider: 'claude' }), 'sort=total&dir=desc&page=0&page_size=10&provider=claude');
-  assert.equal(sessionsQuery({ sort: 'total', dir: 'desc', page: 0, pageSize: 10, provider: '' }), 'sort=total&dir=desc&page=0&page_size=10');
+test('sessionsQuery carries sort and page and tooltips are keyboard focusable', () => {
+  assert.equal(sessionsQuery({ sort: 'total', dir: 'desc', page: 0, pageSize: 10 }), 'sort=total&dir=desc&page=0&page_size=10');
   const html = renderOverview(view({ providers: { claude: provider(1500, { daily: [{ date: '2026-11-21', ...tokens(1500, 0, 0) }] }) } }));
   assert.match(html, /class="metric totals" tabindex="0"/);
   assert.match(html, /class="bar" data-today tabindex="0"/);

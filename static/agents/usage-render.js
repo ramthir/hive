@@ -181,10 +181,8 @@ export const sessionRows = (sessions) => (sessions || []).map((s) => ({
 }));
 
 /** Query string for one page of sessions; the server sorts across every session of the month. */
-export function sessionsQuery({ sort, dir, page, pageSize, provider = '' }) {
-  const params = new URLSearchParams({ sort, dir, page: String(page), page_size: String(pageSize) });
-  if (provider) params.set('provider', provider);
-  return params.toString();
+export function sessionsQuery({ sort, dir, page, pageSize }) {
+  return new URLSearchParams({ sort, dir, page: String(page), page_size: String(pageSize) }).toString();
 }
 
 /** What the shared pager needs for a page answer; hidden when everything fits on one page. */

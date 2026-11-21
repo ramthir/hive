@@ -46,11 +46,9 @@ def test_sessions_are_sorted_and_paged_by_the_server(client):
     totals = [s["tokens"]["total"] for s in body["items"]]
     assert totals == sorted(totals)
     assert client.get("/api/agents/usage/sessions", params={"page": 1, "page_size": 2}).json()["items"][0]["session"] == "sess-c"
-    filtered = client.get("/api/agents/usage/sessions", params={"provider": "codex"}).json()
-    assert filtered["total"] == 1 and filtered["items"][0]["provider"] == "codex"
 
 
-@pytest.mark.parametrize("query", ["sort=name", "dir=up", "page=-1", "page_size=0", "page_size=51", "provider=unknown"])
+@pytest.mark.parametrize("query", ["sort=name", "dir=up", "page=-1", "page_size=0", "page_size=51"])
 def test_bad_options_are_422(client, query):
     assert client.get(f"/api/agents/usage/sessions?{query}").status_code == 422
 

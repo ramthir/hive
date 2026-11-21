@@ -91,9 +91,3 @@ agents-tab .quota-unavailable { flex: none; display: inline-flex; align-items: c
 agents-tab .quota-unavailable:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 agents-tab .bar[data-today] .tick { color: var(--color-text); font-weight: 700; }
 agents-tab .metric.totals:focus-visible, agents-tab .facts li[tabindex]:focus-visible, agents-tab .bar[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset-tight); border-radius: var(--radius-sm); }
-agents-tab .sessions-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
-agents-tab .provider-filter { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: var(--header-control-border, 1px solid var(--color-dimmed5)); border-radius: var(--radius-md); background: var(--header-control-bg, var(--color-dark2)); }
-agents-tab .provider-pill { display: inline-flex; align-items: center; gap: var(--space-2); height: 1.9rem; padding: 0 0.7rem; border: 0; border-radius: 6px; background: transparent; color: var(--color-dimmed2); font: inherit; font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
-agents-tab .provider-pill:hover { color: var(--color-text); }
-agents-tab .provider-pill.active, agents-tab .provider-pill.active:hover { background: var(--color-state-selected-bg); color: var(--color-state-selected-text); }
-agents-tab .provider-pill:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset-tight); }

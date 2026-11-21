@@ -6,28 +6,19 @@ import { showToast } from '/static/toast.js';
 import { api } from '/static/notes/api.js';
 import { copySessionResume } from '/static/agents/session-resume.js';
 import { quotaTooltipDetails, shouldRetryQuota } from '/static/agents/quota-donuts.js';
-import { PROVIDER_LABELS, SESSION_PAGE_SIZE, bannerText, pagerState, renderOverview, sessionColumns, sessionRows, sessionsKey, sessionsQuery, updatedText } from '/static/agents/usage-render.js';
+import { SESSION_PAGE_SIZE, bannerText, pagerState, renderOverview, sessionColumns, sessionRows, sessionsKey, sessionsQuery, updatedText } from '/static/agents/usage-render.js';
 
 const REFRESH_MS = 60000; // the server makes a new report every 15 minutes; the page just asks again
 const QUOTA_RETRY_MS = 8000; // the first quota run takes a few seconds: ask again soon instead of after a minute
 const MESSAGE = 'Hive could not load the usage report.';
-const PROVIDERS = ['', ...Object.keys(PROVIDER_LABELS)];
 
 /** The Agents tab: this month's usage of Claude, Codex and Antigravity. */
 class AgentsTab extends HTMLElement {
   connectedCallback() {
-    const filters = PROVIDERS.map((key) => {
-      const label = key ? PROVIDER_LABELS[key] : 'All';
-      const dot = key ? `<span class="dot ${key}" aria-hidden="true"></span>` : '';
-      return `<button type="button" class="provider-pill${key === '' ? ' active' : ''}" data-provider-filter="${key}" aria-pressed="${key === '' ? 'true' : 'false'}">${dot}${label}</button>`;
-    }).join('');
     this.innerHTML = `
       <div class="agents-body">
         <div class="agents-overview"></div>
         <section class="sessions">
-          <div class="sessions-toolbar">
-            <div class="provider-filter" role="group" aria-label="Filter sessions by provider">${filters}</div>
-          </div>
           <div class="table-card"><app-table id="sessions-table" sort-mode="server" aria-label="Sessions"></app-table></div>
           <app-pagination id="sessions-pager" hidden></app-pagination>
         </section>
@@ -35,11 +26,10 @@ class AgentsTab extends HTMLElement {
     this.overview = this.querySelector('.agents-overview');
     this.table = this.querySelector('#sessions-table');
     this.pager = this.querySelector('#sessions-pager');
-    // The server sorts and pages the sessions, so the chosen sort, filter and page live here and survive the refresh.
+    // The server sorts and pages the sessions, so the chosen sort and page live here and survive the refresh.
     this.sort = 'last_activity';
     this.direction = 'desc';
     this.page = 0;
-    this.providerFilter = '';
     this.sessions = null;
     this.quotaTries = 0; // soon-retries of a quota that is still being collected
     this.quota = null; // optional: without it the cards draw no rings and the usage still shows
@@ -53,19 +43,7 @@ class AgentsTab extends HTMLElement {
     this.table.setDefaultSort(this.sort, this.direction);
     this.table.setEmptyState({ icon: 'fa-comments', title: 'No sessions this month' });
     this.table.setLoading(true);
-    this.addEventListener('click', (event) => {
-      const pill = event.target?.closest?.('[data-provider-filter]');
-      if (pill) {
-        const next = pill.getAttribute('data-provider-filter') || '';
-        if (next === this.providerFilter) return;
-        this.providerFilter = next;
-        this.page = 0;
-        this.syncProviderFilter();
-        this.loadSessions();
-        return;
-      }
-      copySessionResume(event, copyTextToClipboard, showToast);
-    });
+    this.addEventListener('click', (event) => copySessionResume(event, copyTextToClipboard, showToast));
     this.addEventListener('sort-change', ({ detail }) => {
       this.sort = detail.key;
       this.direction = detail.dir;
@@ -97,16 +75,6 @@ class AgentsTab extends HTMLElement {
     clearInterval(this.timer);
     clearTimeout(this.quotaTimer);
     this.timer = null;
-  }
-
-  syncProviderFilter() {
-    for (const button of this.querySelectorAll('[data-provider-filter]')) {
-      const active = (button.getAttribute('data-provider-filter') || '') === this.providerFilter;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-pressed', String(active));
-    }
-    const label = this.providerFilter ? PROVIDER_LABELS[this.providerFilter] : '';
-    this.table.setEmptyState({ icon: 'fa-comments', title: label ? `No ${label} sessions this month` : 'No sessions this month' });
   }
 
   draw(view) {
@@ -157,7 +125,7 @@ class AgentsTab extends HTMLElement {
   }
 
   fetchSessions() {
-    return api(`/agents/usage/sessions?${sessionsQuery({ sort: this.sort, dir: this.direction, page: this.page, pageSize: SESSION_PAGE_SIZE, provider: this.providerFilter })}`);
+    return api(`/agents/usage/sessions?${sessionsQuery({ sort: this.sort, dir: this.direction, page: this.page, pageSize: SESSION_PAGE_SIZE })}`);
   }
 
   async loadSessions(interactive = true) {

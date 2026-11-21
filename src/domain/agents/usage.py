@@ -184,7 +184,7 @@ def _build(envelope: dict, now: datetime):
     return {**base, 'status': status, 'reason': reason, 'covers': covers, 'providers': providers, 'skipped_rows': skipped}, sessions
 
 
-def _validate_page(sort, direction, page, page_size, provider=None):
+def _validate_page(sort, direction, page, page_size):
     if sort not in SESSION_SORTS:
         raise ValueError(f"sort must be one of {', '.join(SESSION_SORTS)}.")
     if direction not in SESSION_DIRECTIONS:
@@ -193,8 +193,6 @@ def _validate_page(sort, direction, page, page_size, provider=None):
         raise ValueError('page must be a whole number from 0.')
     if type(page_size) is not int or not 1 <= page_size <= MAX_PAGE_SIZE:
         raise ValueError(f'page_size must be from 1 to {MAX_PAGE_SIZE}.')
-    if provider is not None and provider not in PROVIDERS:
-        raise ValueError(f"provider must be one of {', '.join(PROVIDERS)}.")
 
 
 def _sort_value(item, key):
@@ -205,18 +203,16 @@ def _sort_value(item, key):
     return item['tokens']['cached_input' if key == 'cached' else key]
 
 
-def empty_session_page(sort='last_activity', direction='desc', page=0, page_size=10, provider=None):
+def empty_session_page(sort='last_activity', direction='desc', page=0, page_size=10):
     """A page with no sessions, for a month with no usable report."""
-    _validate_page(sort, direction, page, page_size, provider)
+    _validate_page(sort, direction, page, page_size)
     return {'items': [], 'total': 0, 'page': page, 'page_size': page_size, 'sort': sort, 'dir': direction}
 
 
-def session_page(envelope: dict, now: datetime, sort='last_activity', direction='desc', page=0, page_size=10, provider=None) -> dict:
+def session_page(envelope: dict, now: datetime, sort='last_activity', direction='desc', page=0, page_size=10) -> dict:
     """One page of the month's sessions, sorted across all of them; ties keep the newest first, missing timestamps last."""
-    _validate_page(sort, direction, page, page_size, provider)
+    _validate_page(sort, direction, page, page_size)
     sessions = _extract_sessions(envelope, now)[0]
-    if provider is not None:
-        sessions = [item for item in sessions if item['provider'] == provider]
     if sort == 'last_activity':
         # Missing timestamps always land at the end, regardless of sort direction.
         present = [item for item in sessions if _activity_epoch(item['last_activity']) is not None]

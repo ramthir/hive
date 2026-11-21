@@ -27,7 +27,6 @@ def quota(request: Request) -> dict:
 def sessions(request: Request,
              sort: Literal["last_activity", "provider", "input", "cached", "output", "total"] = "last_activity",
              direction: Literal["asc", "desc"] = Query("desc", alias="dir"),
-             page: int = Query(0, ge=0), page_size: int = Query(10, ge=1, le=MAX_PAGE_SIZE),
-             provider: Literal["claude", "codex", "antigravity"] | None = Query(default=None)) -> dict:
-    """One page of this month's sessions, sorted across all of them, optionally filtered to one provider."""
-    return request.app.state.agents.sessions(sort, direction, page, page_size, provider)
+             page: int = Query(0, ge=0), page_size: int = Query(10, ge=1, le=MAX_PAGE_SIZE)) -> dict:
+    """One page of this month's sessions, sorted across all of them."""
+    return request.app.state.agents.sessions(sort, direction, page, page_size)
