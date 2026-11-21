@@ -1,6 +1,7 @@
 import '/static/components/tab-bar.js';
 import '/static/dashboard/debian-tab.js';
 import '/static/agents/agents-tab.js';
+import '/static/colab/colab-tab.js';
 import { TABS, tabBarTabs, tabForPath } from '/static/dashboard/tabs.js';
 
 /**

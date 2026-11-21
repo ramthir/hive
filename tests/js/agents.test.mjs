@@ -99,15 +99,16 @@ test('the Agents tab lives on the dashboard page and uses no breakpoints', async
   assert.ok(selectors.every((first) => first === 'agents-tab' || first === '.agents-body'), 'every rule is scoped to the tab');
 });
 
-test('the dashboard has a Debian tab and an Agents tab, each with its own address', () => {
-  assert.deepEqual(Object.keys(TABS), ['debian', 'agents']);
-  assert.deepEqual(Object.values(TABS).map((t) => t.path), ['/dashboard', '/dashboard/agents']);
-  assert.deepEqual(Object.values(tabBarTabs()).map((t) => t.label), ['Debian', 'Agents']);
+test('the dashboard has a Debian, an Agents and a Colab tab, each with its own address', () => {
+  assert.deepEqual(Object.keys(TABS), ['debian', 'agents', 'colab']);
+  assert.deepEqual(Object.values(TABS).map((t) => t.path), ['/dashboard', '/dashboard/agents', '/dashboard/colab']);
+  assert.deepEqual(Object.values(tabBarTabs()).map((t) => t.label), ['Debian', 'Agents', 'Colab']);
 });
 
 test('an address opens its tab, with or without a trailing slash, and anything else opens Debian', () => {
   assert.equal(tabForPath('/dashboard/agents'), 'agents');
   assert.equal(tabForPath('/dashboard/agents/'), 'agents');
+  assert.equal(tabForPath('/dashboard/colab'), 'colab');
   assert.equal(tabForPath('/dashboard'), 'debian');
   assert.equal(tabForPath('/dashboard/nope'), 'debian');
   assert.equal(tabForPath(undefined), 'debian');

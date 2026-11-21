@@ -138,6 +138,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
 
     @app.get("/dashboard", include_in_schema=False)
     @app.get("/dashboard/agents", include_in_schema=False)
+    @app.get("/dashboard/colab", include_in_schema=False)
     def dashboard_page() -> FileResponse:
         return FileResponse(static / "dashboard.html", headers={"Cache-Control": "no-cache"})
 

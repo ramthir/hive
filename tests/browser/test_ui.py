@@ -4,6 +4,7 @@ from datetime import date
 import subprocess
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 import uvicorn
@@ -1447,7 +1448,7 @@ def test_dashboard_shows_stat_cards_and_the_container_processes(page, server):
 def test_dashboard_opens_on_the_debian_tab_and_switches_to_agents_without_a_reload(page, agents_server):
     page.goto(f"{agents_server}/dashboard")
     tabs = page.locator("dashboard-app app-tab-bar .tab-bar-item")
-    expect(tabs).to_have_text(["Debian", "Agents"])
+    expect(tabs).to_have_text(["Debian", "Agents", "Colab"])
     expect(tabs.first).to_have_class("tab-bar-item tab-bar-item--active")
     expect(page.locator("debian-tab .dash-grid stat-card")).to_have_count(4)
     expect(page.locator("debian-tab app-table tbody tr").first).to_be_visible()  # the stats have loaded
@@ -1503,3 +1504,112 @@ def test_agents_tab_copies_a_resume_command(page, agents_server):
     page.locator("agents-tab .session-resume").first.click()
     assert page.evaluate("navigator.clipboard.readText()") == "codex resume sess-b"
     assert page.errors == []
+
+
+class _Colab:
+    """A fake Colab: what `colab sessions` and `colab usage` say, and the snapshot a probe returns."""
+
+    def __init__(self):
+        from src.domain.colab.errors import ColabCliError
+        self.error_type = ColabCliError
+        self.sessions = [{"name": "sentinel-run", "runtime_id": "m-s-1", "hardware": "GPU", "shape": "Standard", "variant": "T4"}]
+        self.usage = {"balance": 499.97, "balance_unit": "compute units", "usage_rate": 0.08, "usage_rate_unit": "/hr", "active_assignments": 1}
+        self.failure = None
+        self.snapshot = {
+            "stats": {"cpu_count": 2, "cpu_percent": 12.5, "load_average": {"1min": 1.14, "5min": 0.73, "15min": 0.38}, "uptime": "1:05",
+                      "memory": {"used_gb": 1.2, "total_gb": 12.7, "percent": 9.4}, "disk": {"used_gb": 30.0, "total_gb": 100.0, "percent": 30.0}, "gpu": []},
+            "processes": [{"pid": n, "name": f"proc{n}", "cmdline": "", "command": f"proc{n}", "running_for": "01:00", "cpu_percent": float(n), "mem_percent": 1.0, "mem": "10.0 MB", "status": "running"}
+                          for n in range(1, 13)]}
+
+
+@pytest.fixture
+def colab_server(notes_dir, monkeypatch):
+    from unittest.mock import AsyncMock
+    from src.api.routes import colab as colab_routes
+    from src.application.colab.collector import ColabCollector
+    fake = _Colab()
+
+    async def sessions():
+        if fake.failure:
+            raise fake.error_type(fake.failure)
+        return fake.sessions
+
+    async def usage():
+        if fake.failure:
+            raise fake.error_type(fake.failure)
+        return fake.usage
+    monkeypatch.setattr(colab_routes, "get_colab_sessions", sessions)
+    monkeypatch.setattr(colab_routes, "get_colab_usage", usage)
+    collector = ColabCollector(sessions=sessions, kernel_state=AsyncMock(return_value="idle"), collect=AsyncMock(side_effect=lambda name: fake.snapshot), grace=0.2)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, colab=collector), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    yield SimpleNamespace(url=f"http://127.0.0.1:{port}", fake=fake, collector=collector)
+    srv.should_exit = True
+    thread.join(5)
+
+
+def test_colab_tab_shows_usage_the_runtime_its_live_stats_and_processes(page, colab_server):
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator("dashboard-app app-tab-bar .tab-bar-item").nth(2)).to_have_class("tab-bar-item tab-bar-item--active")
+    expect(page.locator('colab-tab stat-card[data-metric="balance"]')).to_have_attribute("value", "499.97")
+    expect(page.locator('colab-tab stat-card[data-metric="rate"]')).to_have_attribute("value", "0.08/hr")
+    expect(page.locator(".colab-picker-name")).to_have_text("sentinel-run")
+    expect(page.locator(".colab-picker-runtime span").first).to_have_text("m-s-1")
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).to_have_attribute("value", "12.5%", timeout=15000)  # the first probe has arrived
+    expect(page.locator('colab-tab stat-card[data-metric="memory"]')).to_have_attribute("sub", "of 12.7 GB (9.4%)")
+    expect(page.locator('colab-tab stat-card[data-metric="uptime"]')).to_have_attribute("value", "1h 05m")
+    rows = page.locator("colab-tab app-table tbody tr")
+    expect(rows).to_have_count(10)  # twelve processes, ten to a page
+    expect(rows.first).to_contain_text("proc12")  # highest CPU first
+    expect(page.locator("colab-tab app-pagination")).to_be_visible()
+    page.locator("colab-tab app-table th", has_text="Memory").click()  # a sort is made here, with no request
+    expect(rows).to_have_count(10)
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("")
+    card, chip = (page.locator(sel).bounding_box() for sel in ('colab-tab stat-card[data-metric="assignments"]', "colab-tab .colab-picker-trigger"))
+    assert chip["x"] + chip["width"] <= card["x"] + card["width"]  # the runtime chip is cut short, never wider than its card
+    grid = page.locator('colab-tab [data-grid="usage"]').bounding_box()
+    assert card["x"] + card["width"] <= grid["x"] + grid["width"] + 1
+    assert page.errors == []
+
+
+def test_colab_tab_without_a_runtime_says_so_and_starts_no_probe(page, colab_server):
+    colab_server.fake.sessions = []
+    colab_server.fake.usage = {**colab_server.fake.usage, "active_assignments": 0, "usage_rate": 0.0}
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator(".colab-idle")).to_be_visible()
+    expect(page.locator(".colab-idle")).to_contain_text("colab new")
+    expect(page.locator(".colab-session")).to_be_hidden()
+    expect(page.locator('colab-tab stat-card[data-metric="rate"]')).to_have_attribute("sub", "Idle")
+    expect(page.locator('colab-tab stat-card[data-metric="uptime"]')).to_have_attribute("sub", "No active session")
+    time.sleep(0.5)
+    assert colab_server.collector.feeds == {}  # nothing asked the runtime anything
+    assert page.errors == []
+
+
+def test_colab_tab_says_when_the_cli_cannot_be_reached(page, colab_server):
+    colab_server.fake.failure = "colab CLI is not installed or not on PATH"
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("colab CLI is not installed or not on PATH")
+    expect(page.locator("dashboard-app .dash-status")).to_have_class("dash-status error")
+    expect(page.locator('colab-tab stat-card[data-metric="balance"]')).to_have_attribute("sub", "Unable to read")
+    assert page.errors == []
+
+
+def test_leaving_the_colab_tab_stops_the_probing(page, colab_server):
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).to_have_attribute("value", "12.5%", timeout=15000)
+    assert len(colab_server.collector.feeds["m-s-1"].viewers) == 1
+    page.locator("dashboard-app app-tab-bar .tab-bar-item").first.click()  # Debian
+    expect(page.locator("colab-tab")).to_have_count(0)
+    deadline = time.time() + 5
+    while time.time() < deadline and colab_server.collector.feeds["m-s-1"].viewers:
+        time.sleep(0.05)
+    assert not colab_server.collector.feeds["m-s-1"].viewers  # the stream closed, so the grace period starts
+    time.sleep(0.6)
+    assert colab_server.collector.feeds["m-s-1"].task.done()  # and then the collector itself stops
