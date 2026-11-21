@@ -68,12 +68,11 @@ test('editing in place sets the minutes, or does nothing when they are the same'
   assert.deepEqual(savePlan(row, { slug: 'fix', day: '2026-11-20', minutes: '60' }), []);
 });
 
-test('moving a row to another note or day adds there and removes the old one', () => {
+test('moving a row to another note or day is one call, so one commit', () => {
   const row = { slug: 'fix', day: '2026-11-20', minutes: 60 };
   for (const target of [{ slug: 'other', day: '2026-11-20' }, { slug: 'fix', day: '2026-11-21' }]) {
     assert.deepEqual(savePlan(row, { ...target, minutes: '60' }), [
-      { method: 'POST', path: `/notes/${target.slug}/time`, body: { day: target.day, minutes: 60 } },
-      { method: 'DELETE', path: '/notes/fix/time/2026-11-20' }]);
+      { method: 'POST', path: '/notes/fix/time/2026-11-20/move', body: { slug: target.slug, day: target.day, minutes: 60 } }]);
   }
   assert.deepEqual(deleteCall(row), { method: 'DELETE', path: '/notes/fix/time/2026-11-20' });
 });

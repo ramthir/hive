@@ -47,8 +47,8 @@ const noteTime = (slug, day) => `/notes/${encodeURIComponent(slug)}/time/${encod
 /**
  * The API calls that save the drawer. `record` is the row being edited (null when adding), `values` the form:
  * `{slug, day, minutes}`. Adding adds the minutes to the day (a day holds one total); editing a row in place sets
- * its minutes; moving it to another note or day adds the minutes there and removes the old row, so nothing that
- * was already logged on the target is lost. Throws for input the server would refuse; [] when nothing changed.
+ * its minutes; moving it to another note or day is one call that adds the minutes there and removes the old row (one
+ * commit), so nothing that was already logged on the target is lost. Throws for input the server would refuse; [] when nothing changed.
  */
 export function savePlan(record, values) {
   const slug = String(values.slug ?? '').trim();
@@ -60,10 +60,7 @@ export function savePlan(record, values) {
   if (!record) return [{ method: 'POST', path: `/notes/${encodeURIComponent(slug)}/time`, body: { day, minutes } }];
   const moved = record.slug !== slug || record.day !== day;
   if (!moved) return minutes === record.minutes ? [] : [{ method: 'PUT', path: noteTime(slug, day), body: { minutes } }];
-  return [
-    { method: 'POST', path: `/notes/${encodeURIComponent(slug)}/time`, body: { day, minutes } },
-    { method: 'DELETE', path: noteTime(record.slug, record.day) },
-  ];
+  return [{ method: 'POST', path: `${noteTime(record.slug, record.day)}/move`, body: { slug, day, minutes } }];
 }
 
 export const deleteCall = (record) => ({ method: 'DELETE', path: noteTime(record.slug, record.day) });

@@ -196,6 +196,17 @@ class FileNoteRepository(NoteRepository):
             self._commit([self._rel(note.slug)], f"doc: update {note.title}")
             return self.get(note.slug)
 
+    def update_many(self, notes: list[Note], message: str) -> list[Note]:
+        with self.git.lock:
+            paths = [self._path(n.slug) for n in notes]
+            for note, path in zip(notes, paths):
+                if not path.is_file():
+                    raise NoteNotFound(note.slug)
+            for note, path in zip(notes, paths):
+                self._write(note, path.read_text(encoding="utf-8"))
+            self._commit([self._rel(n.slug) for n in notes], message)
+            return [self.get(n.slug) for n in notes]
+
     def rename(self, slug: str, new_slug: str) -> Note:
         with self.git.lock:
             if not self._path(slug).is_file():

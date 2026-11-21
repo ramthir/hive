@@ -116,6 +116,10 @@ class TimeAdd(TimeLog):
     day: str  # YYYY-MM-DD; the service rejects anything else
 
 
+class TimeMove(TimeAdd):
+    slug: str  # the note the time moves to
+
+
 class NoteCreate(BaseModel):
     """The title is the content's first `# heading`; `title` is only used when the content has none."""
     title: str | None = None

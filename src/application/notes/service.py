@@ -237,6 +237,33 @@ class NoteService:
         self.invalidate([slug])
         return next(r for r in time_entries.rows_of(note) if r.day == iso)
 
+    def move_time(self, slug: str, day: str, to_slug: str, to_day: str, minutes: int) -> time_entries.TimeRow:
+        """Move a row to another note and/or day in one commit: the old day is removed and `minutes` are added to
+        whatever the target day already holds. Nothing is written when the target refuses."""
+        source = self.repo.get(slug)
+        iso = parse_day(day)
+        if iso is None or iso not in source.time:
+            raise NoteNotFound(f"{slug} has no time logged on {day}")
+        target_iso = parse_day(to_day)
+        if target_iso is None:
+            raise InvalidTime(f"{to_day!r} is not a date (use YYYY-MM-DD).")
+        same = to_slug == slug
+        target = source if same else self.repo.get(to_slug)
+        if not accepts_time(target):
+            raise InvalidTime("Time can only be logged on a note of type task or meeting.")
+        left = {d: m for d, m in source.time.items() if d != iso}
+        base = left if same else target.time
+        total = base.get(target_iso, 0) + minutes
+        if not 1 <= total <= MAX_MINUTES_PER_DAY:
+            raise InvalidTime(f"A day holds 1 to {MAX_MINUTES_PER_DAY} minutes, not {total}.")
+        if same:
+            changed = [replace(source, time={**left, target_iso: total})]
+        else:
+            changed = [replace(source, time=left), replace(target, time={**target.time, target_iso: total})]
+        notes = self.repo.update_many(changed, f"doc: move time from {source.title} to {target.title}")
+        self.invalidate([n.slug for n in notes])
+        return next(r for r in time_entries.rows_of(notes[-1]) if r.day == target_iso)
+
     def remove_time(self, slug: str, day: str) -> None:
         """Unlike `log_time` this does not need a task or meeting: time on a note that was retyped can still be removed."""
         current = self.repo.get(slug)

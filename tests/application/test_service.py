@@ -445,3 +445,40 @@ def test_invalidate_without_slugs_rebuilds_everything(svc, root):
     (root / "late.md").write_text("# Late\n")
     svc.invalidate()
     assert set(svc.index.notes) == {"one", "late"}
+
+
+def test_move_time_to_another_note_is_one_commit_and_adds_to_the_target(svc, root):
+    _task(svc)
+    _task(svc, "Write docs")
+    svc.log_time("fix-login", "2026-11-20", 60)
+    svc.log_time("write-docs", "2026-11-21", 30)
+    before = len(git(root, "rev-list", "HEAD").split())
+    r = svc.move_time("fix-login", "2026-11-20", "write-docs", "2026-11-21", 60)
+    assert (r.slug, r.day, r.minutes) == ("write-docs", "2026-11-21", 90)
+    assert len(git(root, "rev-list", "HEAD").split()) == before + 1
+    assert svc.get("fix-login").time == {} and svc.get("write-docs").time == {"2026-11-21": 90}
+    assert [t.slug for t in svc.time_rows()] == ["write-docs"]  # the index followed both notes
+
+
+def test_move_time_to_another_day_of_the_same_note(svc):
+    _task(svc)
+    svc.log_time("fix-login", "2026-11-20", 60)
+    svc.log_time("fix-login", "2026-11-21", 30)
+    svc.move_time("fix-login", "2026-11-20", "fix-login", "2026-11-21", 45)
+    assert svc.get("fix-login").time == {"2026-11-21": 75}
+
+
+def test_a_refused_move_writes_nothing(svc, root):
+    _task(svc)
+    _task(svc, "Idea", types=("idea",))
+    svc.log_time("fix-login", "2026-11-20", 60)
+    head = git(root, "rev-parse", "HEAD")
+    with pytest.raises(InvalidTime):
+        svc.move_time("fix-login", "2026-11-20", "idea", "2026-11-20", 60)
+    with pytest.raises(InvalidTime):
+        svc.move_time("fix-login", "2026-11-20", "fix-login", "soon", 60)
+    with pytest.raises(NoteNotFound):
+        svc.move_time("fix-login", "2026-11-25", "fix-login", "2026-11-26", 60)
+    with pytest.raises(NoteNotFound):
+        svc.move_time("fix-login", "2026-11-20", "missing", "2026-11-20", 60)
+    assert git(root, "rev-parse", "HEAD") == head and svc.get("fix-login").time == {"2026-11-20": 60}

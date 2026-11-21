@@ -313,6 +313,18 @@ def test_logging_time_through_the_api(client, root):
     assert client.delete("/api/notes/fix-login/time/2026-11-20").status_code == 404
 
 
+def test_moving_time_through_the_api(client):
+    make(client, "Fix login", types=["task"])
+    make(client, "Write docs", types=["task"])
+    make(client, "Idea", types=["idea"])
+    client.put("/api/notes/fix-login/time/2026-11-20", json={"minutes": 60})
+    r = client.post("/api/notes/fix-login/time/2026-11-20/move", json={"slug": "write-docs", "day": "2026-11-21", "minutes": 45})
+    assert r.status_code == 200 and r.json()["id"] == "write-docs:2026-11-21" and r.json()["minutes"] == 45
+    assert client.get("/api/notes/fix-login").json()["time"] == {}
+    assert client.post("/api/notes/fix-login/time/2026-11-20/move", json={"slug": "write-docs", "day": "2026-11-21", "minutes": 5}).status_code == 404
+    assert client.post("/api/notes/write-docs/time/2026-11-21/move", json={"slug": "idea", "day": "2026-11-21", "minutes": 45}).status_code == 422
+
+
 def test_a_note_says_whether_it_takes_time(client):
     make(client, "Fix login", types=["task"])
     make(client, "Idea", types=["idea"])

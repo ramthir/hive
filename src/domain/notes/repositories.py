@@ -20,6 +20,10 @@ class NoteRepository(ABC):
     def update(self, note: Note) -> Note: ...
 
     @abstractmethod
+    def update_many(self, notes: list[Note], message: str) -> list[Note]:
+        """Update several notes in one commit."""
+
+    @abstractmethod
     def rename(self, slug: str, new_slug: str) -> Note: ...
 
     @abstractmethod

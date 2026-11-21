@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             PropertiesOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeNoteOut, VersionDetail,
+                             PropertiesOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteNotFound
@@ -86,6 +86,12 @@ def add_time(request: Request, slug: str, body: TimeAdd):
 def set_time(request: Request, slug: str, day: str, body: TimeLog):
     """Set the minutes of a day, replacing what was there."""
     return TimeEntryOut.of(svc(request).log_time(slug, day, body.minutes))
+
+
+@router.post("/notes/{slug}/time/{day}/move", response_model=TimeEntryOut)
+def move_time(request: Request, slug: str, day: str, body: TimeMove):
+    """Move a day's time to another note and/or day, adding to what is there; one commit."""
+    return TimeEntryOut.of(svc(request).move_time(slug, day, body.slug, body.day, body.minutes))
 
 
 @router.delete("/notes/{slug}/time/{day}", status_code=204)
