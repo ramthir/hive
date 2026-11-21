@@ -175,3 +175,7 @@
 .hive-vd-skeleton-row > b > i + i { width: 40%; }
 @keyframes hive-vd-pulse { 50% { opacity: .2; } }
 @media (prefers-reduced-motion: reduce) { .hive-vd-skeleton-row > b > i { animation: none; } }
+
+.notes-remote-banner { display: flex; align-items: center; gap: .75rem; margin: .5rem 1rem 0; padding: .55rem .9rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md); background: var(--color-dark2); font: 500 .85rem var(--font-family); }
+.notes-remote-banner i { color: var(--color-orange, #fc9867); }
+.notes-remote-banner span { flex: 1; }

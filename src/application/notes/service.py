@@ -11,6 +11,7 @@ from datetime import date
 from dataclasses import replace
 
 from src.application.notes import properties as properties_view, time_entries
+from src.application.notes.feed import ChangeFeed
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Comparison, Note, NoteVersion
 from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, NoteLinked, NoteNotFound
@@ -42,6 +43,7 @@ class NoteService:
         self._index: NoteIndex | None = None
         self._dirty: set[str] = set()
         self._lock = threading.Lock()
+        self.feed = ChangeFeed()  # open pages hear about changed notes here (`GET /api/events`)
 
     # -- index -----------------------------------------------------------
     def invalidate(self, slugs: Iterable[str] | None = None) -> None:
@@ -53,6 +55,30 @@ class NoteService:
             else:
                 self._dirty.update(slugs)
         self.metrics.incr("index_invalidations")
+        self._announce(slugs)
+
+    def _announce(self, slugs: Iterable[str] | None) -> None:
+        """Tell the change feed which notes changed (their revision and types, before and after), or that anything may have."""
+        if not self.feed.active:
+            return
+        slugs = None if slugs is None else sorted(set(slugs))
+        if slugs is None or len(slugs) > PATCH_LIMIT:
+            self.feed.reset()
+            return
+        index, events = self._index, []  # the index as it was before this change is applied: the types a note had
+        for slug in slugs:
+            before = index.notes.get(slug) if index is not None else None
+            try:
+                note = self.repo.get(slug)
+            except NoteNotFound:
+                note = None
+            except Exception:
+                self.feed.reset()
+                return
+            types = {t.casefold() for n in (before, note) if n for t in n.types}
+            events.append({"slug": slug, "title": (note or before).title if (note or before) else slug,
+                           "revision": note.revision if note else None, "deleted": note is None, "types": sorted(types)})
+        self.feed.publish(events)
 
     @property
     def index(self) -> NoteIndex:

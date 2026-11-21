@@ -2,6 +2,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
+import { debounce, watchChanges } from '/static/events.js';
 import { COLUMNS, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
 import { openProperties } from '/static/notes/properties.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
@@ -39,9 +40,14 @@ class TasksApp extends HTMLElement {
     this._spotlight = (event) => window.location.assign(`/notes/${encodeURIComponent(event.detail.slug)}`);
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.load();
+    // Task notes changed in another tab or outside Hive (an editor, git pull): ask the server again. Not while a card is mid-move.
+    this._reload = debounce(() => { if (!this._moving) this.reloadTasks().catch(() => {}); }, 400);
+    this._changes = watchChanges({ type: 'task' }, this._reload);
   }
 
   disconnectedCallback() {
+    this._changes?.close();
+    this._reload?.cancel();
     window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
   }
 
@@ -109,6 +115,7 @@ class TasksApp extends HTMLElement {
   // A finished task is shown in this week meanwhile, so it does not vanish from an older week's view.
   async move(task, status, previous) {
     const before = { ...task };
+    this._moving = true;
     Object.assign(task, { status, ...(status === 'DONE' ? { week_key: this.currentWeek, week_stored: true } : {}) });
     this.refresh();
     try {
@@ -117,6 +124,8 @@ class TasksApp extends HTMLElement {
       Object.assign(task, before, { status: previous });
       this.refresh();
       throw error;
+    } finally {
+      this._moving = false;
     }
     await this.reloadTasks().catch(() => {}); // the move is saved; if the reload fails the optimistic card stays
   }

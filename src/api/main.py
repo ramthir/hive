@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import agents, chat as chat_routes, diagrams, notes, system
+from src.api.routes import agents, chat as chat_routes, diagrams, events, notes, system
 from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
 from src.application.agents.refresh import RefreshSchedule
@@ -141,6 +141,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.include_router(agents.router, prefix="/api")
     app.include_router(colab_routes.router, prefix="/api")
     app.include_router(chat_routes.router, prefix="/api")
+    app.include_router(events.router, prefix="/api")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:

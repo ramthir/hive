@@ -1966,3 +1966,49 @@ def test_a_diagram_can_be_downloaded_as_a_png(page, diagram_note, tmp_path):
             figure.locator('button[data-download-theme="dark"]').click()
         assert again.value.suggested_filename.endswith("-dark.png")
         assert page.errors == []
+
+
+# -- changes made outside the page (SSE) ------------------------------------------------
+
+def test_an_open_note_refreshes_when_its_file_is_edited_outside_hive(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta")
+    expect(page.locator("#notes-md")).to_contain_text("Beta body text")
+    (notes_dir / "beta.md").write_text("---\ntitle: Beta Note\n---\n\nEdited in an editor\n")  # the watcher sees this
+    expect(page.locator("#notes-md")).to_contain_text("Edited in an editor", timeout=5000)
+    assert page.errors == []
+
+
+def test_a_note_with_unsaved_edits_asks_before_taking_the_outside_change(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta")
+    page.click("#edit-note-btn")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("my own words ")
+    (notes_dir / "beta.md").write_text("---\ntitle: Beta Note\n---\n\nEdited in an editor\n")
+    banner = page.locator(".notes-remote-banner")
+    expect(banner).to_be_visible(timeout=5000)
+    expect(page.locator(".cm-content")).to_contain_text("my own words")  # nothing was thrown away
+    banner.get_by_role("button", name="Reload").click()
+    expect(page.locator(".cm-content")).to_contain_text("Edited in an editor")
+    expect(banner).to_have_count(0)
+
+
+def test_a_save_from_this_page_is_not_mistaken_for_an_outside_change(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta")
+    page.click("#edit-note-btn")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("typed ")
+    page.keyboard.press("Control+s")
+    page.wait_for_timeout(1500)  # the echo of our own save arrives and is recognised by its revision
+    expect(page.locator(".notes-remote-banner")).to_have_count(0)
+    expect(page.locator(".cm-content")).to_contain_text("typed")
+    assert page.errors == []
+
+
+def test_the_task_board_picks_up_a_task_created_outside_hive(page, server, task_notes):
+    page.goto(f"{server}/tasks")
+    expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report"])
+    (task_notes / "fresh.md").write_text("---\ntitle: Fresh\ntype: task\nstatus: TODO\n---\n\n# Fresh\n")
+    expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report", "Fresh"], timeout=5000)
+    assert page.errors == []

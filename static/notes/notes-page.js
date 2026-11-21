@@ -13,6 +13,7 @@ import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } fro
 import { DiagramPreviews } from '/static/notes/diagrams.js';
 import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
+import { debounce, remoteAction, watchChanges } from '/static/events.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
@@ -125,6 +126,7 @@ class NotesApp extends HTMLElement {
 
   disconnectedCallback() {
     clearTimeout(this._copyTimer);
+    this.stopWatching();
     this._diagrams.dispose();
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
@@ -201,6 +203,7 @@ class NotesApp extends HTMLElement {
       if (this.currentView === 'editor' && this.selectedSlug === null && this.selectedNote && !this.selectedNote.slug) return;
       this.currentView = 'editor';
       this.selectedSlug = null;
+      this.stopWatching();
       this.isNoteEditing = true;
       this.startNewDraftNote();
       return;
@@ -220,6 +223,7 @@ class NotesApp extends HTMLElement {
       }
       this.currentView = 'editor';
       this.selectedSlug = slug;
+      this.stopWatching();
       this.isNoteEditing = false;
       this.renderRouteLoading();
       this.loadEditorNote(slug, { startInEdit });
@@ -230,6 +234,7 @@ class NotesApp extends HTMLElement {
     this.currentView = 'list';
     this.selectedSlug = null;
     this.selectedNote = null;
+    this.stopWatching();
     this.saveStatus = 'saved';
     this.renderRouteLoading();
     this.openLatestNote();
@@ -264,6 +269,7 @@ class NotesApp extends HTMLElement {
       this.isNoteEditing = startInEdit;
       this.destroyCodeMirror();
       this.renderEditorView();
+      this.watchNote(slug);
       if (startInEdit) setTimeout(() => this.focusEditor(), 50);
     } catch (error) {
       console.error('Failed to load note:', error);
@@ -275,6 +281,75 @@ class NotesApp extends HTMLElement {
         this.renderLoadError(slug, error.message); // stay on this note's address: Retry loads it again
       }
     }
+  }
+
+  /* --- Changes made elsewhere (another tab, an editor, git pull) ------------------------- */
+
+  // Listen for the open note only. An event says "look again": the note is fetched and its revision compared with the
+  // one this page holds, so the page's own saves (which update the revision) are recognised and nothing flickers.
+  watchNote(slug) {
+    if (this._watchedSlug === slug && this._changes) return;
+    this.stopWatching();
+    this._watchedSlug = slug;
+    this._checkRemote = debounce(() => this.checkRemoteChange(slug), 400);
+    this._changes = watchChanges({ note: slug }, this._checkRemote);
+  }
+
+  stopWatching() {
+    this._changes?.close();
+    this._checkRemote?.cancel();
+    this._changes = this._checkRemote = this._watchedSlug = null;
+    this.querySelector('.notes-remote-banner')?.remove();
+  }
+
+  async checkRemoteChange(slug) {
+    if (this.selectedSlug !== slug || !this.selectedNote) return;
+    if (this.saveStatus === 'saving') { this._checkRemote(); return; } // look again once the save has landed
+    let fresh = null;
+    try {
+      fresh = await api(`/notes/${encodeURIComponent(slug)}`);
+    } catch (error) {
+      if (error.status !== 404) return; // the server is not reachable: the stream reconnects and asks again
+    }
+    if (this.selectedSlug !== slug || !this.selectedNote || this.saveStatus === 'saving') return;
+    const action = remoteAction({ heldRevision: this.selectedNote.revision, fresh, unsaved: this.saveStatus === 'dirty' });
+    if (action === 'none') return;
+    if (action === 'gone') {
+      if (this.saveStatus === 'dirty') return this.showRemoteBanner('This note was deleted or renamed outside this page. Your unsaved text is still here; saving writes it back.');
+      showToast('This note was renamed or deleted elsewhere.', 'info');
+      notesRouter.navigate('/notes', { replace: true });
+      return;
+    }
+    if (action === 'banner') return this.showRemoteBanner('This note changed outside this page. Reloading discards your unsaved edits.', fresh);
+    this.applyRemoteNote(fresh);
+  }
+
+  // Show the note as it is now, keeping the reading position and edit mode.
+  applyRemoteNote(fresh) {
+    const preview = this.querySelector('#notes-preview');
+    const scrollTop = preview?.scrollTop ?? 0;
+    this.selectedNote = fresh;
+    this.saveStatus = 'saved';
+    this.destroyCodeMirror();
+    this.renderEditorView();
+    const again = this.querySelector('#notes-preview');
+    if (again) again.scrollTop = scrollTop;
+    if (this.isNoteEditing) setTimeout(() => this.focusEditor(), 0);
+  }
+
+  showRemoteBanner(message, fresh = null) {
+    this.querySelector('.notes-remote-banner')?.remove();
+    const banner = document.createElement('div');
+    banner.className = 'notes-remote-banner';
+    banner.setAttribute('role', 'status');
+    banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${esc(message)}</span>${fresh ? '<button type="button" class="crud-drawer-btn" data-remote="reload">Reload</button>' : ''}<button type="button" class="crud-drawer-btn" data-remote="dismiss">Keep editing</button>`;
+    banner.addEventListener('click', (event) => {
+      const action = event.target.closest('[data-remote]')?.dataset.remote;
+      if (!action) return;
+      banner.remove();
+      if (action === 'reload') this.applyRemoteNote(fresh);
+    });
+    (this.querySelector('.notes-editor-page') || this).prepend(banner);
   }
 
   renderLoadError(slug, message) {
@@ -348,6 +423,7 @@ class NotesApp extends HTMLElement {
       if (isNewDraft || saved.slug !== note.slug) {
         // A new note, or a changed heading that renamed the file: move the URL to the new file name.
         this.selectedSlug = saved.slug;
+        this.watchNote(saved.slug);
         notesRouter.navigate(`/notes/${encodeURIComponent(saved.slug)}?mode=edit`, { replace: true });
         this.renderEditorView({ keepEditor: true });
       } else {
