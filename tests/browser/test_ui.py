@@ -1388,3 +1388,20 @@ def test_task_properties_edit_tags_and_keep_the_priority(page, server, property_
     wait_for_commits(property_notes, before + 1)
     assert "tags: [todo, work]" in (property_notes / "fix-it.md").read_text()
     assert page.errors == []
+
+
+def test_dashboard_shows_stat_cards_and_the_container_processes(page, server):
+    page.goto(f"{server}/dashboard")
+    cards = page.locator(".dash-grid stat-card[data-metric]")
+    expect(cards).to_have_count(4)
+    expect(page.locator('stat-card[data-metric="storage"]')).to_have_attribute("title", "Storage")
+    expect(page.locator('stat-card[data-metric="uptime"]')).to_have_count(0)
+    sizes = page.locator('stat-card[data-metric="storage"] .sub-size')
+    expect(sizes).to_have_count(3, timeout=30000)  # Home, Notes and Downloads, each in the colour of its part of the bar
+    expect(sizes.nth(1)).to_have_css("color", page.evaluate("getComputedStyle(document.body).getPropertyValue('--color-accent3').trim() && (()=>{const e=document.createElement('i');e.style.color='var(--color-yellow)';document.body.append(e);return getComputedStyle(e).color})()"))
+    rows = page.locator("app-table tbody tr")
+    expect(rows.first).to_be_visible()
+    expect(page.locator("app-table th", has_text="PID")).to_be_visible()
+    page.locator("app-table th", has_text="Memory").click()  # a server-side sort reloads the page without errors
+    expect(rows.first).to_be_visible()
+    assert page.errors == []

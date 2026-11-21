@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import diagrams, notes
+from src.api.routes import diagrams, notes, system
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteNotFound
@@ -21,6 +21,7 @@ from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.git.rewording import CommitRewriter
 from src.infrastructure.metrics import Metrics
+from src.infrastructure.system.monitor import ContainerMonitor
 from src.infrastructure.watcher import NotesWatcher
 
 
@@ -72,6 +73,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.notes = service
     app.state.diagrams = diagram_service
     app.state.metrics = metrics
+    app.state.system = ContainerMonitor(root)
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:
@@ -93,6 +95,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.add_exception_handler(DiagramError, diagram_error)
     app.include_router(notes.router, prefix="/api")
     app.include_router(diagrams.router, prefix="/api")
+    app.include_router(system.router, prefix="/api")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:
@@ -112,6 +115,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     @app.get("/tables/{slug}", include_in_schema=False)
     def tables_page(slug: str) -> FileResponse:
         return FileResponse(static / "tables.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/dashboard", include_in_schema=False)
+    def dashboard_page() -> FileResponse:
+        return FileResponse(static / "dashboard.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/time-entries", include_in_schema=False)
     def time_entries_page() -> FileResponse:

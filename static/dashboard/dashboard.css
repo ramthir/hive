@@ -1,0 +1,33 @@
+/* The dashboard page. It fills the shell edge to edge exactly like <tasks-app> does. */
+dashboard-app {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: calc(100vh - 4.0625rem);
+  min-height: calc(100dvh - 4.0625rem);
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4));
+  width: calc(100% + 2 * var(--space-4));
+  box-sizing: border-box;
+}
+dashboard-app {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  width: calc(100% + 2 * var(--space-6));
+}
+dashboard-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+  width: calc(100% + 2 * var(--space-7));
+}
+.dash-page { display: flex; flex: 1; flex-direction: column; min-width: 0; width: 100%; }
+.dash-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); min-width: 0; }
+.dash-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+.dash-grid stat-card { min-width: 0; }
+.dash-status { color: var(--color-dimmed2); font-size: 0.85rem; white-space: nowrap; }
+.dash-status.error { color: var(--color-red); }
+.proc-name { font-weight: 600; color: var(--color-text); }
+.proc-cmd { margin-left: 0.5rem; font-size: 0.75rem; color: var(--color-dimmed2); }
+.proc-cell { max-width: 0; width: 100%; }
+.proc-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--color-dimmed2); }
