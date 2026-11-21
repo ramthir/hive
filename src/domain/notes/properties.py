@@ -76,7 +76,7 @@ TASK = Form(
         Field("tags", "Tags", "tag", "tags", target="tags", group="tags", wide=True, placeholder="Add tags"),
     ),
 )
-SPEC = Form("Spec", fields=(_project(), Field("application", "Application", "code", "note", note_types=("application", "product"),
+SPEC = Form("Spec", fields=(_project(), Field("application", "Application", "code", "note", note_types=("application", "project"),
                                        placeholder="Select application...")))
 CONTACT = Form(
     "Contact",

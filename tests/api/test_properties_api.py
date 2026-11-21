@@ -194,3 +194,11 @@ def test_task_tags_have_their_own_section(client):
     data = client.get(f"/api/notes/{make(client, 'Job', 'task')}/properties").json()
     assert data["groups"]["tags"] == "Tags"
     assert {f["key"]: f["group"] for f in data["fields"]}["tags"] == "tags"
+
+
+def test_a_spec_picks_its_application_from_applications_and_projects(client):
+    make(client, "Web App", "application")
+    make(client, "SourcePro", "project")
+    make(client, "Old Product", "product")
+    slug = make(client, "A Spec", "spec")
+    assert [c["value"] for c in form(client, slug)["application"]["choices"]] == ["SourcePro", "Web App"]

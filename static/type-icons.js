@@ -37,7 +37,6 @@ export const TYPE_ICONS = {
   clipping: 'newspaper',
   holiday: 'umbrella-beach',
   spec: 'certificate',
-  product: 'box',
   timeline: 'timeline',
   glossary: 'spell-check',
   book: 'book',
@@ -53,7 +52,7 @@ export const TYPE_ICONS = {
 // A type that is not listed keeps the muted default.
 export const TYPE_COLORS = {
   document: 'purple', clipping: 'purple', reference: 'purple', book: 'purple', glossary: 'purple', week: 'purple',
-  project: 'blue', specification: 'blue', spec: 'blue', product: 'blue', component: 'blue', application: 'blue', month: 'blue', year: 'blue', timeline: 'blue',
+  project: 'blue', specification: 'blue', spec: 'blue', component: 'blue', application: 'blue', month: 'blue', year: 'blue', timeline: 'blue',
   table: 'green', contact: 'green', team: 'green', role: 'green', company: 'green', education: 'green',
   task: 'orange', status: 'orange', priority: 'orange', prompt: 'orange', runbook: 'orange', guideline: 'orange', decision: 'orange',
   note: 'yellow', meeting: 'blue', meeting_minutes: 'yellow', interview: 'yellow', holiday: 'yellow', keynote: 'yellow',

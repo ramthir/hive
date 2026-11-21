@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { TYPE_ICONS, TYPE_COLORS, FALLBACK_ICON, DEFAULT_TYPE, typeIcon, noteTypeIcon, typeColor, noteTypeColor } from '../../static/type-icons.js';
 
 // Every type used in the notes vault (`type:` frontmatter) must have its own, deliberate icon.
-const VAULT_TYPES = ['note', 'contact', 'task', 'clipping', 'project', 'holiday', 'prompt', 'spec', 'product',
+const VAULT_TYPES = ['note', 'contact', 'task', 'clipping', 'project', 'holiday', 'prompt', 'spec',
   'meeting', 'timeline', 'glossary', 'company', 'book', 'reference', 'keynote', 'hub', 'guideline', 'interview'];
 
 test('every type used in the vault has an icon of its own, not the fallback', () => {
