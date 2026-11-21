@@ -877,3 +877,79 @@ def test_time_entries_hint_move_and_orphan_rows(page, server, notes_dir):
     expect(rows.filter(has_text="Fix login")).to_have_count(0)
     assert len(git(notes_dir, "rev-list", "HEAD").split()) == commits + 1
     assert page.errors == []
+
+
+def test_table_note_filters_sorts_links_and_saves_rows(page, server, notes_dir):
+    (notes_dir / "ann-lee.md").write_text("---\ntitle: Ann Lee\ntype: contact\n---\n\n# Ann Lee\n")
+    (notes_dir / "bo-kim.md").write_text("---\ntitle: Bo Kim\ntype: contact\n---\n\n# Bo Kim\n")
+    (notes_dir / "inventory.md").write_text(
+        "---\ntitle: Inventory\ntype: table\nupdated: 2026-03-03\n---\n\n# Inventory\n\n"
+        "| Employee | Make |\n| --- | --- |\n| [[Ann Lee]] | Lenovo |\n| [[Bo Kim]] | HP |\n\n"
+        '```json table-config\n{"stats": [{"label": "Laptops", "op": "count"}, {"label": "HP", "op": "count_where", "column": "Make", "equals": "HP"}]}\n```\n')
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "table")
+    commits = len(git(notes_dir, "rev-list", "HEAD").split())
+
+    page.goto(f"{server}/notes/inventory")
+    page.wait_for_url("**/tables/inventory")  # a table note is read on its own page
+    rows = page.locator("app-table tbody tr")
+    expect(rows).to_have_count(2)
+    expect(page.locator("app-header")).to_have_attribute("heading", "Inventory")  # the title is the header's
+    expect(page.locator("h1")).to_have_count(1)  # no second title in the content
+    expect(page.locator("#search-notes-btn")).to_have_count(0)  # one search: the row filter
+    cards = page.locator("#notes-table-stats-grid stat-card")  # the stat cards of the table-config block
+    expect(cards).to_have_count(2)
+    expect(cards.nth(0)).to_contain_text("Laptops")
+    expect(cards.nth(0)).to_contain_text("2")
+    expect(cards.nth(1)).to_contain_text("1")
+    expect(page.locator(".notes-table-filter")).to_have_count(1)
+    expect(rows.nth(0).locator("a.notes-wikilink")).to_have_attribute("href", "/notes/ann-lee")
+
+    expect(page.locator(".header-search--filter .header-search-key")).to_have_text("/")
+    page.keyboard.press("/")  # the hint's key focuses the filter
+    expect(page.locator(".notes-table-filter")).to_be_focused()
+    page.fill(".notes-table-filter", "hp")
+    expect(rows).to_have_count(1)
+    page.fill(".notes-table-filter", "")
+    header = page.locator("app-table th", has_text="Make")
+    header.click()
+    expect(rows.nth(0)).to_contain_text("Lenovo")  # first click sorts descending
+    header.click()
+    expect(rows.nth(0)).to_contain_text("HP")
+
+    page.click("#add-table-row-btn")
+    page.locator("[name=col_0] .combobox-input").click()
+    page.get_by_text("Ann Lee", exact=True).last.click()
+    page.fill("[name=col_1]", "Apple")
+    page.click("[data-save]")
+    wait_for_commits(notes_dir, commits + 1)
+    text = (notes_dir / "inventory.md").read_text()
+    assert "| [[Ann Lee]] | Apple |" in text
+    assert "type: table" in text
+    expect(rows).to_have_count(3)
+
+    page.locator("app-table tbody tr", has_text="Lenovo").click()
+    page.fill("[name=col_1]", "Dell")
+    page.click("[data-save]")
+    wait_for_commits(notes_dir, commits + 2)
+    assert "| [[Ann Lee]] | Dell |" in (notes_dir / "inventory.md").read_text()
+
+    page.click("#edit-note-btn")  # the pencil edits the markdown on the note page
+    page.wait_for_url("**/notes/inventory?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click("#edit-note-btn")  # closing the editor goes back to the table
+    page.wait_for_url("**/tables/inventory")
+    assert page.errors == []
+
+
+def test_table_page_fills_the_width_beside_the_sidebar(page, server, notes_dir):
+    (notes_dir / "wide.md").write_text("---\ntitle: Wide\ntype: table\n---\n\n# Wide\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "wide")
+    page.goto(f"{server}/tables/wide")
+    expect(page.locator("app-table tbody tr")).to_have_count(1)
+    box = page.locator(".notes-table-card").bounding_box()
+    sidebar = page.locator("app-sidebar").bounding_box()
+    # the card runs from the sidebar to the window's right edge, less the page padding on each side
+    assert box["x"] + box["width"] >= 1400 - 40
+    assert box["x"] - (sidebar["x"] + sidebar["width"]) <= 40

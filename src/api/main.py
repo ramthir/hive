@@ -92,6 +92,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     def tasks_page() -> FileResponse:
         return FileResponse(static / "tasks.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/tables/{slug}", include_in_schema=False)
+    def tables_page(slug: str) -> FileResponse:
+        return FileResponse(static / "tables.html", headers={"Cache-Control": "no-cache"})
+
     @app.get("/time-entries", include_in_schema=False)
     def time_entries_page() -> FileResponse:
         return FileResponse(static / "time-entries.html", headers={"Cache-Control": "no-cache"})

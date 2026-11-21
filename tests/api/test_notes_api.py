@@ -399,3 +399,9 @@ def test_time_notes_lists_tasks_and_meetings_this_weeks_first(client, root):
     assert client.get("/api/time-notes").json() == [
         {"slug": "fresh", "title": "Fresh", "type": "meeting", "this_week": True},
         {"slug": "old", "title": "Old", "type": "task", "this_week": False}]
+
+
+def test_tables_page_is_its_own_document(client):
+    res = client.get("/tables/anything")
+    assert res.status_code == 200
+    assert "<tables-app>" in res.text

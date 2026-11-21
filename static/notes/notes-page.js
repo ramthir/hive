@@ -19,6 +19,7 @@ import { tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
 import { formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
+import { isTableNote } from '/static/tables/table-note.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
@@ -399,6 +400,11 @@ class NotesApp extends HTMLElement {
     if (!this.selectedNote) return;
     const note = this.selectedNote;
     const editing = this.isNoteEditing;
+    // A table note is read on its own page (static/tables/); the pencil there comes back here in edit mode.
+    if (!editing && note.slug && isTableNote(note)) {
+      window.location.replace(`/tables/${encodeURIComponent(note.slug)}`);
+      return;
+    }
     const { words, chars, readingMinutes } = noteStats(note.content);
     const ro = editing ? '' : ' readonly';
     const hideTags = !editing && !(note.tags || []).length; // nothing to show or edit
