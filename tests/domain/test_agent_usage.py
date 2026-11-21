@@ -53,9 +53,24 @@ def test_sessions_are_sorted_across_the_month_and_paged():
     by_total = session_page(env, NOW, sort="total", direction="asc", page_size=2)
     assert [s["session"] for s in by_total["items"]] == ["sess-c", "sess-b"]
     assert [s["session"] for s in session_page(env, NOW, page=1, page_size=2)["items"]] == ["sess-c"]
+    only_claude = session_page(env, NOW, provider="claude")
+    assert only_claude["total"] == 2 and all(s["provider"] == "claude" for s in only_claude["items"])
 
 
-@pytest.mark.parametrize("args", [{"sort": "name"}, {"direction": "up"}, {"page": -1}, {"page_size": 0}, {"page_size": 51}])
+def test_sessions_sort_mixed_timezone_timestamps_chronologically_and_missing_last():
+    body = report(sessions=[
+        session("claude", "utc-later", "2026-11-20T10:00:00Z"),
+        session("codex", "ist-earlier", "2026-11-20T14:00:00+05:30"),  # 08:30Z, earlier despite larger local hour
+        session("claude", "missing", None),
+    ])
+    env = parse_envelope(envelope(NOW, body=body))
+    desc = [s["session"] for s in session_page(env, NOW, sort="last_activity", direction="desc")["items"]]
+    asc = [s["session"] for s in session_page(env, NOW, sort="last_activity", direction="asc")["items"]]
+    assert desc == ["utc-later", "ist-earlier", "missing"]
+    assert asc == ["ist-earlier", "utc-later", "missing"]
+
+
+@pytest.mark.parametrize("args", [{"sort": "name"}, {"direction": "up"}, {"page": -1}, {"page_size": 0}, {"page_size": 51}, {"provider": "other"}])
 def test_bad_paging_is_rejected(args):
     with pytest.raises(ValueError):
         empty_session_page(**args)

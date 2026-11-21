@@ -1497,6 +1497,11 @@ def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_t
     expect(rows.first).to_contain_text("Codex")  # newest activity first
     page.locator("agents-tab app-table th", has_text="Total").click()  # a server-side sort reloads the rows without errors
     expect(rows).to_have_count(3)
+    page.locator('agents-tab [data-provider-filter="codex"]').click()  # provider filter keeps only matching sessions
+    expect(rows).to_have_count(1)
+    expect(rows.first).to_contain_text("Codex")
+    page.locator('agents-tab [data-provider-filter=""]').click()
+    expect(rows).to_have_count(3)
     assert page.errors == []
 
 

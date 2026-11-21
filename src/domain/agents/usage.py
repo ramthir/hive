@@ -91,6 +91,44 @@ def unavailable_view(reason):
     return _unavailable('unavailable', reason)
 
 
+def _activity_epoch(value) -> float | None:
+    """UTC epoch seconds for sorting mixed-offset ISO timestamps chronologically; None when absent or unreadable."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return parsed.timestamp()
+
+
+def _extract_sessions(envelope: dict, now: datetime) -> tuple[list[dict], int, dict[str, int]]:
+    """Sessions for the current month, newest first, plus skipped row count and per-provider session counts."""
+    zone = envelope['zone']
+    local_now = now.astimezone(zone)
+    since = envelope['since']
+    counts = dict.fromkeys(PROVIDERS, 0)
+    if (since.year, since.month) != (local_now.year, local_now.month) or since.day != 1:
+        return [], 0, counts
+    sessions, seen, skipped = [], set(), 0
+    for row in envelope['report']['session']:
+        name = row.get('agent') if isinstance(row, dict) else None
+        tokens = normalize_tokens(row)
+        key = (name, row.get('period') if isinstance(row, dict) else None)
+        if name not in counts or key in seen:
+            continue
+        if tokens is None:
+            skipped += 1
+            continue
+        seen.add(key)
+        counts[name] += 1
+        last = (row.get('metadata') or {}).get('lastActivity')
+        sessions.append({'provider': name, 'session': key[1], 'models': list(row.get('modelsUsed') or []),
+                         'tokens': _with_total(tokens), 'last_activity': last})
+    sessions.sort(key=lambda item: _activity_epoch(item['last_activity']) or float('-inf'), reverse=True)
+    return sessions, skipped, counts
+
+
 def build_view(envelope: dict, now: datetime) -> dict:
     """Totals and the daily trend for the report's month, or a waiting view. Sessions come from session_page."""
     return _build(envelope, now)[0]
@@ -132,23 +170,10 @@ def _build(envelope: dict, now: datetime):
             entry['daily'].append({'date': period, **_with_total(tokens)})
             entry['models'] = sorted({*entry['models'], *(agent.get('modelsUsed') or [])})
             _add_models(model_sums[name], agent.get('modelBreakdowns'))
-    sessions, seen = [], set()
-    for row in envelope['report']['session']:
-        name = row.get('agent') if isinstance(row, dict) else None
-        tokens = normalize_tokens(row)
-        key = (name, row.get('period') if isinstance(row, dict) else None)
-        if name not in providers or key in seen:
-            continue
-        if tokens is None:
-            skipped += 1
-            continue
-        seen.add(key)
-        providers[name]['sessions'] += 1
-        last = (row.get('metadata') or {}).get('lastActivity')
-        sessions.append({'provider': name, 'session': key[1], 'models': list(row.get('modelsUsed') or []),
-                         'tokens': _with_total(tokens), 'last_activity': last})
-    sessions.sort(key=lambda item: item['last_activity'] or '', reverse=True)
+    sessions, session_skipped, counts = _extract_sessions(envelope, now)
+    skipped += session_skipped
     for name, entry in providers.items():
+        entry['sessions'] = counts[name]
         entry['model_tokens'] = _model_tokens(model_sums[name])
         entry['daily'].sort(key=lambda item: item['date'])
         if entry['tokens'] is not None:
@@ -159,7 +184,7 @@ def _build(envelope: dict, now: datetime):
     return {**base, 'status': status, 'reason': reason, 'covers': covers, 'providers': providers, 'skipped_rows': skipped}, sessions
 
 
-def _validate_page(sort, direction, page, page_size):
+def _validate_page(sort, direction, page, page_size, provider=None):
     if sort not in SESSION_SORTS:
         raise ValueError(f"sort must be one of {', '.join(SESSION_SORTS)}.")
     if direction not in SESSION_DIRECTIONS:
@@ -168,27 +193,38 @@ def _validate_page(sort, direction, page, page_size):
         raise ValueError('page must be a whole number from 0.')
     if type(page_size) is not int or not 1 <= page_size <= MAX_PAGE_SIZE:
         raise ValueError(f'page_size must be from 1 to {MAX_PAGE_SIZE}.')
+    if provider is not None and provider not in PROVIDERS:
+        raise ValueError(f"provider must be one of {', '.join(PROVIDERS)}.")
 
 
 def _sort_value(item, key):
     if key == 'last_activity':
-        return item['last_activity'] or ''
+        return _activity_epoch(item['last_activity'])
     if key == 'provider':
         return item['provider']
     return item['tokens']['cached_input' if key == 'cached' else key]
 
 
-def empty_session_page(sort='last_activity', direction='desc', page=0, page_size=10):
+def empty_session_page(sort='last_activity', direction='desc', page=0, page_size=10, provider=None):
     """A page with no sessions, for a month with no usable report."""
-    _validate_page(sort, direction, page, page_size)
+    _validate_page(sort, direction, page, page_size, provider)
     return {'items': [], 'total': 0, 'page': page, 'page_size': page_size, 'sort': sort, 'dir': direction}
 
 
-def session_page(envelope: dict, now: datetime, sort='last_activity', direction='desc', page=0, page_size=10) -> dict:
-    """One page of the month's sessions, sorted across all of them; ties keep the newest first."""
-    _validate_page(sort, direction, page, page_size)
-    sessions = _build(envelope, now)[1]
-    sessions.sort(key=lambda item: _sort_value(item, sort), reverse=direction == 'desc')
+def session_page(envelope: dict, now: datetime, sort='last_activity', direction='desc', page=0, page_size=10, provider=None) -> dict:
+    """One page of the month's sessions, sorted across all of them; ties keep the newest first, missing timestamps last."""
+    _validate_page(sort, direction, page, page_size, provider)
+    sessions = _extract_sessions(envelope, now)[0]
+    if provider is not None:
+        sessions = [item for item in sessions if item['provider'] == provider]
+    if sort == 'last_activity':
+        # Missing timestamps always land at the end, regardless of sort direction.
+        present = [item for item in sessions if _activity_epoch(item['last_activity']) is not None]
+        missing = [item for item in sessions if _activity_epoch(item['last_activity']) is None]
+        present.sort(key=lambda item: _activity_epoch(item['last_activity']), reverse=direction == 'desc')
+        sessions = present + missing
+    else:
+        sessions.sort(key=lambda item: _sort_value(item, sort), reverse=direction == 'desc')
     start = page * page_size
     return {'items': sessions[start:start + page_size], 'total': len(sessions), 'page': page, 'page_size': page_size, 'sort': sort, 'dir': direction}
 

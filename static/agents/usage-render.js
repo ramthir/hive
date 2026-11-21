@@ -1,5 +1,5 @@
 import { sessionResumeCommand } from './session-resume.js';
-import { quotaDonut } from './quota-donuts.js';
+import { quotaIndicator } from './quota-donuts.js';
 import { escapeHtml as esc } from '../html.js';
 import { formatRelativeTime } from '../relative-time.js';
 
@@ -30,7 +30,7 @@ export function shortSession(id) {
 
 /** Same tiles as the task Token Usage summary (filled icon tile, label, compact value); Totals leads and the breakdown sits below it. Totals carries the breakdown tooltip; the breakdown tiles have none. */
 const metric = (provider, label, icon, value, tip = '') =>
-  `<dl class="metric ${esc(label.toLowerCase())}"${tip}><dt><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${esc(label)}</span></dt><dd aria-label="${esc(provider)} ${label === 'Totals' ? 'total tokens' : esc(label.toLowerCase())} ${exact(value)}">${compact(value)}</dd></dl>`;
+  `<dl class="metric ${esc(label.toLowerCase())}"${tip ? ` tabindex="0"${tip}` : ''}><dt><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${esc(label)}</span></dt><dd aria-label="${esc(provider)} ${label === 'Totals' ? 'total tokens' : esc(label.toLowerCase())} ${exact(value)}">${compact(value)}</dd></dl>`;
 
 /** Totals tooltip: Input, Cached and Output in their tile colours, then the total. */
 function totalsTip(t) {
@@ -44,7 +44,7 @@ function totalsTip(t) {
 }
 
 /** One header fact; `tooltip` is the data-tooltip attributes for the shared app-tooltip, or empty for none. */
-const fact = (icon, text, tooltip = '') => `<li${tooltip}><i class="${icon}" aria-hidden="true"></i><span>${text}</span></li>`;
+const fact = (icon, text, tooltip = '') => `<li${tooltip ? ` tabindex="0"${tooltip}` : ''}><i class="${icon}" aria-hidden="true"></i><span>${text}</span></li>`;
 
 /** Models tooltip: each model with its month total, largest first, then the provider's total; a model with no breakdown is listed by name. */
 function modelsTooltip(provider) {
@@ -61,7 +61,7 @@ const metricsBlock = (label, t, donut) =>
 
 function card(name, provider, quota) {
   const label = PROVIDER_LABELS[name] || name;
-  const donut = quota ? quotaDonut(name, quota) : '';
+  const donut = quotaIndicator(name, quota);
   let body;
   let facts = '';
   if (provider.status === 'available' && provider.tokens) {
@@ -83,10 +83,16 @@ function card(name, provider, quota) {
   return `<article class="card" data-provider="${esc(name)}" data-state="${esc(provider.status)}">${head}${body}</article>`;
 }
 
+/** Banner message text; exported so the minute poll can refresh a stale report's relative age in place. */
+export function bannerText(view) {
+  if (!view || view.status === 'ok') return '';
+  return `${view.reason || ''}${view.status === 'stale' && view.generated_at ? ` Generated ${formatRelativeTime(view.generated_at)}.` : ''}`;
+}
+
 function banner(view) {
   if (view.status === 'ok') return '';
   const icon = view.status === 'stale' ? 'fa-hourglass-half' : 'fa-circle-exclamation';
-  return `<div class="banner ${esc(view.status)}" role="status"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${esc(view.reason || '')}${view.status === 'stale' && view.generated_at ? ` Generated ${esc(formatRelativeTime(view.generated_at))}.` : ''}</span></div>`;
+  return `<div class="banner ${esc(view.status)}" role="status"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${esc(bannerText(view))}</span></div>`;
 }
 
 /** Smallest 1, 2, 2.5 or 5 times a power of ten that is at least `value`, so the axis ends on a round number. */
@@ -126,11 +132,12 @@ export function renderTrend(view) {
   const peak = niceMax(Math.max(...ordered.map(([, byProvider]) => Object.values(byProvider).reduce((sum, v) => sum + v, 0))));
   const last = view.covers?.to ?? '';
   const bars = ordered.map(([date, byProvider]) => {
+    const todayAttr = date === last ? ' data-today' : '';
     if (!Object.keys(byProvider).length) {
       const reached = date <= last;
-      const tip = reached ? ` data-tooltip-title="${esc(fullDayLabel(date))}" data-tooltip="No usage recorded" data-tooltip-anchor=".fill"` : '';
+      const tip = reached ? ` tabindex="0" data-tooltip-title="${esc(fullDayLabel(date))}" data-tooltip="No usage recorded" data-tooltip-anchor=".fill"` : '';
       const quiet = reached ? `<span class="sr">${esc(dayLabel(date))}: no usage recorded</span>` : '';
-      return `<li class="bar"${tip}>${quiet}<span class="stack" aria-hidden="true"><span class="fill" style="height:0"></span></span><span class="tick" aria-hidden="true">${esc(date.slice(8))}</span></li>`;
+      return `<li class="bar"${todayAttr}${tip}>${quiet}<span class="stack" aria-hidden="true"><span class="fill" style="height:0"></span></span><span class="tick" aria-hidden="true">${esc(date.slice(8))}</span></li>`;
     }
     const total = Object.values(byProvider).reduce((sum, v) => sum + v, 0);
     const names = Object.keys(PROVIDER_LABELS).filter((n) => byProvider[n]);
@@ -138,7 +145,7 @@ export function renderTrend(view) {
     const text = `${dayLabel(date)}: ${exact(total)} tokens (${names.map((n) => `${PROVIDER_LABELS[n]} ${compact(byProvider[n])}`).join(', ')})`;
     // The fill is as tall as the day's total, so the tooltip sits just above the bar, not above the chart.
     const parts = names.map((n) => `<span class="seg ${esc(n)}" style="height:${(byProvider[n] / total * 100).toFixed(2)}%"></span>`).join('');
-    return `<li class="bar" data-tooltip-title="${esc(fullDayLabel(date))}" data-tooltip-anchor=".fill" data-tooltip-details="${esc(JSON.stringify([...rows, { label: 'Total', value: tooltipAmount(total) }]))}"><span class="sr">${esc(text)}</span><span class="stack" aria-hidden="true"><span class="fill" style="height:${(total / peak * 100).toFixed(2)}%">${parts}</span></span><span class="tick" aria-hidden="true">${esc(date.slice(8))}</span></li>`;
+    return `<li class="bar"${todayAttr} tabindex="0" data-tooltip-title="${esc(fullDayLabel(date))}" data-tooltip-anchor=".fill" data-tooltip-details="${esc(JSON.stringify([...rows, { label: 'Total', value: tooltipAmount(total) }]))}"><span class="sr">${esc(text)}</span><span class="stack" aria-hidden="true"><span class="fill" style="height:${(total / peak * 100).toFixed(2)}%">${parts}</span></span><span class="tick" aria-hidden="true">${esc(date.slice(8))}</span></li>`;
   }).join('');
   const axis = axisLabels(peak).map((label) => `<li>${label}</li>`).join('');
   return `<div class="chart"><ul class="axis" aria-hidden="true">${axis}</ul><div class="plot"><div class="grid" aria-hidden="true"><i></i><i></i><i></i></div><ol class="trend" aria-label="Daily token usage">${bars}</ol></div></div>`;
@@ -174,7 +181,11 @@ export const sessionRows = (sessions) => (sessions || []).map((s) => ({
 }));
 
 /** Query string for one page of sessions; the server sorts across every session of the month. */
-export const sessionsQuery = ({ sort, dir, page, pageSize }) => new URLSearchParams({ sort, dir, page: String(page), page_size: String(pageSize) }).toString();
+export function sessionsQuery({ sort, dir, page, pageSize, provider = '' }) {
+  const params = new URLSearchParams({ sort, dir, page: String(page), page_size: String(pageSize) });
+  if (provider) params.set('provider', provider);
+  return params.toString();
+}
 
 /** What the shared pager needs for a page answer; hidden when everything fits on one page. */
 export function pagerState(answer) {
@@ -188,15 +199,14 @@ function sessionsPanel() {
 }
 
 /** Placeholders shown until the first answer arrives, so the page does not jump from a text line to a full layout. */
-function skeleton() {
+function overviewSkeleton() {
   const tile = (label) => `<dl class="metric ${label.toLowerCase()}"><dt><i class="skeleton skeleton-icon"></i><span>${label}</span></dt><dd><span class="skeleton skeleton-value"></span></dd></dl>`;
   const card = (name) => `<article class="card" aria-hidden="true"><header><h3><span class="dot ${esc(name)}"></span>${esc(PROVIDER_LABELS[name])}</h3><ul class="facts skeleton-facts"><li><span class="skeleton skeleton-fact"></span></li><li><span class="skeleton skeleton-fact"></span></li></ul></header><div class="metrics"><div class="totals-row">${tile('Totals')}<span class="skeleton quota-skeleton"></span></div><div class="subs">${['Input', 'Cached', 'Output'].map(tile).join('')}</div></div></article>`;
   // Stable pseudo-random heights keep loading rerenders from jumping.
   const heights = [42, 76, 28, 63, 85, 37, 54, 22, 71, 46, 81, 33, 59, 25, 68, 49, 79, 35, 56, 20, 73, 44, 83, 31, 61, 26, 66, 51, 78, 39, 57];
   const bars = heights.map(height => `<li class="bar"><span class="stack"><span class="skeleton day-skeleton" style="--skeleton-height:${height}"></span></span><span class="tick"><span class="skeleton tick-skeleton"></span></span></li>`).join('');
   return `<div class="cards" aria-busy="true"><span class="sr" role="status">Loading usage…</span>${Object.keys(PROVIDER_LABELS).map(card).join('')}</div>
-    <section class="panel" aria-hidden="true"><div class="panel-head"><span class="skeleton block-title"></span><ul class="legend skeleton-legend">${Object.keys(PROVIDER_LABELS).map(() => '<li><span class="skeleton skeleton-fact"></span></li>').join('')}</ul></div><div class="chart chart-skeleton"><ul class="axis"><li><span class="skeleton axis-skeleton"></span></li><li><span class="skeleton axis-skeleton"></span></li><li><span class="skeleton axis-skeleton"></span></li></ul><div class="plot"><div class="grid"><i></i><i></i><i></i></div><ol class="trend">${bars}</ol></div></div></section>
-    ${sessionsPanel()}`;
+    <section class="panel" aria-hidden="true"><div class="panel-head"><span class="skeleton block-title"></span><ul class="legend skeleton-legend">${Object.keys(PROVIDER_LABELS).map(() => '<li><span class="skeleton skeleton-fact"></span></li>').join('')}</ul></div><div class="chart chart-skeleton"><ul class="axis"><li><span class="skeleton axis-skeleton"></span></li><li><span class="skeleton axis-skeleton"></span></li><li><span class="skeleton axis-skeleton"></span></li></ul><div class="plot"><div class="grid"><i></i><i></i><i></i></div><ol class="trend">${bars}</ol></div></div></section>`;
 }
 
 function legend(view) {
@@ -212,14 +222,19 @@ export function updatedText(generatedAt) {
 
 const updatedTime = (view) => (view.generated_at ? `<time class="updated" datetime="${esc(view.generated_at)}" title="${esc(formatFullDateTime(view.generated_at))}">${esc(updatedText(view.generated_at))}</time>` : '');
 
-/** The whole tab body for one /api/agents/usage answer; `null` renders the loading state. */
-export function renderUsage(view, quota = null) {
-  if (!view) return skeleton();
-  const cards = Object.entries(view.providers || {}).map(([name, provider]) => card(name, provider, quota?.providers?.[name])).join('');
+/** Banner, provider cards and daily trend — kept separate from the sessions table so quota/report updates never rebuild the table. */
+export function renderOverview(view, quota = null) {
+  if (!view) return overviewSkeleton();
+  const cards = Object.entries(view.providers || {}).map(([name, provider]) => card(name, provider, quota)).join('');
   const trend = view.status === 'unavailable' || view.status === 'waiting' ? '<p class="state">No daily usage to show.</p>' : renderTrend(view);
   return `${banner(view)}
     <div class="cards">${cards}</div>
-    <section class="panel"><div class="panel-head"><h3>${esc(monthLabel(view.month))}</h3>${updatedTime(view)}${legend(view)}</div>${trend}</section>
+    <section class="panel"><div class="panel-head"><h3>${esc(monthLabel(view.month))}</h3>${updatedTime(view)}${legend(view)}</div>${trend}</section>`;
+}
+
+/** The whole tab body for one /api/agents/usage answer; `null` renders the loading state. */
+export function renderUsage(view, quota = null) {
+  return `${renderOverview(view, quota)}
     ${sessionsPanel()}`;
 }
 

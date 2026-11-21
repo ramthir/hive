@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession, updatedText } from '../../static/agents/usage-render.js';
-import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, quotaLevel, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
+import { axisLabels, bannerText, compact, niceMax, pagerState, renderOverview, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession, updatedText } from '../../static/agents/usage-render.js';
+import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, quotaIndicator, quotaLevel, quotaTooltipDetails, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
 import { sessionResumeCommand } from '../../static/agents/session-resume.js';
 import { TABS, tabBarTabs, tabForPath } from '../../static/dashboard/tabs.js';
 
@@ -216,4 +216,24 @@ test('the report says how old it is', () => {
 
 test('every dashboard tab links to its own address', () => {
   assert.deepEqual(Object.values(tabBarTabs()).map((t) => t.href), ['/dashboard', '/dashboard/agents', '/dashboard/colab']);
+});
+
+test('sessionsQuery includes provider only when filtering and tooltips are keyboard focusable', () => {
+  assert.equal(sessionsQuery({ sort: 'total', dir: 'desc', page: 0, pageSize: 10, provider: 'claude' }), 'sort=total&dir=desc&page=0&page_size=10&provider=claude');
+  assert.equal(sessionsQuery({ sort: 'total', dir: 'desc', page: 0, pageSize: 10, provider: '' }), 'sort=total&dir=desc&page=0&page_size=10');
+  const html = renderOverview(view({ providers: { claude: provider(1500, { daily: [{ date: '2026-11-21', ...tokens(1500, 0, 0) }] }) } }));
+  assert.match(html, /class="metric totals" tabindex="0"/);
+  assert.match(html, /class="bar" data-today tabindex="0"/);
+  assert.equal(html.includes('id="sessions-table"'), false); // overview stays separate from the sessions table
+});
+
+test('quotaIndicator shows a placeholder while collecting and an info icon when unavailable with a reason', () => {
+  assert.match(quotaIndicator('claude', { generated_at: null, reason: QUOTA_PENDING }), /quota-skeleton/);
+  assert.match(quotaIndicator('codex', quota()), /quota-unavailable[^>]*data-tooltip="x"/);
+  assert.equal(quotaIndicator('antigravity', quota()), ''); // no reason: stays quiet
+  const now = new Date('2026-11-21T09:00:00Z');
+  const rows = quotaTooltipDetails('claude', { status: 'ok', windows: { '5h': { state: 'ok', used_pct: 25, resets_at: '2026-11-21T10:30:00Z' } } }, now);
+  assert.equal(rows[0].value, '75%');
+  assert.equal(rows[0].note, '· resets in 1h 30m');
+  assert.match(bannerText(view({ status: 'stale', reason: 'Old.' })), /^Old\. Generated /);
 });

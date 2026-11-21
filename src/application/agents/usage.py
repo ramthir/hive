@@ -32,8 +32,8 @@ class AgentUsage(RefreshingReport):
             view["reason"] = f"{view['reason']} The last refresh failed: {self.error}"
         return view
 
-    def sessions(self, sort="last_activity", direction="desc", page=0, page_size=10) -> dict:
+    def sessions(self, sort="last_activity", direction="desc", page=0, page_size=10, provider: str | None = None) -> dict:
         envelope, _ = self._current()
         if envelope is None:
-            return empty_session_page(sort, direction, page, page_size)
-        return session_page(envelope, self.clock(), sort, direction, page, page_size)
+            return empty_session_page(sort, direction, page, page_size, provider)
+        return session_page(envelope, self.clock(), sort, direction, page, page_size, provider)

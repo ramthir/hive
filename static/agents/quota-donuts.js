@@ -36,9 +36,9 @@ const LABELS = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravit
 const shareLeft = (used) => Math.max(0, Math.min(100, 100 - used));
 
 /** One row per ring: its label, remaining share and when it resets. */
-function detail(window, ring) {
+function detail(window, ring, now = new Date()) {
   const used = percent(window);
-  const reset = resetText(window);
+  const reset = resetText(window, now);
   const state = window ? window.state : 'unavailable';
   if (used === null) {
     // Nothing captured: say why, never a percentage. A stale window still shows when its reset is due.
@@ -71,18 +71,26 @@ function ring(window, spec) {
   return `${track}<circle class="arc ${spec.kind}${level ? ` ${level}` : ''}" cx="60" cy="60" r="${spec.radius}" stroke-width="${spec.stroke}" stroke-dasharray="${dash} ${circumference}"></circle>`;
 }
 
+/** Tooltip detail rows for one provider's quota rings; exposed so the minute poll can tick countdowns in place. */
+export function quotaTooltipDetails(name, provider, now = new Date()) {
+  if (!provider || provider.status !== 'ok') return [];
+  const windows = provider.windows || {};
+  const layout = LAYOUTS[name] || LAYOUTS.default;
+  return layout.map((spec) => detail(windows[spec.key], spec, now));
+}
+
 /**
  * A short donut for one provider's quota, rings from outside in as the provider's layout lists them. The tooltip names
  * each ring's percentage and reset. A provider without a source gets no donut.
  */
-export function quotaDonut(name, provider) {
+export function quotaDonut(name, provider, now = new Date()) {
   if (!provider || provider.status !== 'ok') return '';
   const windows = provider.windows || {};
   const layout = LAYOUTS[name] || LAYOUTS.default;
   // The rings are not a total, so the tooltip is told not to draw its total rule above the last rows.
-  const rows = layout.map((spec) => detail(windows[spec.key], spec));
+  const rows = quotaTooltipDetails(name, provider, now);
   const label = `${LABELS[name] || name} Quota`;
-  return `<svg class="quota-donut" viewBox="0 0 120 120" role="img" tabindex="0" aria-label="${esc(label)}"
+  return `<svg class="quota-donut" data-quota-provider="${esc(name)}" viewBox="0 0 120 120" role="img" tabindex="0" aria-label="${esc(label)}"
     data-tooltip-title="${esc(label)}" data-tooltip-no-total data-tooltip-details="${esc(JSON.stringify(rows))}">
     ${layout.map((spec) => ring(windows[spec.key], spec)).join('\n    ')}
   </svg>`;
@@ -93,3 +101,19 @@ export const QUOTA_MAX_RETRIES = 8; // at 8 s each: about a minute, after which 
 
 /** Whether to ask for the quota again soon: only while the server says the first run is under way, and not for ever. */
 export const shouldRetryQuota = (quota, attempts) => Boolean(quota) && !quota.generated_at && quota.reason === QUOTA_PENDING && attempts < QUOTA_MAX_RETRIES;
+
+/** What goes beside a provider's Totals tile: its rings when ok, a placeholder while collecting, or a quiet info icon with why it failed. */
+export function quotaIndicator(name, quota) {
+  if (!quota) return '';
+  if (!quota.generated_at && quota.reason === QUOTA_PENDING) {
+    return '<span class="skeleton quota-skeleton" role="status" aria-label="Collecting quota" data-tooltip-title="Quota" data-tooltip="Collecting quota from the agent CLIs…"></span>';
+  }
+  const provider = quota.providers?.[name];
+  if (!provider) return '';
+  if (provider.status === 'ok') return quotaDonut(name, provider);
+  if (provider.status === 'unavailable' && provider.reason) {
+    const label = `${LABELS[name] || name} Quota`;
+    return `<span class="quota-unavailable" tabindex="0" role="img" aria-label="${esc(label)} unavailable" data-tooltip-title="${esc(label)}" data-tooltip="${esc(provider.reason)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></span>`;
+  }
+  return '';
+}
