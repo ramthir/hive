@@ -4,14 +4,14 @@ import { api } from '/static/notes/api.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { showToast } from '/static/toast.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
 
 /* Chat with the notes. The answers come from Codex (server side) using only the notes tools. Nothing is saved: the turns
    live in this element, are sent back with each question so follow-ups work, and are gone on reload or "New chat". */
 
 class ChatApp extends HTMLElement {
   connectedCallback() {
-    this.turns = [];
+    this.turns = this.load();
     this.abort = null;
     this.available = true;
     this.innerHTML = `
@@ -47,13 +47,20 @@ class ChatApp extends HTMLElement {
       const suggestion = event.target.closest('[data-suggestion]');
       if (suggestion) this.submit(suggestion.dataset.suggestion);
     });
+    this.leaving = false;
+    this._persist = () => { this.leaving = true; this.save(); };
+    window.addEventListener('pagehide', this._persist);  // a full navigation away: keep the chat for when we come back
     this.render();
+    this.scroller.scrollTop = this.scroller.scrollHeight;
     this.checkStatus();
     this.input.focus();
   }
 
   disconnectedCallback() {
+    this.leaving = true;  // the stream is about to fail because we left: that is a stop, not an error
+    window.removeEventListener('pagehide', this._persist);
     this.abort?.abort();
+    this.save();
   }
 
   async checkStatus() {
@@ -69,9 +76,22 @@ class ChatApp extends HTMLElement {
 
   get running() { return Boolean(this.abort); }
 
+  /** The conversation lives in this browser only (nothing goes to the server): it survives leaving the page and reloads. */
+  load() {
+    try { return restoreTurns(localStorage.getItem(STORAGE_KEY)); } catch (_error) { return []; }
+  }
+
+  save() {
+    try {
+      if (this.turns.length) localStorage.setItem(STORAGE_KEY, serializeTurns(this.turns));
+      else localStorage.removeItem(STORAGE_KEY);
+    } catch (_error) { /* storage unavailable: the chat just is not kept */ }
+  }
+
   reset() {
     this.abort?.abort();
     this.turns = [];
+    this.save();
     this.render();
     this.input.focus();
   }
@@ -98,6 +118,7 @@ class ChatApp extends HTMLElement {
     this.turns.push({ role: 'user', content: question });
     let turn = { role: 'assistant', ...newTurn() };
     this.turns.push(turn);
+    this.save();
     const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)) });
     this.abort = new AbortController();
     this.updateControls();
@@ -118,11 +139,12 @@ class ChatApp extends HTMLElement {
       }
       set(finishTurn(turn));
     } catch (error) {
-      set(finishTurn(turn, error.name === 'AbortError' ? { stopped: true } : { failure: error.message }));
+      set(finishTurn(turn, error.name === 'AbortError' || this.leaving ? { stopped: true } : { failure: error.message }));
     } finally {
       this.abort = null;
       this.updateControls();
       this.renderLast();
+      this.save();
       this.input.focus();
     }
   }

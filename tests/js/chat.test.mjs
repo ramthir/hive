@@ -71,3 +71,31 @@ test('step icons', () => {
   assert.match(stepIcon({ status: 'done', write: true }), /pen/);
   assert.match(stepIcon({ status: 'done', write: false }), /check/);
 });
+
+import { restoreTurns, serializeTurns } from '../../static/chat/format.js';
+
+test('a saved conversation comes back as it was', () => {
+  const turns = [{ role: 'user', content: 'q' }, { role: 'assistant', ...newTurn(), status: 'done', answer: 'a', narration: ['hm'],
+    steps: [{ id: '1', tool: 'edit_note', label: 'Editing x', write: true, status: 'done' }], changed: [{ slug: 'x', title: 'X' }] }];
+  assert.deepEqual(restoreTurns(serializeTurns(turns)), turns);
+});
+
+test('a turn that was running when the page closed comes back stopped, with its unfinished steps failed', () => {
+  const running = [{ role: 'user', content: 'q' }, { role: 'assistant', ...newTurn(), answer: 'so far', steps: [{ id: '1', label: 'Reading x', status: 'running' }] }];
+  const [, turn] = restoreTurns(serializeTurns(running));
+  assert.equal(turn.status, 'stopped');
+  assert.equal(turn.answer, 'so far');
+  assert.equal(turn.steps[0].status, 'failed');
+});
+
+test('only the last turns are kept and the conversation starts with a question', () => {
+  const many = Array.from({ length: 60 }, (_, i) => (i % 2 ? { role: 'assistant', ...newTurn(), status: 'done', answer: `a${i}` } : { role: 'user', content: `q${i}` }));
+  const back = restoreTurns(serializeTurns(many));
+  assert.equal(back.length, 40);
+  assert.equal(back[0].role, 'user');
+  assert.deepEqual(restoreTurns(serializeTurns([{ role: 'assistant', ...newTurn(), status: 'done', answer: 'orphan' }])), []);
+});
+
+test('rubbish in storage gives an empty chat', () => {
+  for (const raw of [null, '', 'nope', '{}', '[1,"x",null,{"role":"system"}]']) assert.deepEqual(restoreTurns(raw), []);
+});

@@ -64,3 +64,33 @@ export const SUGGESTIONS = Object.freeze([
   'What did I work on this week?',
   'Summarise my most recently edited note.',
 ]);
+
+export const STORAGE_KEY = 'hive:chat';
+const MAX_SAVED_TURNS = 40;
+
+/** The conversation as text for the browser's storage: the last turns, nothing else. */
+export function serializeTurns(turns) {
+  return JSON.stringify(turns.slice(-MAX_SAVED_TURNS));
+}
+
+/** The turns saved by `serializeTurns`, checked (a stale or hand-edited value gives []). A turn that was still running when the
+ *  page closed has no one left to finish it: it comes back as stopped, with the answer it had. */
+export function restoreTurns(raw) {
+  let saved;
+  try { saved = JSON.parse(raw); } catch (_error) { return []; }
+  if (!Array.isArray(saved)) return [];
+  const turns = [];
+  for (const turn of saved) {
+    if (turn?.role === 'user' && typeof turn.content === 'string') turns.push({ role: 'user', content: turn.content });
+    else if (turn?.role === 'assistant') {
+      const base = newTurn();
+      const status = ['done', 'error', 'stopped'].includes(turn.status) ? turn.status : 'stopped';
+      turns.push({ role: 'assistant', ...base, status, error: String(turn.error || ''), answer: String(turn.answer || ''),
+        narration: Array.isArray(turn.narration) ? turn.narration.map(String) : [],
+        steps: Array.isArray(turn.steps) ? turn.steps.filter((s) => s && typeof s.label === 'string').map((s) => ({ ...s, status: s.status === 'running' ? 'failed' : s.status })) : [],
+        changed: Array.isArray(turn.changed) ? turn.changed.filter((n) => n && typeof n.slug === 'string') : [] });
+    }
+  }
+  while (turns.length && turns[0].role !== 'user') turns.shift();  // a conversation starts with a question
+  return turns;
+}

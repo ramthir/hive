@@ -1889,7 +1889,20 @@ def test_chat_answers_with_steps_links_and_follow_ups_that_remember_the_conversa
     expect(page.locator(".chat-message.assistant .chat-answer").nth(1)).to_contain_text("Alpha links to")
     last = chat_server.runner.prompts[-1]
     assert "User: What are my open tasks" in last and "Assistant: Alpha links to" in last and last.endswith("and the second?")
-    page.locator("#chat-new").click()  # nothing was stored: starting over is only forgetting
+    # the conversation is kept in this browser: leaving the page and coming back (or reloading) shows it again
+    page.goto(f"{chat_server.url}/notes/alpha")
+    page.goto(f"{chat_server.url}/chat")
+    expect(page.locator(".chat-message")).to_have_count(4)
+    expect(page.locator(".chat-message.user .chat-user-text").nth(1)).to_have_text("and the second?")
+    expect(page.locator(".chat-message.assistant .chat-answer").first).to_contain_text("Alpha links to")
+    page.reload()
+    expect(page.locator(".chat-message")).to_have_count(4)
+    page.locator("#chat-input").fill("a third")
+    page.locator("#chat-input").press("Enter")  # a follow-up after coming back still sends the earlier turns
+    expect(page.locator(".chat-message.assistant")).to_have_count(3)
+    expect(page.locator(".chat-message.assistant .chat-answer").nth(2)).to_contain_text("Alpha links to")  # the run has finished
+    assert "User: and the second?" in chat_server.runner.prompts[-1]
+    page.locator("#chat-new").click()  # only "New chat" forgets
     expect(page.locator(".chat-message")).to_have_count(0)
     expect(page.locator(".chat-empty")).to_be_visible()
     page.reload()
@@ -1939,3 +1952,17 @@ def test_chat_says_when_codex_is_missing(page, notes_dir, monkeypatch):
     finally:
         srv.should_exit = True
         thread.join(5)
+
+
+def test_chat_left_mid_answer_comes_back_stopped_with_what_it_had(page, chat_server):
+    chat_server.runner.gate.clear()
+    page.goto(f"{chat_server.url}/chat")
+    page.locator("#chat-input").fill("slow one")
+    page.locator("#chat-send").click()
+    expect(page.locator(".chat-steps li", has_text="Reading alpha")).to_be_visible()
+    page.goto(f"{chat_server.url}/notes/alpha")  # leaving closes the stream, which stops Codex
+    chat_server.runner.gate.set()
+    page.goto(f"{chat_server.url}/chat")
+    expect(page.locator(".chat-message.user .chat-user-text")).to_have_text("slow one")
+    expect(page.locator(".chat-stopped")).to_be_visible()
+    expect(page.locator("#chat-send")).to_have_class("chat-send")  # ready for the next question
