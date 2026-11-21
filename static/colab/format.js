@@ -104,3 +104,25 @@ const EVENT_SOURCE_CLOSED = 2; // EventSource.CLOSED: the browser gave up (a non
 
 /** Whether the stream for `session` is already live. A closed source is not: it has to be opened again. */
 export const streamIsLive = (source, streamed, session) => Boolean(source) && streamed === session && source.readyState !== EVENT_SOURCE_CLOSED;
+
+/**
+ * The one line the header shows: a stream error first, then what the polled usage and sessions reads say is wrong (they
+ * used to be dropped once a runtime was selected), then a stream notice such as "monitoring is paused".
+ */
+export function headerStatus({ stream = {}, pollErrors = [] } = {}) {
+  if (stream.error) return { text: stream.error, error: true };
+  const polled = [...new Set(pollErrors.filter(Boolean))].join(' · ');
+  if (polled) return { text: polled, error: true };
+  return { text: stream.notice || '', error: false };
+}
+
+const WAITING = { waiting: 'Waiting for the notebook kernel to be idle.', paused: 'Monitoring is paused.', unavailable: 'Unable to collect Colab status.', inactive: 'This Colab runtime is no longer active.' };
+
+/**
+ * Why the runtime has shown nothing yet: before the first snapshot, a busy kernel or a failed probe left the cards and table
+ * loading for ever. Empty once there are stats (the last good ones stay on screen) or while the first probe is still running.
+ */
+export function waitingReason(stats, data) {
+  if (stats || !data || !Object.hasOwn(WAITING, data.status)) return '';
+  return data.message || WAITING[data.status];
+}

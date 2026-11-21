@@ -6,7 +6,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { api } from '/static/notes/api.js';
 import { processColor, processTitle } from '/static/dashboard/format.js';
-import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, streamIsLive, usageTiles, uptimeTile } from '/static/colab/format.js';
+import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, headerStatus, processPage, statusText, streamIsLive, waitingReason, usageTiles, uptimeTile } from '/static/colab/format.js';
 
 const POLL_MS = 30000; // usage and the runtime list; the live numbers come from the stream
 const CARD_ATTRS = { value: 'value', sub: 'sub', color: 'color', progress: 'progress', progressColor: 'progress-color' };
@@ -21,6 +21,9 @@ class ColabTab extends HTMLElement {
     this.sessions = [];
     this.stats = null;
     this.processes = [];
+    this.feed = null; // the last stream event: why there is no data yet
+    this.stream = {}; // the stream's own notice or error for the header
+    this.pollErrors = []; // what the usage and sessions reads say is wrong
     this.sort = 'cpu_percent';
     this.direction = 'desc';
     this.page = 0;
@@ -105,6 +108,12 @@ class ColabTab extends HTMLElement {
     this.dispatchEvent(new CustomEvent('tab-status', { bubbles: true, detail: { text, error } }));
   }
 
+  // The header's line is composed from the stream and the polled reads, so neither hides the other.
+  refreshStatus() {
+    const { text, error } = headerStatus({ stream: this.stream, pollErrors: this.pollErrors });
+    this.say(text, error);
+  }
+
   async poll() {
     const [usage, sessions] = await Promise.allSettled([api('/colab/usage'), api('/colab/sessions')]);
     const errors = [];
@@ -116,8 +125,9 @@ class ColabTab extends HTMLElement {
     else if (sessionData.reachable === false && sessionData.error) errors.push(sessionData.error);
     this.drawUsage(usageData);
     this.setSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : []);
+    this.pollErrors = errors;
     if (this.session) this.openStream();
-    else this.say([...new Set(errors)].join(' · '), errors.length > 0);
+    this.refreshStatus();
   }
 
   // --- cards ---------------------------------------------------------------------------------------------------------
@@ -144,7 +154,7 @@ class ColabTab extends HTMLElement {
 
   // The machine cards are rebuilt only when the set of cards changes (a GPU appears), so a refresh does not flash.
   drawMachine() {
-    const loading = !this.stats;
+    const loading = !this.stats && !waitingReason(this.stats, this.feed);
     const tiles = machineTiles(this.stats, this.activeSession);
     const keys = tiles.map((t) => t.key).join(',');
     if (this.machineGrid.dataset.keys !== keys) {
@@ -219,6 +229,8 @@ class ColabTab extends HTMLElement {
     this.source?.close();
     this.source = null;
     this.streamed = null;
+    this.stream = {};
+    this.feed = null;
   }
 
   openStream() {
@@ -234,35 +246,55 @@ class ColabTab extends HTMLElement {
       try {
         this.apply(JSON.parse(event.data));
       } catch {
-        this.say('Unable to read Colab status update.', true);
+        this.stream = { error: 'Unable to read Colab status update.' };
+        this.refreshStatus();
       }
     });
     source.onerror = () => {
       if (this.source !== source) return;
       const closed = source.readyState === EventSource.CLOSED; // closed for good: the next poll opens a new stream
-      this.say(closed ? 'Live updates stopped; trying again shortly. Showing the last collected data.' : 'Live updates disconnected; reconnecting. Showing the last collected data.');
+      this.stream = { notice: closed ? 'Live updates stopped; trying again shortly. Showing the last collected data.' : 'Live updates disconnected; reconnecting. Showing the last collected data.' };
+      this.refreshStatus();
     };
   }
 
   apply(data) {
     if (data.session?.name !== this.session) return;
-    if (data.status === 'loading') return this.say('');
+    this.feed = data;
+    if (data.status === 'loading') {
+      this.stream = {};
+      this.refreshStatus();
+      return;
+    }
     this.stats = data.stats || this.stats;
     this.processes = data.processes || [];
     this.drawMachine();
     this.drawUptime();
     this.drawProcesses();
-    const { notice, error } = statusText(data);
-    this.say(error || notice, Boolean(error));
+    this.stream = statusText(data);
+    this.refreshStatus();
   }
 
   // --- processes -----------------------------------------------------------------------------------------------------
 
   drawProcesses() {
     if (!this.stats && !this.processes.length) {
-      this.table.setLoading(true);
+      const reason = waitingReason(this.stats, this.feed);
+      if (reason) { // say why there is nothing, instead of loading for ever
+        if (this.emptyReason !== reason) {
+          this.emptyReason = reason;
+          this.table.setEmptyState({ icon: 'fa-circle-pause', title: reason });
+        }
+        this.table.setData([]);
+      } else {
+        this.table.setLoading(true);
+      }
       this.pagination.hidden = true;
       return;
+    }
+    if (this.emptyReason) {
+      this.emptyReason = '';
+      this.table.setEmptyState({ icon: 'fa-microchip', title: 'No process data available' });
     }
     const view = processPage(this.processes, { sort: this.sort, dir: this.direction, page: this.page, pageSize: PAGE_SIZE });
     this.page = view.page;

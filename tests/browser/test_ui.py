@@ -1535,6 +1535,8 @@ class _Colab:
         self.sessions = [{"name": "sentinel-run", "runtime_id": "m-s-1", "hardware": "GPU", "shape": "Standard", "variant": "T4"}]
         self.usage = {"balance": 499.97, "balance_unit": "compute units", "usage_rate": 0.08, "usage_rate_unit": "/hr", "active_assignments": 1}
         self.failure = None
+        self.usage_failure = None  # only `colab usage` fails: the runtimes are still listed
+        self.kernel = "idle"
         self.snapshot = {
             "stats": {"cpu_count": 2, "cpu_percent": 12.5, "load_average": {"1min": 1.14, "5min": 0.73, "15min": 0.38}, "uptime": "1:05",
                       "memory": {"used_gb": 1.2, "total_gb": 12.7, "percent": 9.4}, "disk": {"used_gb": 30.0, "total_gb": 100.0, "percent": 30.0}, "gpu": []},
@@ -1555,12 +1557,15 @@ def colab_server(notes_dir, monkeypatch):
         return fake.sessions
 
     async def usage():
-        if fake.failure:
-            raise fake.error_type(fake.failure)
+        if fake.failure or fake.usage_failure:
+            raise fake.error_type(fake.failure or fake.usage_failure)
         return fake.usage
+
+    async def kernel_state(name, runtime_id):
+        return fake.kernel
     monkeypatch.setattr(colab_routes, "get_colab_sessions", sessions)
     monkeypatch.setattr(colab_routes, "get_colab_usage", usage)
-    collector = ColabCollector(sessions=sessions, kernel_state=AsyncMock(return_value="idle"), collect=AsyncMock(side_effect=lambda name: fake.snapshot), grace=0.2)
+    collector = ColabCollector(sessions=sessions, kernel_state=kernel_state, collect=AsyncMock(side_effect=lambda name: fake.snapshot), grace=0.2)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -1618,6 +1623,25 @@ def test_colab_tab_says_when_the_cli_cannot_be_reached(page, colab_server):
     expect(page.locator("dashboard-app .dash-status")).to_have_text("colab CLI is not installed or not on PATH")
     expect(page.locator("dashboard-app .dash-status")).to_have_class("dash-status error")
     expect(page.locator('colab-tab stat-card[data-metric="balance"]')).to_have_attribute("sub", "Unable to read")
+    assert page.errors == []
+
+
+def test_colab_tab_says_why_usage_is_unreadable_even_with_a_runtime_selected(page, colab_server):
+    colab_server.fake.usage_failure = "colab usage timed out"
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator(".colab-picker-name")).to_have_text("sentinel-run")
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).to_have_attribute("value", "12.5%", timeout=15000)  # the live stats still work
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("colab usage timed out")
+    expect(page.locator("dashboard-app .dash-status")).to_have_class("dash-status error")
+    assert page.errors == []
+
+
+def test_colab_tab_says_why_there_is_no_data_when_the_kernel_is_busy_before_the_first_probe(page, colab_server):
+    colab_server.fake.kernel = "busy"
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator("colab-tab .colab-session app-table")).to_contain_text("Notebook kernel is busy")  # not a spinner for ever
+    expect(page.locator("colab-tab .colab-session app-table")).not_to_have_attribute("aria-busy", "true")
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).not_to_have_attribute("loading", "")
     assert page.errors == []
 
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, streamIsLive, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
+import { PAGE_SIZE, chooseSession, headerStatus, machineTiles, pickerItems, processPage, statusText, streamIsLive, waitingReason, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
 
 const SESSION = { name: 'sentinel-run', runtime_id: 'm-s-1', hardware: 'GPU', shape: 'Standard', variant: 'T4' };
 const stats = (extra = {}) => ({ cpu_count: 2, cpu_percent: 42.26, load_average: { '1min': 1.14, '5min': 0.73, '15min': 0.38 }, uptime: '1:05',
@@ -130,4 +130,20 @@ test('a stream the browser closed is not live, so the next poll opens a new one'
   assert.equal(streamIsLive(closed, 'a', 'a'), false);
   assert.equal(streamIsLive(open, 'a', 'b'), false);
   assert.equal(streamIsLive(null, null, 'a'), false);
+});
+
+test('the header line shows a stream error first, then what the polled reads say, then a stream notice', () => {
+  assert.deepEqual(headerStatus({ stream: { error: 'probe failed' }, pollErrors: ['usage down'] }), { text: 'probe failed', error: true });
+  assert.deepEqual(headerStatus({ stream: { notice: 'paused' }, pollErrors: ['usage down', 'usage down', 'sessions down'] }), { text: 'usage down · sessions down', error: true });
+  assert.deepEqual(headerStatus({ stream: { notice: 'paused' }, pollErrors: [] }), { text: 'paused', error: false });
+  assert.deepEqual(headerStatus(), { text: '', error: false });
+});
+
+test('a runtime with no data yet says why, instead of loading for ever', () => {
+  assert.equal(waitingReason(null, { status: 'waiting', message: 'Notebook kernel is busy; monitoring is paused.' }), 'Notebook kernel is busy; monitoring is paused.');
+  assert.equal(waitingReason(null, { status: 'unavailable', message: '' }), 'Unable to collect Colab status.');
+  assert.equal(waitingReason(null, { status: 'inactive' }), 'This Colab runtime is no longer active.');
+  assert.equal(waitingReason(null, { status: 'loading' }), ''); // the first probe is still running
+  assert.equal(waitingReason(null, null), '');
+  assert.equal(waitingReason({ uptime: '1:05' }, { status: 'waiting', message: 'busy' }), ''); // the last good stats stay on screen
 });
