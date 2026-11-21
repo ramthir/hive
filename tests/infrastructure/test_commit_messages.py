@@ -63,10 +63,10 @@ while [ $# -gt 0 ]; do [ "$1" = "-o" ] && OUT="$2"; shift; done
 
 def test_codex_runs_one_shot_read_only_with_the_diff_on_stdin(tmp_path):
     program = fake_codex(tmp_path, 'echo "doc: add storage options" > "$OUT"')
-    message = CodexCommitMessages(program, model="m1").describe("Home network", "doc: update Home network", "+Storage: NAS\n")
+    message = CodexCommitMessages(program, model="m1", effort="medium").describe("Home network", "doc: update Home network", "+Storage: NAS\n")
     assert message == "doc: add storage options"
     args = (tmp_path / "args.txt").read_text()
-    for flag in ("exec", "--sandbox read-only", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--model m1"):
+    for flag in ("exec", "--sandbox read-only", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--model m1", 'model_reasoning_effort="medium"'):
         assert flag in args
     assert args.rstrip().endswith("-")  # the prompt comes on standard input
     prompt = (tmp_path / "stdin.txt").read_text()

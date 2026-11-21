@@ -49,8 +49,8 @@ def clean_subject(text: str) -> str | None:
 
 
 class CodexCommitMessages:
-    def __init__(self, program: str, model: str | None = None, timeout: float = 90):
-        self.program, self.model, self.timeout = program, model, timeout
+    def __init__(self, program: str, model: str | None = None, timeout: float = 90, effort: str | None = None):
+        self.program, self.model, self.timeout, self.effort = program, model, timeout, effort
 
     def describe(self, title: str, subject: str, diff: str) -> str | None:
         """A better subject for the commit, or None (Codex missing, failed, timed out or answered badly)."""
@@ -66,7 +66,8 @@ class CodexCommitMessages:
             answer = Path(scratch) / "answer.txt"
             args = [self.program, "exec", "--sandbox", "read-only", "--ephemeral", "--skip-git-repo-check",
                     "--ignore-user-config", "--ignore-rules", "-C", scratch, "-o", str(answer),
-                    *(["--model", self.model] if self.model else []), "-"]
+                    *(["--model", self.model] if self.model else []),
+                    *(["-c", f'model_reasoning_effort="{self.effort}"'] if self.effort else []), "-"]
             result = subprocess.run(args, input=prompt.encode(), capture_output=True, env=env, timeout=self.timeout, cwd=scratch)
             if result.returncode != 0:
                 log.warning("codex failed (%s): %s", result.returncode, result.stderr.decode("utf-8", "replace")[-300:].strip())

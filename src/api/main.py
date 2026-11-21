@@ -33,7 +33,7 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
     if not program:
         logging.getLogger("hive.commit_messages").warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
         return None
-    return CommitRewriter(git, CodexCommitMessages(program, os.environ.get("HIVE_CODEX_MODEL") or None), metrics)
+    return CommitRewriter(git, CodexCommitMessages(program, os.environ.get("HIVE_CODEX_MODEL") or None, effort=os.environ.get("HIVE_CODEX_EFFORT") or None), metrics)
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
