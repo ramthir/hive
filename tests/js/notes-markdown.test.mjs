@@ -121,23 +121,33 @@ import { readFileSync, existsSync } from 'node:fs';
 test('the notes page links every notes stylesheet, in cascade order, and no stale notes.css', () => {
   const page = readFileSync(new URL('../../static/index.html', import.meta.url), 'utf8');
   const linked = [...page.matchAll(/href="\/static\/notes\/([\w-]+\.css)"/g)].map((m) => m[1]);
-  assert.deepEqual(linked, ['layout.css', 'versions.css', 'editor.css', 'preview.css', 'status-bar.css', 'menu.css', 'embeds.css']);
+  assert.deepEqual(linked, ['layout.css', 'editor.css', 'preview.css', 'status-bar.css', 'menu.css', 'embeds.css']);
   for (const file of linked) assert.ok(existsSync(new URL(`../../static/notes/${file}`, import.meta.url)), `${file} is missing`);
   assert.ok(!existsSync(new URL('../../static/notes/notes.css', import.meta.url)));
 });
 
-const { renderDiff } = await import('../../static/notes/diff.js');
+const { markWords, parseDiff, renderDiff } = await import('../../static/notes/diff.js');
 
-test('a version diff marks hunks, additions and removals and escapes the text', () => {
-  const out = renderDiff('--- a\n+++ b\n@@ -1 +1 @@\n-old <b>\n+new\n context');
-  assert.match(out, /<span class="">--- a<\/span>/);
-  assert.match(out, /<span class="">\+\+\+ b<\/span>/);
-  assert.match(out, /<span class="hunk">@@ -1 \+1 @@<\/span>/);
-  assert.match(out, /<span class="del">-old &lt;b&gt;<\/span>/);
-  assert.match(out, /<span class="add">\+new<\/span>/);
-  assert.match(out, /<span class="">  ?context<\/span>|<span class=""> context<\/span>/);
+test('a version diff is numbered rows with changed words marked and gaps counted', () => {
+  const out = renderDiff('--- a\n+++ b\n@@ -3,2 +3,2 @@\n keep\n-Ship to staging <b>\n+Ship to production <b>\n@@ -20 +20,2 @@\n-x\n+y\n+z');
+  assert.match(out, /hive-diff-row del"><span class="no">4<\/span>/);
+  assert.match(out, /hive-diff-row add"><span class="no">4<\/span>/);
+  assert.match(out, /<mark>staging<\/mark>/);
+  assert.match(out, /<mark>production<\/mark>/);
+  assert.match(out, /&lt;b&gt;/);
+  assert.match(out, /2 unchanged lines/); // before the first hunk
+  assert.match(out, /15 unchanged lines/); // between the hunks
 });
 
-test('an empty diff says the body did not change', () => {
-  assert.match(renderDiff('  \n'), /No changes to the note body/);
+test('an empty diff says the text did not change', () => {
+  assert.match(renderDiff('  \n'), /No changes to the text/);
+});
+
+test('parseDiff numbers old and new lines and skips the file header', () => {
+  const { rows } = parseDiff('--- empty\n+++ c0ffee1\n@@ -0,0 +1,2 @@\n+one\n+two\n');
+  assert.deepEqual(rows.map((r) => [r.type, r.no, r.text]), [['add', 1, 'one'], ['add', 2, 'two']]);
+});
+
+test('markWords leaves unrelated lines unmarked', () => {
+  assert.deepEqual(markWords('abc', 'xyz'), ['abc', 'xyz']);
 });

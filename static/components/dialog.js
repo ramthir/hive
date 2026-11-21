@@ -175,6 +175,7 @@ export function confirmDialog({
   cancelText = 'Cancel',
   danger = false,
   icon = 'fa-triangle-exclamation',
+  details = [],
 } = {}) {
   return new Promise((resolve) => {
     const dialog = document.createElement('app-dialog');
@@ -194,6 +195,7 @@ export function confirmDialog({
         <div class="modal-body modal-alert-body" id="confirm-dialog-message">
           <i class="fa-solid ${esc(icon)}" aria-hidden="true"></i>
           <span>${esc(message)}</span>
+          ${details.length ? `<ul class="confirm-dialog-details">${details.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}
         </div>
         <div class="modal-footer">
           <button type="button" class="crud-drawer-btn" data-action="cancel">${esc(cancelText)}</button>

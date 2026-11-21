@@ -279,12 +279,10 @@ notes-app {
   background: var(--color-background);
 }
 
-.note-versions-dialog {
-  --panel-width: 46rem;
-}
-
-.note-versions-dialog [hidden]{
-  display: none !important;
+@media (max-width: 639px) {
+  .notes-preview-pane {
+    padding: 1rem 1rem calc(1rem + var(--footer-bar-height, 3.75rem)) 1rem;
+  }
 }
 
 /* Save Version button in the header */

@@ -159,6 +159,20 @@ def test_edit_save_commits_to_git_and_writes_the_heading(page, server, notes_dir
     assert page.errors == []
 
 
+def test_history_survives_a_commit_whose_sha_changed_while_it_was_open(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta")
+    page.click("#note-versions-btn")
+    expect(page.locator(".hive-version-row").first).to_be_visible()
+    old = page.locator(".hive-version-row").first.get_attribute("data-sha")
+    git(notes_dir, "commit", "--amend", "-m", "doc: reworded by someone else")  # what the Codex rewording does
+    assert not (git(notes_dir, "rev-parse", "HEAD").strip() == old)
+    page.locator(".hive-version-row").first.click()
+    expect(page.locator(".hive-diff")).to_be_visible()
+    expect(page.locator(".note-version-message.error")).to_have_count(0)
+    expect(page.locator(".hive-vd-summary .meta code")).to_have_text(git(notes_dir, "rev-parse", "--short=7", "HEAD").strip())
+    assert all("404" in error for error in page.errors)  # only the browser's note of the one stale request
+
+
 def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.goto(f"{server}/notes/new")
     page.wait_for_selector(".cm-content")
@@ -182,9 +196,37 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.click("#note-versions-btn")
     rows = page.locator(".hive-version-row")
     expect(rows).to_have_count(3)  # added, renamed, updated
+    expect(page.locator(".hive-version-day").first).to_have_text("Today")
+    expect(page.locator(".hive-version-stat").first).to_be_visible()
+    expect(rows.first).to_contain_text("Edited text")
+    expect(rows.last).to_contain_text("Created the note")
+    page.click("[data-filter=restores]")  # filters the loaded versions by kind
+    expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(0)
+    expect(page.locator(".hive-version-filter-note")).to_contain_text("Nothing matches")
+    page.click("[data-filter=text]")
+    expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(1)
+    page.click("[data-filter=all]")
+    expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(3)
     rows.nth(2).click()
-    expect(page.locator(".hive-diff .add").first).to_be_visible()
+    expect(page.locator(".hive-diff")).to_be_visible()
+    page.keyboard.press("ArrowRight")  # newer version
+    expect(page.locator(".hive-vd-summary .meta code")).not_to_have_text((rows.nth(2).get_attribute("data-sha") or "")[:7])
+    page.keyboard.press("Escape")  # back to the list, dialog stays open
+    expect(rows.first).to_be_visible()
+    rows.nth(2).click()
+    expect(page.locator(".hive-diff")).to_be_visible()
+    expect(page.locator(".hive-diff-row.add").first).to_be_visible()
+    page.click("[data-against=current]")  # what restoring would change
+    expect(page.locator("[data-against=current]")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator(".hive-diff-row.del").first).to_be_visible()
+    expect(page.locator("#version-position")).to_have_text("3 of 3")
+    expect(page.locator("#version-older")).to_be_disabled()
+    page.click("#version-newer")  # the buttons step like the arrow keys
+    expect(page.locator("#version-position")).to_have_text("2 of 3")
+    page.click("#version-older")
+    expect(page.locator("#version-position")).to_have_text("3 of 3")
     page.click("#version-restore")
+    expect(page.locator(".confirm-dialog-details")).to_contain_text("renamed back")
     page.click("[data-action=confirm]")
     page.wait_for_url("**/notes/fresh-idea**")
     assert (notes_dir / "fresh-idea.md").exists() and not (notes_dir / "renamed-idea.md").exists()
