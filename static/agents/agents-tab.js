@@ -4,6 +4,7 @@ import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { api } from '/static/notes/api.js';
 import { copySessionResume } from '/static/agents/session-resume.js';
+import { shouldRetryQuota } from '/static/agents/quota-donuts.js';
 import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsQuery } from '/static/agents/usage-render.js';
 
 const REFRESH_MS = 60000; // the server makes a new report every 15 minutes; the page just asks again
@@ -20,6 +21,7 @@ class AgentsTab extends HTMLElement {
     this.direction = 'desc';
     this.page = 0;
     this.sessions = null;
+    this.quotaTries = 0; // soon-retries of a quota that is still being collected
     this.quota = null; // optional: without it the cards draw no rings and the usage still shows
     this.view = null;
     this.seq = 0; // the latest sessions answer wins
@@ -121,7 +123,10 @@ class AgentsTab extends HTMLElement {
     }
     if (this.view) this.draw(this.view);
     clearTimeout(this.quotaTimer);
-    if (this.timer && this.quota && !this.quota.generated_at) this.quotaTimer = setTimeout(() => this.loadQuota(), QUOTA_RETRY_MS);
+    if (this.timer && shouldRetryQuota(this.quota, this.quotaTries)) {
+      this.quotaTries += 1;
+      this.quotaTimer = setTimeout(() => this.loadQuota(), QUOTA_RETRY_MS);
+    }
   }
 
   say(text, error = false) {
@@ -129,6 +134,7 @@ class AgentsTab extends HTMLElement {
   }
 
   async load() {
+    this.quotaTries = 0;
     this.loadQuota();
     const seq = ++this.seq;
     try {

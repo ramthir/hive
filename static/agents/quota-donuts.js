@@ -83,3 +83,9 @@ export function quotaDonut(name, provider) {
     ${layout.map((spec) => ring(windows[spec.key], spec)).join('\n    ')}
   </svg>`;
 }
+
+export const QUOTA_PENDING = 'The quota is being collected.'; // what the server says while the first run is still reading the CLIs
+export const QUOTA_MAX_RETRIES = 8; // at 8 s each: about a minute, after which the page's own minute poll tries again
+
+/** Whether to ask for the quota again soon: only while the server says the first run is under way, and not for ever. */
+export const shouldRetryQuota = (quota, attempts) => Boolean(quota) && !quota.generated_at && quota.reason === QUOTA_PENDING && attempts < QUOTA_MAX_RETRIES;
