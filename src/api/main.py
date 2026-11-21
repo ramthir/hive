@@ -13,8 +13,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import agents, diagrams, notes, system
+from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
 from src.application.agents.usage import AgentUsage
+from src.application.colab.collector import ColabCollector
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteNotFound
@@ -23,6 +25,7 @@ from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.domain.agents.quota import QuotaError, parse_snapshot
 from src.infrastructure.agents.quota_sources import QuotaCollector
 from src.infrastructure.agents.usage_files import CcusageCollector, ReportStore
+from src.infrastructure.colab.cli import collect_colab_snapshot, get_colab_kernel_state, get_colab_sessions
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.git.rewording import CommitRewriter
 from src.infrastructure.metrics import Metrics
@@ -43,7 +46,7 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
-               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None) -> FastAPI:
+               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None, colab: ColabCollector | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -64,6 +67,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         try:
             yield
         finally:
+            await app.state.colab.shutdown()  # stops the per-runtime collectors; nothing keeps probing after shutdown
             if watcher:
                 watcher.stop()
 
@@ -87,6 +91,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     agent_usage.metrics = agent_quota.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
     app.state.agents = agent_usage
     app.state.agent_quota = agent_quota
+    app.state.colab = colab or ColabCollector(sessions=get_colab_sessions, kernel_state=get_colab_kernel_state, collect=collect_colab_snapshot)
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:
@@ -110,6 +115,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.include_router(diagrams.router, prefix="/api")
     app.include_router(system.router, prefix="/api")
     app.include_router(agents.router, prefix="/api")
+    app.include_router(colab_routes.router, prefix="/api")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:
