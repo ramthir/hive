@@ -1,0 +1,114 @@
+/* Timeline notes: the phases of a `type: timeline` note as cards on a rail. */
+
+timelines-app {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+  width: calc(100% + 2 * var(--space-7));
+  box-sizing: border-box;
+}
+
+.timeline-page { padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
+
+.timeline-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-6);
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.timeline-rail {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 0 2.25rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.timeline-phase:not(:last-child)::after {
+  /* the rail: from this phase's dot down to the next one, so it starts at the first dot and ends at the last */
+  content: '';
+  position: absolute;
+  left: -1.75rem;
+  top: 0.75rem;
+  height: calc(100% + var(--space-4));
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-border);
+}
+
+.timeline-phase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  scroll-margin-top: var(--space-5);
+}
+.timeline-card {
+  align-self: stretch;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.timeline-dot {
+  position: absolute;
+  left: -2.25rem;
+  top: 0.25rem;
+  width: 1rem;
+  height: 1rem;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--color-accent5);
+  z-index: 1;
+}
+
+.timeline-phase-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+}
+.timeline-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5rem; /* fixed, so the dot (top .25rem) and the rail (top .75rem) sit on its centre line */
+  white-space: nowrap;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent5);
+  background: color-mix(in srgb, var(--color-accent5) 14%, transparent);
+}
+.timeline-phase-title { flex: 1; font-weight: 600; color: var(--color-text); }
+
+.timeline-phase-body { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-5) var(--space-5); }
+.timeline-summary { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
+.timeline-tasks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); line-height: 1.5; }
+/* A drawn dot rather than the list marker, so it is always a filled circle. */
+.timeline-tasks li { position: relative; padding-left: 1.1rem; }
+.timeline-tasks li::before {
+  content: '';
+  position: absolute;
+  left: 0.125rem;
+  top: 0.55em;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--color-red);
+}
+
+.timeline-empty { color: var(--color-dimmed3); }
