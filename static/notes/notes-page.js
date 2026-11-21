@@ -22,6 +22,7 @@ import { openProperties } from '/static/notes/properties.js';
 import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { isTableNote } from '/static/tables/table-note.js';
+import { isTimelineNote } from '/static/timelines/timeline-note.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
@@ -600,6 +601,11 @@ class NotesApp extends HTMLElement {
     // A table note is read on its own page (static/tables/); the pencil there comes back here in edit mode.
     if (!editing && note.slug && isTableNote(note)) {
       window.location.replace(`/tables/${encodeURIComponent(note.slug)}`);
+      return;
+    }
+    // Likewise a timeline note (static/timelines/).
+    if (!editing && note.slug && isTimelineNote(note)) {
+      window.location.replace(`/timelines/${encodeURIComponent(note.slug)}`);
       return;
     }
     const { words, chars, readingMinutes } = noteStats(note.content);

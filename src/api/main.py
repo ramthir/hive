@@ -162,6 +162,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     def tables_page(slug: str) -> FileResponse:
         return FileResponse(static / "tables.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/timelines/{slug}", include_in_schema=False)
+    def timelines_page(slug: str) -> FileResponse:
+        return FileResponse(static / "timelines.html", headers={"Cache-Control": "no-cache"})
+
     @app.get("/dashboard", include_in_schema=False)
     @app.get("/dashboard/agents", include_in_schema=False)
     @app.get("/dashboard/colab", include_in_schema=False)

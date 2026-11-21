@@ -453,6 +453,12 @@ def test_tables_page_is_its_own_document(client):
     assert "<tables-app>" in res.text
 
 
+def test_timelines_page_is_its_own_document(client):
+    res = client.get("/timelines/anything")
+    assert res.status_code == 200
+    assert "<timelines-app>" in res.text
+
+
 def test_role_is_returned_as_plain_text_for_the_search(client, root):
     for slug, role in [("ann", "'[[Senior Engineer]]'"), ("bo", "'[[senior-engineer|Lead]]'"), ("cy", "UserRole"), ("dee", None)]:
         extra = f"role: {role}\n" if role else ""

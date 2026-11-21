@@ -2064,3 +2064,24 @@ def test_spotlight_on_a_non_notes_page_opens_the_picked_note(page, server):
     page.keyboard.press("Enter")
     page.wait_for_url("**/notes/beta")
     assert page.errors == []
+
+
+def test_timeline_note_opens_as_phases_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
+    (notes_dir / "roadmap.md").write_text(
+        "---\ntitle: Roadmap\ntype: timeline\nupdated: 2026-03-03\n---\n\n# Roadmap\n\n"
+        "## July 2025 — Kickoff\n\nAligned scope.\n\n- Wrote requirements.\n- Planned delivery.\n\n"
+        "## August 2025 — Build\n\nBuilt it.\n\n- Shipped ANPN-1.\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "timeline")
+
+    page.goto(f"{server}/notes/roadmap")
+    page.wait_for_url("**/timelines/roadmap")  # a timeline note is read on its own page
+    expect(page.locator("app-header")).to_have_attribute("heading", "Roadmap")
+    cards = page.locator(".timeline-phase")
+    expect(cards).to_have_count(2)
+    expect(cards.nth(0).locator(".timeline-tasks li")).to_have_count(2)  # every list is shown
+    expect(cards.nth(1).locator(".timeline-tasks li")).to_have_text("Shipped ANPN-1.")  # ticket ids stay plain text
+    expect(page.locator("button.timeline-phase-head, #timeline-toggle-all")).to_have_count(0)  # nothing collapses
+    page.click("#edit-note-btn")
+    page.wait_for_url("**/notes/roadmap?mode=edit")
+    assert page.errors == []
