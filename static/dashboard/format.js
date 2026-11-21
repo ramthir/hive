@@ -18,11 +18,23 @@ const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPES
 
 /** The line under the Storage value: each size in the colour of its piece of the bar. */
 export function storageSubHtml(storage, disk = null) {
-  const parts = Object.keys(STORAGE_NAMES).map((key) =>
-    `${STORAGE_NAMES[key]} <span class="sub-size" style="color:${STORAGE_COLORS[key]}">${esc(storage[key])}</span>`);
-  // What is left on the disk, in the colour of how full it is: a filling disk is the thing to notice.
-  if (disk) parts.push(`Free <span class="sub-size" style="color:${diskColor(disk.percent_used)}">${esc(disk.free)}</span>`);
-  return `<span slot="sub">${parts.join('\u2003')}</span>`;
+  // What is left on the disk, in the colour of how full it is: a filling disk is the thing to notice. The split of
+  // the home folder is in the bar and the tooltip, so the caption stays short enough for the card.
+  if (!disk) return `<span slot="sub">Notes <span class="sub-size" style="color:${STORAGE_COLORS.notes}">${esc(storage.notes)}</span></span>`;
+  const of = disk.total ? ` of ${esc(disk.total)} disk` : '';
+  return `<span slot="sub"><span class="sub-size" style="color:${diskColor(disk.percent_used)}">${esc(disk.free)}</span> free${of}</span>`;
+}
+
+/**
+ * The widths of the bar's pieces. With a disk reading they are shares of the whole disk, so the bare track at the end is
+ * what is not in the home folder (mostly free space); a piece too small to see (Notes on a big disk) keeps a sliver.
+ * Without one they split the home folder and fill the bar.
+ */
+export function storageSegments(storage, disk = null) {
+  const parts = [storage.home_percent, storage.notes_percent, storage.downloads_percent].map((n) => Number(n) || 0);
+  const scale = disk?.total_bytes && storage.used_bytes ? storage.used_bytes / disk.total_bytes : 0;
+  if (!scale) return parts;
+  return parts.map((n) => (n > 0 ? Math.max(1.5, Math.round(n * scale * 100) / 100) : 0));
 }
 
 /** Rich tooltip rows for the Storage card, so clipped sizes on narrower screens stay readable on hover. */
@@ -75,8 +87,8 @@ export function statTiles(stats) {
   } else if (storage) {
     // Home (what is left of it), Notes and Downloads never overlap, so the bar is the whole home folder.
     tiles.push({ key: 'storage', icon: 'fa-hard-drive', title: 'Storage', value: storage.used,
-      sub: `Home ${storage.home}\u2003Notes ${storage.notes}\u2003Downloads ${storage.downloads}${disk ? `\u2003Free ${disk.free}` : ''}`, slotHtml: storageSubHtml(storage, disk),
-      progress: 100, segments: [storage.home_percent, storage.notes_percent, storage.downloads_percent].join(','),
+      sub: disk ? `${disk.free} free${disk.total ? ` of ${disk.total} disk` : ''}` : `Notes ${storage.notes}`, slotHtml: storageSubHtml(storage, disk),
+      progress: 100, segments: storageSegments(storage, disk).join(','),
       segmentColors: [STORAGE_COLORS.home, STORAGE_COLORS.notes, STORAGE_COLORS.downloads].join(','),
       attrs: { 'data-tooltip-title': 'Storage', 'data-tooltip-no-total': true, 'data-tooltip-details': JSON.stringify(storageTooltipDetails(storage, disk)) } });
   }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml, storageTooltipDetails } from '../../static/dashboard/format.js';
+import { diskColor, storageSegments, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml, storageTooltipDetails } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -27,15 +27,13 @@ test('the stat cards are one row: CPU, memory, load and home storage', () => {
   assert.equal(tiles.load.progress, 100); // 3 load on 2 CPUs is capped at a full bar
   assert.equal(tiles.load.progressColor, 'var(--color-red)');
   assert.equal(tiles.storage.value, '12.0 GB');
-  assert.equal(tiles.storage.sub, 'Home 6.0 GB\u2003Notes 83.0 MB\u2003Downloads 5.9 GB');
+  assert.equal(tiles.storage.sub, 'Notes 83.0 MB');
   assert.equal(tiles.storage.segments, '50,1,49');
 });
 
-test('each storage size is drawn in the colour of its piece of the bar', () => {
+test('without a disk reading the caption is the notes size, in its bar colour', () => {
   const html = storageSubHtml({ home: '6.0 GB', notes: '83.0 MB', downloads: '<5.9 GB' });
-  assert.match(html, /^<span slot="sub">Home <span class="sub-size" style="color:var\(--color-blue\)">6\.0 GB<\/span>/);
-  assert.match(html, /Notes <span class="sub-size" style="color:var\(--color-yellow\)">83\.0 MB/);
-  assert.match(html, /Downloads <span class="sub-size" style="color:var\(--color-purple\)">&lt;5\.9 GB/);
+  assert.equal(html, '<span slot="sub">Notes <span class="sub-size" style="color:var(--color-yellow)">83.0 MB</span></span>');
   const tile = statTiles(stats).find((t) => t.key === 'storage');
   assert.equal(tile.slotHtml, storageSubHtml(stats.storage));
   assert.equal(tile.segmentColors, 'var(--color-blue),var(--color-yellow),var(--color-purple)');
@@ -70,12 +68,12 @@ test('the dashboard page is styled by one dashboard-app rule', async () => {
 
 test('the storage card says what is free on the disk, in the colour of how full it is', () => {
   assert.deepEqual([10, 74, 75, 89, 90, 99].map(diskColor), ['var(--color-green)', 'var(--color-green)', 'var(--color-yellow)', 'var(--color-yellow)', 'var(--color-red)', 'var(--color-red)']);
-  const disk = { free: '40.2 GB', percent_used: 93 };
+  const disk = { free: '40.2 GB', total: '453 GB', percent_used: 93 };
   const tile = statTiles({ ...stats, disk }).find((t) => t.key === 'storage');
-  assert.equal(tile.sub, 'Home 6.0 GB Notes 83.0 MB Downloads 5.9 GB Free 40.2 GB');
-  assert.match(tile.slotHtml, /Free <span class="sub-size" style="color:var\(--color-red\)">40\.2 GB<\/span><\/span>$/);
+  assert.equal(tile.sub, '40.2 GB free of 453 GB disk');
+  assert.match(tile.slotHtml, /^<span slot="sub"><span class="sub-size" style="color:var\(--color-red\)">40\.2 GB<\/span> free of 453 GB disk<\/span>$/);
   assert.equal(tile.slotHtml, storageSubHtml(stats.storage, disk));
-  assert.equal(statTiles(stats).find((t) => t.key === 'storage').sub.includes('Free'), false); // no disk reading, no Free
+  assert.equal(statTiles(stats).find((t) => t.key === 'storage').sub.includes('free'), false); // no disk reading, no free
 });
 
 test('the process query carries page, size and sort', () => {
@@ -83,7 +81,7 @@ test('the process query carries page, size and sort', () => {
 });
 
 test('CPU, memory and load cards carry threshold colours and storage has a tooltip breakdown', () => {
-  const disk = { free: '40.2 GB', percent_used: 93 };
+  const disk = { free: '40.2 GB', total: '453 GB', percent_used: 93 };
   const tiles = Object.fromEntries(statTiles({ ...stats, disk }).map((t) => [t.key, t]));
   assert.equal(tiles.cpu.color, 'var(--color-green)');
   assert.equal(tiles.memory.color, 'var(--color-green)');
@@ -92,4 +90,13 @@ test('CPU, memory and load cards carry threshold colours and storage has a toolt
   const details = storageTooltipDetails(stats.storage, disk);
   assert.deepEqual(details.map((r) => r.label), ['Home', 'Notes', 'Downloads', 'Disk Free']);
   assert.equal(details[3].color, 'var(--color-red)');
+});
+
+test('with a disk reading the bar pieces are shares of the disk and the rest of the track is free', () => {
+  const storage = { ...stats.storage, used_bytes: 12e9 };
+  assert.deepEqual(storageSegments(storage), [50, 1, 49]); // no disk: the home folder fills the bar
+  const disk = { free: '40.2 GB', total: '453 GB', total_bytes: 120e9, percent_used: 60 };
+  assert.deepEqual(storageSegments(storage, disk), [5, 1.5, 4.9]); // Notes is 0.1% of the disk, kept visible
+  const tile = statTiles({ ...stats, storage, disk }).find((t) => t.key === 'storage');
+  assert.equal(tile.segments, '5,1.5,4.9');
 });
