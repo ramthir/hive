@@ -245,8 +245,14 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     assert "tags: [one, two, three, four]\n" in text  # changed, so written inline
     field.locator('.combobox-chip-remove[data-value="four"]').click()
     expect(field.locator(".combobox-chip-label")).to_have_text(["one", "two", "three"])
-    page.click("#edit-note-btn")  # close the editor: tags stay visible, read-only
-    expect(page.locator("#note-tags")).to_have_value("one, two, three, four")
+    expect(page.locator("#save-note-btn")).to_be_enabled()  # the removal is an unsaved change
+    page.click("#edit-note-btn")  # close the editor: it asks first
+    expect(page.locator("[data-action=confirm]")).to_be_visible()
+    page.click("[data-action=confirm]")  # Save and close
+    page.wait_for_url("**/notes/alpha")  # no ?mode=edit: the editor is closed
+    expect(page.locator("#note-tags")).to_have_value("one, two, three")  # tags stay visible, read-only
+    wait_for_commits(notes_dir, 3)
+    assert "tags: [one, two, three]\n" in (notes_dir / "alpha.md").read_text()
     assert page.errors == []
 
 
@@ -256,7 +262,9 @@ def test_tag_suggestions_match_existing_tags_ignoring_case_and_offer_to_create(p
     field = page.locator("#note-tags")
     field.locator(".combobox-input").click()
     page.keyboard.type("TW")
-    expect(field.locator(".combobox-option")).to_have_text(["two"])  # beta's tag, from /api/tags
+    expect(field.locator(".combobox-option")).to_have_text(["two1", 'Create "TW"'])  # beta's tag with its count, from /api/tags
+    page.keyboard.type("O")  # "TWO" is "two" ignoring case, so nothing new is offered
+    expect(field.locator(".combobox-option")).to_have_text(["two1"])
     page.keyboard.press("Enter")  # typed text that matches an existing tag ignoring case uses that tag
     expect(field.locator(".combobox-chip-label")).to_have_text(["one", "two"])
     page.keyboard.type("brand")

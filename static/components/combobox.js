@@ -228,9 +228,10 @@ class AppCombobox extends HTMLElement {
       this.open();
       this.drawOptions();
     };
-    this.input.onfocusout = (event) => {
+    // `focusout` has no `on…` property, so it needs a listener (an `onfocusout` assignment never fires)
+    this.input.addEventListener('focusout', (event) => {
       if (this.isCreatable && this.searchQuery.trim() && !this.contains(event.relatedTarget)) this.commitTyped();
-    };
+    });
     this.input.onkeydown = (event) => this.keydown(event);
     this.input.onchange = (event) => event.stopPropagation();
     this.querySelector('.combobox-clear')?.addEventListener('click', (event) => {
