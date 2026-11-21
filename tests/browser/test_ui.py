@@ -364,7 +364,7 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     page.goto(f"{server}/notes/alpha")
     assert page.locator(".notes-meta-bar").count() == 0  # no extra bar above the note
     tags = page.locator(".notes-action-bar #note-tags")
-    expect(tags.locator(".notes-tag-chip")).to_have_text(["#one"])  # chips in read mode; the editor makes them editable
+    expect(tags.locator(".notes-tag-chip")).to_have_text(["one"])  # chips in read mode; the editor makes them editable
     page.click("#edit-note-btn")
     page.wait_for_selector(".cm-content")
     field = page.locator("#note-tags")  # now chips with a type-to-add field
@@ -388,7 +388,7 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     expect(page.locator("[data-action=confirm]")).to_be_visible()
     page.click("[data-action=confirm]")  # Save and close
     page.wait_for_url("**/notes/alpha")  # no ?mode=edit: the editor is closed
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#one", "#two", "#three"])  # tags stay visible
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["one", "two", "three"])  # tags stay visible
     wait_for_commits(notes_dir, 3)
     assert "tags: [one, two, three]\n" in (notes_dir / "alpha.md").read_text()
     assert page.errors == []
@@ -918,7 +918,7 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     assert "project: Acme" in text and "assignee: Bo" in text and "status: IN_PROGRESS" in text
     assert "priority: must" in text and "tags: [todo]" in text
     assert len(git(property_notes, "rev-list", "HEAD").split()) == before + 1
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#todo"])
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["todo"])
     page.click("#note-properties-btn")  # reopened: shows what was saved
     expect(page.locator('.notes-properties-drawer [data-key="project"] .combobox-input')).to_have_value("Acme")
     assert page.errors == []
@@ -1329,11 +1329,11 @@ def test_a_tag_changed_by_the_properties_drawer_updates_the_footer_tags(page, se
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "bare")
     page.goto(f"{server}/notes/bare")
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#must", "#work"])
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["must", "work"])
     page.click("#note-properties-btn")
     pick_field(page.locator(".notes-properties-drawer"), "priority", "Important")
     page.locator('.notes-properties-drawer [data-action="save"]').click()
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#work"])
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["work"])
     assert "priority: important" in (notes_dir / "bare.md").read_text()
     assert page.errors == []
 

@@ -15,7 +15,7 @@
 .notes-types-combobox .combobox-chip { gap: .3rem; }
 .notes-types-combobox .combobox-chip, .notes-tags-combobox .combobox-chip { flex: none; text-transform: capitalize; /* display only */ }
 .notes-tags-chips { display: flex; align-items: center; gap: .35rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.notes-tag-chip { flex: none; font: inherit; font-size: .8rem; color: var(--color-dimmed2); background: transparent; border: 1px solid var(--color-dimmed5); border-radius: 999px;
+.notes-tag-chip { flex: none; font: inherit; font-size: .8rem; color: var(--color-dimmed2); background: transparent; border: 1px solid var(--color-dimmed5); border-radius: var(--chip-radius, var(--radius-sm, 6px));
   padding: .1rem .55rem; cursor: pointer; text-transform: capitalize; /* display only */ }
 .notes-tag-chip:hover, .notes-tag-chip:focus-visible { color: var(--color-text); border-color: var(--color-accent, #78dce8); outline: none; }
 .notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
