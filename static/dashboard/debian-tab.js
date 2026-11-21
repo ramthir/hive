@@ -3,11 +3,12 @@ import '/static/components/stat-card.js';
 import '/static/components/pagination.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { api } from '/static/notes/api.js';
-import { statTiles } from '/static/dashboard/format.js';
+import { processQuery, statTiles } from '/static/dashboard/format.js';
 import { processColumns } from '/static/dashboard/process-columns.js';
 
 const REFRESH_MS = 5000;
 const PAGE_SIZE = 10;
+const FILTER_DELAY_MS = 250; // typing asks the server once the person pauses
 const CARD_ATTRS = { value: 'value', sub: 'sub', progress: 'progress', progressColor: 'progress-color', segments: 'segments', segmentColors: 'segment-colors' };
 
 /** The Debian tab: what is running in the container Hive is in. */
@@ -16,16 +17,19 @@ class DebianTab extends HTMLElement {
     this.page = 1;
     this.sort = 'cpu_percent';
     this.direction = 'desc';
+    this.q = '';
     this.seq = 0; // the latest process answer wins
     this.innerHTML = `
       <div class="dash-body">
         <section class="dash-grid" aria-label="Container statistics"></section>
+        <input type="search" class="proc-filter" aria-label="Filter processes" placeholder="Filter processes by name or command" autocomplete="off" />
         <div class="table-card"><app-table aria-label="Container processes"></app-table></div>
         <app-pagination hidden></app-pagination>
       </div>`;
     this.grid = this.querySelector('.dash-grid');
     this.table = this.querySelector('app-table');
     this.pagination = this.querySelector('app-pagination');
+    this.filter = this.querySelector('.proc-filter');
     this.table.setAttribute('sort-mode', 'server');
     this.table.setColumns(this.columns());
     this.table.setDefaultSort('cpu_percent', 'desc');
@@ -33,6 +37,16 @@ class DebianTab extends HTMLElement {
     this.table.setLoading(true);
     this.grid.innerHTML = [1, 2, 3, 4].map((n) => renderStatCard({ title: '--', value: '--', loading: true, attrs: { 'data-placeholder': n } })).join('');
 
+    this.filter.addEventListener('input', () => {
+      clearTimeout(this.filterTimer);
+      this.filterTimer = setTimeout(() => {
+        this.q = this.filter.value;
+        this.page = 1;
+        this.table.setEmptyState(this.emptyState());
+        this.table.setLoading(true);
+        this.loadProcesses();
+      }, FILTER_DELAY_MS);
+    });
     this.table.addEventListener('sort-change', ({ detail }) => {
       this.sort = detail.key === 'mem' ? 'mem_percent' : detail.key;
       this.direction = detail.dir;
@@ -50,6 +64,7 @@ class DebianTab extends HTMLElement {
   }
 
   disconnectedCallback() {
+    clearTimeout(this.filterTimer);
     document.removeEventListener('visibilitychange', this.onVisible);
     this.stop();
   }
@@ -82,7 +97,7 @@ class DebianTab extends HTMLElement {
 
   async loadProcesses() {
     const seq = ++this.seq;
-    const query = new URLSearchParams({ page: this.page, page_size: PAGE_SIZE, sort: this.sort, direction: this.direction });
+    const query = processQuery({ page: this.page, pageSize: PAGE_SIZE, sort: this.sort, direction: this.direction, q: this.q });
     try {
       const data = await api(`/system/processes?${query}`);
       if (seq !== this.seq) return;
@@ -96,6 +111,10 @@ class DebianTab extends HTMLElement {
     } catch (error) {
       if (seq === this.seq) this.table.setError(`Could not read processes: ${error.message}`);
     }
+  }
+
+  emptyState() {
+    return this.q.trim() ? { icon: 'fa-magnifying-glass', title: 'No process matches the filter' } : { icon: 'fa-microchip', title: 'No process data available' };
   }
 
   // The page's header shows the status line, so it is sent up rather than drawn here.

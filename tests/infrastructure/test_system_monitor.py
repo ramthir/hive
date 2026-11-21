@@ -97,6 +97,20 @@ def test_process_page_sorts_pages_and_includes_this_process(tmp_path):
     assert monitor.process_page(page=999, page_size=1)["page"] == monitor.process_page(page_size=1)["total_pages"]
 
 
+def test_process_page_filters_on_name_or_command_line_without_regard_to_case(tmp_path):
+    import uuid
+    import psutil
+    monitor = ContainerMonitor(tmp_path)
+    mine = psutil.Process().name()
+    found = monitor.process_page(page_size=100, q=f"  {mine.upper()} ")
+    assert os.getpid() in [p["pid"] for p in found["processes"]]
+    assert all(mine.lower() in f"{p['name']} {p['cmdline']}".lower() for p in found["processes"] if not p["cmdline"].endswith("…"))  # a long command is cut for display, not for matching
+    nothing = "zz-" + uuid.uuid4().hex  # not on any command line, not even the one that started this test
+    none = monitor.process_page(q=nothing)
+    assert (none["processes"], none["total"], none["page"], none["total_pages"]) == ([], 0, 1, 1)
+    assert monitor.process_page(q="")["total"] == monitor.process_page()["total"]
+
+
 def test_process_page_rejects_bad_options(tmp_path):
     with pytest.raises(ValueError):
         ContainerMonitor(tmp_path).process_page(sort="name")

@@ -77,3 +77,10 @@ export function statusColor(status) {
   if (status === 'disk-sleep' || status === 'zombie' || status === 'stopped') return 'var(--color-yellow)';
   return 'var(--color-dimmed2)';
 }
+
+/** The query string of one page of processes; the filter is left out while it is empty. */
+export function processQuery({ page, pageSize, sort, direction, q = '' }) {
+  const query = new URLSearchParams({ page: String(page), page_size: String(pageSize), sort, direction });
+  if (q.trim()) query.set('q', q.trim());
+  return query.toString();
+}

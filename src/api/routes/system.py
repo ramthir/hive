@@ -17,5 +17,6 @@ def stats(request: Request) -> dict:
 @router.get("/system/processes")
 def processes(request: Request, page: int = Query(1, ge=1), page_size: int = Query(10, ge=1, le=100),
               sort: Literal["cpu_percent", "mem_percent"] = "cpu_percent",
-              direction: Literal["asc", "desc"] = "desc") -> dict:
-    return request.app.state.system.process_page(page, page_size, sort, direction)
+              direction: Literal["asc", "desc"] = "desc", q: str = Query("", max_length=100)) -> dict:
+    """One page of the container's processes; `q` keeps those whose name or command line contains it (case-insensitive)."""
+    return request.app.state.system.process_page(page, page_size, sort, direction, q)

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { diskColor, levelColor, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
+import { diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -76,4 +76,11 @@ test('the storage card says what is free on the disk, in the colour of how full 
   assert.match(tile.slotHtml, /Free <span class="sub-size" style="color:var\(--color-red\)">40\.2 GB<\/span><\/span>$/);
   assert.equal(tile.slotHtml, storageSubHtml(stats.storage, disk));
   assert.equal(statTiles(stats).find((t) => t.key === 'storage').sub.includes('Free'), false); // no disk reading, no Free
+});
+
+test('the process query carries the filter only when there is one', () => {
+  const base = { page: 2, pageSize: 10, sort: 'mem_percent', direction: 'asc' };
+  assert.equal(processQuery(base), 'page=2&page_size=10&sort=mem_percent&direction=asc');
+  assert.equal(processQuery({ ...base, q: '   ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc');
+  assert.equal(processQuery({ ...base, q: ' python main ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc&q=python+main');
 });

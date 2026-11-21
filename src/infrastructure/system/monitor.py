@@ -215,7 +215,7 @@ class ContainerMonitor:
                 continue
         return rows
 
-    def process_page(self, page: int = 1, page_size: int = 10, sort: str = "cpu_percent", direction: str = "desc") -> dict:
+    def process_page(self, page: int = 1, page_size: int = 10, sort: str = "cpu_percent", direction: str = "desc", q: str = "") -> dict:
         if page < 1 or not 1 <= page_size <= 100 or sort not in ("cpu_percent", "mem_percent") or direction not in ("asc", "desc"):
             raise ValueError("Invalid process pagination or sorting options")
         with self._lock:
@@ -223,6 +223,9 @@ class ContainerMonitor:
             if self._snapshot is None or now - self._snapshot[0] >= SNAPSHOT_TTL:
                 self._snapshot = (now, self._sample())
             rows = list(self._snapshot[1])
+        needle = q.strip().lower()
+        if needle:  # the filter is on the server so it reaches every page, not only the one on screen
+            rows = [r for r in rows if _matches(r[3], needle)]
         index, sign = (0 if sort == "cpu_percent" else 1), (-1 if direction == "desc" else 1)
         rows.sort(key=lambda r: (sign * r[index], r[2]))
         while True:
@@ -279,6 +282,20 @@ def _disk_size(info: os.stat_result, linked: set[tuple[int, int]]) -> int:
     return min(info.st_size, blocks * 512) if blocks is not None else info.st_size
 
 
+def _command(name: str, args: list[str]) -> str:
+    """The command line as the table shows it: without the program when that is just the process name."""
+    return " ".join(args[1:] if args and os.path.basename(args[0]) in (name, "") else args)
+
+
+def _matches(proc: psutil.Process, needle: str) -> bool:
+    """Whether a process's name or command line contains `needle` (lower case); one that has exited or cannot be read does not."""
+    try:
+        name = proc.name()
+        return needle in f"{name} {_command(name, proc.cmdline())}".lower()
+    except psutil.Error:
+        return False  # the text the table shows, so a match is always visible in the row
+
+
 def _count(fn) -> int | None:
     try:
         return fn()
@@ -293,7 +310,7 @@ def describe(cpu: float, mem: float, pid: int, proc: psutil.Process) -> dict:
             args = proc.cmdline()
         except psutil.AccessDenied:
             args = []
-        command = " ".join(args[1:] if args and os.path.basename(args[0]) in (name, "") else args)
+        command = _command(name, args)
         if len(command) > MAX_COMMAND:
             command = command[:MAX_COMMAND - 1] + "…"
         return {"pid": pid, "name": name, "cmdline": command, "status": proc.status(),

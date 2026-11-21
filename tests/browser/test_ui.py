@@ -4,6 +4,7 @@ from datetime import date
 import subprocess
 import threading
 import time
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -1510,6 +1511,21 @@ def test_agents_tab_keeps_the_last_report_when_a_refresh_fails(page, agents_serv
     page.unroute("**/api/agents/usage*")
     page.evaluate("document.querySelector('agents-tab').load()")
     expect(page.locator("dashboard-app .dash-status")).to_have_text("")
+
+
+def test_debian_tab_filters_the_processes_on_the_server(page, server):
+    page.goto(f"{server}/dashboard")
+    rows = page.locator("debian-tab app-table tbody tr")
+    expect(rows.first).to_be_visible()
+    requests = []
+    page.on("request", lambda r: "/api/system/processes" in r.url and requests.append(r.url))
+    nothing = "zz-" + uuid.uuid4().hex  # on no command line
+    page.locator("debian-tab .proc-filter").fill(nothing)
+    expect(page.locator("debian-tab app-table")).to_contain_text("No process matches the filter")
+    assert any(f"q={nothing}" in url for url in requests)
+    page.locator("debian-tab .proc-filter").fill("")
+    expect(rows.first).to_be_visible()
+    assert page.errors == []
 
 
 def test_debian_tab_shows_each_process_state_and_how_long_it_has_run(page, server):
