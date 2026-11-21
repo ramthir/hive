@@ -99,3 +99,8 @@ export function pickerItems(sessions, selected) {
 
 /** The session to show: the one chosen if it is still active, else the first. */
 export const chooseSession = (sessions, selected) => (sessions || []).find((s) => s.name === selected)?.name ?? sessions?.[0]?.name ?? null;
+
+const EVENT_SOURCE_CLOSED = 2; // EventSource.CLOSED: the browser gave up (a non-200 answer, such as 409 while the CLI failed) and will not reconnect
+
+/** Whether the stream for `session` is already live. A closed source is not: it has to be opened again. */
+export const streamIsLive = (source, streamed, session) => Boolean(source) && streamed === session && source.readyState !== EVENT_SOURCE_CLOSED;

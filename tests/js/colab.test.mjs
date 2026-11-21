@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
+import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, streamIsLive, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
 
 const SESSION = { name: 'sentinel-run', runtime_id: 'm-s-1', hardware: 'GPU', shape: 'Standard', variant: 'T4' };
 const stats = (extra = {}) => ({ cpu_count: 2, cpu_percent: 42.26, load_average: { '1min': 1.14, '5min': 0.73, '15min': 0.38 }, uptime: '1:05',
@@ -121,4 +121,13 @@ test('the Colab tab is scoped to itself, has no breakpoints, and the page loads 
   assert.match(html, /\/static\/colab\/colab\.css/);
   const page = await readFile(new URL('../../static/dashboard/dashboard-page.js', import.meta.url), 'utf8');
   assert.match(page, /\/static\/colab\/colab-tab\.js/);
+});
+
+test('a stream the browser closed is not live, so the next poll opens a new one', () => {
+  const open = { readyState: 1 }, connecting = { readyState: 0 }, closed = { readyState: 2 };
+  assert.equal(streamIsLive(open, 'a', 'a'), true);
+  assert.equal(streamIsLive(connecting, 'a', 'a'), true); // the browser is reconnecting by itself
+  assert.equal(streamIsLive(closed, 'a', 'a'), false);
+  assert.equal(streamIsLive(open, 'a', 'b'), false);
+  assert.equal(streamIsLive(null, null, 'a'), false);
 });

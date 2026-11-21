@@ -6,7 +6,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { api } from '/static/notes/api.js';
 import { processColor, processTitle } from '/static/dashboard/format.js';
-import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, usageTiles, uptimeTile } from '/static/colab/format.js';
+import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, processPage, statusText, streamIsLive, usageTiles, uptimeTile } from '/static/colab/format.js';
 
 const POLL_MS = 30000; // usage and the runtime list; the live numbers come from the stream
 const CARD_ATTRS = { value: 'value', sub: 'sub', color: 'color', progress: 'progress', progressColor: 'progress-color' };
@@ -224,7 +224,7 @@ class ColabTab extends HTMLElement {
   openStream() {
     const session = this.session;
     if (!session || document.hidden || !this.isConnected) return;
-    if (this.source && this.streamed === session) return;
+    if (streamIsLive(this.source, this.streamed, session)) return;
     this.closeStream();
     const source = new EventSource(`/api/colab/stream?session=${encodeURIComponent(session)}`);
     this.source = source;
@@ -238,7 +238,9 @@ class ColabTab extends HTMLElement {
       }
     });
     source.onerror = () => {
-      if (this.source === source) this.say('Live updates disconnected; reconnecting. Showing the last collected data.');
+      if (this.source !== source) return;
+      const closed = source.readyState === EventSource.CLOSED; // closed for good: the next poll opens a new stream
+      this.say(closed ? 'Live updates stopped; trying again shortly. Showing the last collected data.' : 'Live updates disconnected; reconnecting. Showing the last collected data.');
     };
   }
 
