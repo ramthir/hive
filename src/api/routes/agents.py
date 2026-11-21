@@ -1,4 +1,4 @@
-"""Agents page data: this month's token usage of Claude, Codex and Antigravity."""
+"""Agents tab data: this month's token usage and the quota windows of Claude, Codex and Antigravity."""
 from __future__ import annotations
 
 from typing import Literal
@@ -15,6 +15,12 @@ router = APIRouter()
 def usage(request: Request) -> dict:
     """Totals, daily trend and health for the current month."""
     return request.app.state.agents.view()
+
+
+@router.get("/agents/quota")
+def quota(request: Request) -> dict:
+    """5-hour and weekly quota windows per provider. Never waits for the CLIs: a first call starts the run and says so."""
+    return request.app.state.agent_quota.view()
 
 
 @router.get("/agents/usage/sessions")

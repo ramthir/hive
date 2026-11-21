@@ -7,12 +7,19 @@ from fastapi.testclient import TestClient
 from src.api.main import create_app
 from src.application.agents.usage import AgentUsage
 from src.infrastructure.agents.usage_files import ReportStore
-from tests.agent_reports import envelope
+from src.application.agents.quota import AgentQuota
+from src.domain.agents.quota import QuotaError, parse_snapshot
+from tests.agent_reports import envelope, quota_snapshot
 
 
 class FixedCollector:
     def collect(self, now):
         return envelope(now, since=now.replace(day=1).strftime("%Y-%m-%d"))
+
+
+class FixedQuota:
+    def collect(self, now):
+        return quota_snapshot(now)
 
 
 @pytest.fixture
@@ -22,7 +29,8 @@ def client(tmp_path):
     for a in (["init", "-q", "-b", "main"], ["config", "user.name", "T"], ["config", "user.email", "t@e.com"]):
         subprocess.run(["git", "-C", str(notes), *a], check=True, capture_output=True)
     usage = AgentUsage(ReportStore(tmp_path / "state" / "usage.json"), FixedCollector())
-    with TestClient(create_app(notes, watch=False, agent_usage=usage)) as c:
+    quota = AgentQuota(ReportStore(tmp_path / "state" / "quota.json", parse_snapshot, (QuotaError,), "quota snapshot"), FixedQuota(), background=False)
+    with TestClient(create_app(notes, watch=False, agent_usage=usage, agent_quota=quota)) as c:
         yield c
 
 
@@ -59,3 +67,15 @@ def test_the_refresh_shows_in_metrics(client):
     client.get("/api/agents/usage")
     metrics = client.get("/api/metrics").json()
     assert metrics["counters"]["agents_refreshes"] == 1 and metrics["timings"]["agents_collect"]["count"] == 1
+
+
+def test_quota_has_the_windows_per_provider_and_never_waits_for_the_clis(client):
+    body = client.get("/api/agents/quota").json()
+    assert list(body["providers"]) == ["claude", "codex", "antigravity"]
+    assert body["providers"]["claude"]["windows"]["5h"]["state"] == "ok"
+    assert body["providers"]["antigravity"]["windows"]["argon-7d"]["used_pct"] == 0.0
+
+
+def test_quota_refreshes_show_in_metrics(client):
+    client.get("/api/agents/quota")
+    assert client.get("/api/metrics").json()["counters"]["agents_quota_refreshes"] == 1

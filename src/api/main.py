@@ -13,12 +13,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import agents, diagrams, notes, system
+from src.application.agents.quota import AgentQuota
 from src.application.agents.usage import AgentUsage
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
+from src.domain.agents.quota import QuotaError, parse_snapshot
+from src.infrastructure.agents.quota_sources import QuotaCollector
 from src.infrastructure.agents.usage_files import CcusageCollector, ReportStore
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.git.rewording import CommitRewriter
@@ -40,7 +43,7 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
-               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None) -> FastAPI:
+               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -76,11 +79,14 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.diagrams = diagram_service
     app.state.metrics = metrics
     app.state.system = ContainerMonitor(root)
+    agents_state = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser() / "agents"
     if agent_usage is None:
-        state = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser()
-        agent_usage = AgentUsage(ReportStore(state / "agents" / "usage.json"), CcusageCollector(os.environ.get("HIVE_CCUSAGE") or None))
-    agent_usage.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
+        agent_usage = AgentUsage(ReportStore(agents_state / "usage.json"), CcusageCollector(os.environ.get("HIVE_CCUSAGE") or None))
+    if agent_quota is None:
+        agent_quota = AgentQuota(ReportStore(agents_state / "quota.json", parse_snapshot, (QuotaError,), "quota snapshot"), QuotaCollector())
+    agent_usage.metrics = agent_quota.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
     app.state.agents = agent_usage
+    app.state.agent_quota = agent_quota
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:
