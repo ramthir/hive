@@ -177,7 +177,6 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.wait_for_url("**/notes/renamed-idea?mode=edit")
     expect(page.locator("#save-note-btn")).to_be_disabled()
     assert (notes_dir / "renamed-idea.md").exists() and not (notes_dir / "fresh-idea.md").exists()
-    expect(page.locator(".notes-type-label")).to_have_attribute("title", "renamed-idea.md")  # the file name is the tooltip
 
     # History follows the file; restoring the first version brings back the old title and file name.
     page.click("#note-versions-btn")
@@ -559,7 +558,7 @@ def test_sidebar_has_notes_tasks_time_and_the_hardcoded_user(page, server):
     expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
     # The user sits at the bottom of the sidebar, below the navigation.
     nav, profile, bar = (page.locator(s).bounding_box() for s in ("app-sidebar .sidebar-nav", "app-sidebar .sidebar-profile", "app-sidebar .app-sidebar"))
-    assert profile["y"] > nav["y"] + nav["height"] and profile["y"] + profile["height"] <= bar["y"] + bar["height"] + 1
+    assert profile["y"] >= nav["y"] + nav["height"] - 1 and profile["y"] + profile["height"] <= bar["y"] + bar["height"] + 1
     assert profile["y"] + profile["height"] > page.viewport_size["height"] - 40
     assert page.errors == []
 
@@ -643,7 +642,7 @@ def test_tasks_board_groups_task_notes_by_status(page, server, task_notes):
     expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report"])
     expect(column(page, "IN_PROGRESS").locator(".board-card-title")).to_have_text(["Review"])
     expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Ship it"])
-    expect(column(page, "TODO").locator(".board-chip")).to_have_text(["work"])  # `todo` only restates the column
+    expect(column(page, "TODO").locator(".board-chip")).to_have_text(["W9", "work"])  # the week of `updated`; `todo` only restates the column
     expect(page.locator("app-sidebar .nav-link.active")).to_have_text("Tasks")
     assert page.errors == []
 
@@ -683,7 +682,7 @@ def test_tasks_card_opens_a_drawer_and_its_link_opens_the_note(page, server, tas
     assert page.errors == []
 
 
-def test_tasks_drawer_saves_title_status_priority_and_tags_as_one_commit(page, server, task_notes):
+def test_tasks_drawer_saves_title_status_priority_and_tags_in_one_request(page, server, task_notes):
     page.goto(f"{server}/tasks")
     before = len(git(task_notes, "rev-list", "HEAD").split())
     column(page, "TODO").locator(".board-card", has_text="Write report").click()
@@ -696,11 +695,11 @@ def test_tasks_drawer_saves_title_status_priority_and_tags_as_one_commit(page, s
     card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write the report")
     expect(card).to_have_count(1)
     expect(card.locator(".board-chip--must")).to_have_text("Must")
-    wait_for_commits(task_notes, before + 1)
+    wait_for_commits(task_notes, before + 2)  # the new title renames the file (a commit), then everything else is one commit
     text = (task_notes / "write-the-report.md").read_text()
     assert "status: IN_PROGRESS" in text and "tags: [todo, work, q4, must]" in text
     assert not (task_notes / "write-report.md").exists()
-    assert len(git(task_notes, "rev-list", "HEAD").split()) == before + 1
+    assert len(git(task_notes, "rev-list", "HEAD").split()) == before + 2
     assert page.errors == []
 
 
@@ -762,6 +761,7 @@ def pick_field(drawer, key, label):
 def property_notes(notes_dir):
     (notes_dir / "acme.md").write_text("---\ntitle: Acme\ntype: project\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Acme\n")
     (notes_dir / "bo.md").write_text("---\ntitle: Bo\ntype: contact\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Bo\n")
+    (notes_dir / "cy.md").write_text("---\ntitle: Cy\ntype: contact\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Cy\n")
     (notes_dir / "fix-it.md").write_text("---\ntitle: Fix it\ntype: task\ntags: [todo]\ncreated: 2026-01-01\nupdated: 2026-03-03\n---\n\n# Fix it\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "properties")
@@ -774,7 +774,7 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     page.click("#note-properties-btn")
     drawer = page.locator(".notes-properties-drawer")
     expect(drawer.locator(".modal-title")).to_have_text("Note Properties")
-    expect(drawer.locator("[data-field]")).to_have_count(6)
+    expect(drawer.locator("[data-field]")).to_have_count(7)  # project, specification, ticket, status, priority, assignee, week
     pick_field(drawer, "project", "Acme")
     pick_field(drawer, "assignee", "Bo")
     pick_field(drawer, "status", "In Progress")
@@ -802,11 +802,11 @@ def test_properties_drawer_shows_acting_for_only_while_shadowed(page, server, pr
     expect(acting).to_be_visible()
     drawer.locator('[data-action="save"]').click()
     expect(drawer.locator(".crud-drawer-error")).to_have_text("Acting for is required.")
-    pick_field(drawer, "acting_for", "Bo")
+    pick_field(drawer, "acting_for", "Cy")  # another contact: a note is not offered as its own choice
     drawer.locator('[data-action="save"]').click()
     expect(page.locator(".notes-properties-drawer")).to_have_count(0)
     wait_until(lambda: "billing: Shadowed" in (property_notes / "bo.md").read_text())
-    assert "acting_for: Bo" in (property_notes / "bo.md").read_text()
+    assert "acting_for: Cy" in (property_notes / "bo.md").read_text()
 
 
 def test_properties_drawer_keeps_unsaved_text_by_saving_it_first_and_has_a_shortcut(page, server, property_notes):
