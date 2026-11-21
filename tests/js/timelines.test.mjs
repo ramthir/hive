@@ -62,3 +62,9 @@ test('readPagePath sends table and timeline notes to their own page', async () =
   assert.equal(readPagePath({ slug: 'plan', types: ['task'] }), '');
   assert.equal(readPagePath({ types: ['table'] }), '');
 });
+
+test('phaseMarkdown writes a phase back as a heading, paragraph and bullets', () => {
+  const md = t.phaseMarkdown({ label: 'July 2025', title: 'Kickoff', summary: 'Started.', tasks: ['One', 'Two'] });
+  assert.equal(md, '## July 2025 — Kickoff\n\nStarted.\n\n- One\n- Two');
+  assert.equal(t.phaseMarkdown({ label: '', title: 'Solo', summary: '', tasks: [] }), '## Solo');
+});

@@ -93,6 +93,8 @@ timelines-app {
   color: var(--color-accent5);
   background: color-mix(in srgb, var(--color-accent5) 14%, transparent);
 }
+.timeline-phase-copy { opacity: 0; transition: opacity 0.15s; }
+.timeline-card:hover .timeline-phase-copy, .timeline-phase-copy:focus-visible { opacity: 1; }
 .timeline-phase-title { flex: 1; font-weight: 600; color: var(--color-text); }
 
 .timeline-phase-body { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-5) var(--space-5); }

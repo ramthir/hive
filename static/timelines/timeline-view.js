@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
-import { parseTimeline } from '/static/timelines/timeline-note.js';
+import { copyTextToClipboard } from '/static/clipboard.js';
+import { parseTimeline, phaseMarkdown } from '/static/timelines/timeline-note.js';
 
 /** The read view of a timeline note: one card per phase on a rail. */
 export class TimelineView {
@@ -49,6 +50,16 @@ export class TimelineView {
       'delete-note-btn': 'delete', 'copy-note-btn': 'copy', 'note-properties-btn': 'properties',
       'note-versions-btn': 'versions', 'edit-note-btn': 'edit',
     })) host.querySelector(`#${id}`)?.addEventListener('click', () => this.actions[run]());
+    host.querySelectorAll('.timeline-phase-copy').forEach((button) => button.addEventListener('click', async () => {
+      try {
+        await copyTextToClipboard(phaseMarkdown(phases[Number(button.dataset.phase)]));
+        const icon = button.querySelector('i');
+        icon.className = 'fa-solid fa-check';
+        setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1500);
+      } catch (error) {
+        console.error('Failed to copy phase:', error);
+      }
+    }));
   }
 
   card(phase, index) {
@@ -58,6 +69,7 @@ export class TimelineView {
       <div class="timeline-card">
         <div class="timeline-phase-head">
           <span class="timeline-phase-title">${esc(phase.title)}</span>
+          <button class="tool-button timeline-phase-copy" type="button" data-phase="${index}" title="Copy this month as markdown" aria-label="Copy ${esc(phase.label || phase.title)} as markdown"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
         </div>
         <div class="timeline-phase-body">
           ${phase.summary ? `<p class="timeline-summary">${esc(phase.summary)}</p>` : ''}

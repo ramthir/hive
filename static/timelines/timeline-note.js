@@ -53,3 +53,9 @@ export function parseTimeline(content) {
   if (current) phases.push(finish(current));
   return { phases };
 }
+
+/** A phase as markdown, for the copy button: its heading, the paragraph and the bullets. */
+export function phaseMarkdown(phase) {
+  const heading = `## ${[phase.label, phase.title].filter(Boolean).join(' — ')}`;
+  return [heading, phase.summary, phase.tasks.map((task) => `- ${task}`).join('\n')].filter(Boolean).join('\n\n');
+}
