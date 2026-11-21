@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Literal
-
-import re
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +19,13 @@ def snippet(content: str, length: int = 200) -> str:
     return " ".join(plain.split())[:length]
 
 
+def role_of(n: Note) -> str | None:
+    """The `role:` key as plain text: `[[Senior Engineer]]` and `[[senior-engineer|Senior Engineer]]` both read as the name."""
+    value = str(n.extra.get("role") or "").strip()
+    match = re.fullmatch(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", value)
+    return ((match.group(2) or match.group(1)).strip() if match else value) or None
+
+
 class NoteSummary(BaseModel):
     slug: str
     title: str
@@ -29,13 +35,14 @@ class NoteSummary(BaseModel):
     types: list[str] = []
     status: str | None = None  # the stored `status:`; /api/tasks adds the derived one
     week: str | None = None  # ISO week a task was finished, e.g. 2026-W47
+    role: str | None = None  # the `role:` key (a contact's job), shown in the note search
     score: int | None = None
     snippet: str = ""
 
     @classmethod
     def of(cls, n: Note, score: int | None = None) -> "NoteSummary":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, score=score, snippet=snippet(n.content))
+                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), score=score, snippet=snippet(n.content))
 
 
 class NoteDetail(NoteSummary):
@@ -48,7 +55,7 @@ class NoteDetail(NoteSummary):
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, extra=dict(n.extra))
 
 
 class TimeEntryOut(BaseModel):

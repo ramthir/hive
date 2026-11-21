@@ -405,3 +405,15 @@ def test_tables_page_is_its_own_document(client):
     res = client.get("/tables/anything")
     assert res.status_code == 200
     assert "<tables-app>" in res.text
+
+
+def test_role_is_returned_as_plain_text_for_the_search(client, root):
+    for slug, role in [("ann", "'[[Senior Engineer]]'"), ("bo", "'[[senior-engineer|Lead]]'"), ("cy", "UserRole"), ("dee", None)]:
+        extra = f"role: {role}\n" if role else ""
+        (root / f"{slug}.md").write_text(f"---\ntitle: {slug.title()}\ntype: contact\n{extra}---\n\n# {slug.title()}\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "contacts")
+    roles = {n["slug"]: n["role"] for n in client.get("/api/notes").json()}
+    assert roles == {"ann": "Senior Engineer", "bo": "Lead", "cy": "UserRole", "dee": None}
+    assert client.get("/api/notes", params={"q": "Ann"}).json()[0]["role"] == "Senior Engineer"
+    assert client.get("/api/notes/ann").json()["role"] == "Senior Engineer"

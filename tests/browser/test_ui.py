@@ -967,3 +967,14 @@ def test_search_icons_are_coloured_by_note_type(page, server, notes_dir):
     expect(icon("Alpha")).to_have_attribute("style", "color: var(--color-yellow)")  # no type: the default, note
     expect(icon("Mystery")).to_have_attribute("style", "")  # an unknown type keeps the muted default
     assert page.errors == []
+
+
+def test_search_shows_a_contacts_role(page, server, notes_dir):
+    (notes_dir / "ann-lee.md").write_text("---\ntitle: Ann Lee\ntype: contact\nrole: '[[Senior Engineer]]'\nupdated: 2026-05-05\n---\n\n# Ann Lee\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "contact")
+    page.goto(f"{server}/notes/alpha")
+    page.keyboard.press("Control+k")
+    row = page.locator("note-spotlight .spotlight-item", has_text="Ann Lee")
+    expect(row.locator(".spotlight-role")).to_have_text("Senior Engineer")
+    expect(page.locator("note-spotlight .spotlight-item", has_text="Alpha").locator(".spotlight-role")).to_have_count(0)
