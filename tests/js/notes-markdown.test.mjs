@@ -152,7 +152,7 @@ test('markWords leaves unrelated lines unmarked', () => {
   assert.deepEqual(markWords('abc', 'xyz'), ['abc', 'xyz']);
 });
 
-test('a rendered diagram carries a Download pulldown with a dark and a light item', () => {
+test('a rendered diagram carries a kebab menu with a dark and a light item', () => {
   const nodes = [];
   const doc = { createElement: () => ({ set innerHTML(html) { this.html = html; }, setAttribute() {}, className: '' }) };
   const diagrams = new DiagramPreviews(async () => ({}));
