@@ -90,6 +90,8 @@ def select(rows: Iterable[TimeRow], *, query: str = "", start: str | None = None
     project = filters.get("project", "").casefold()
     day = _day_of(filters["date"], today) if filters.get("date") else None
     duration = _duration_test(filters["duration"]) if filters.get("duration") else None
+    if filters.get("duration") and duration is None:  # like an unreadable date: matches nothing
+        return []
     out = []
     for r in rows:
         if slug and r.slug != slug:

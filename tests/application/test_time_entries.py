@@ -51,7 +51,7 @@ def test_date_range_and_note_filter():
 
 @pytest.mark.parametrize("query, expected", [
     ("login", 2), ("LOGIN", 2), ("task:docs", 1), ("project:acme", 2), ("project:acme task:login date:yesterday", 1),
-    ("date:today", 2), ("date:yesterday", 1), ("date:2026-10-31", 1), ("date:nonsense", 0),
+    ("date:today", 2), ("date:yesterday", 1), ("date:2026-10-31", 1), ("date:nonsense", 0), ("duration:abc", 0), ("duration:>", 0),
     ("duration:>60", 2), ("duration:>=90", 2), ("duration:<=30", 2), ("duration:15", 1), ("duration:2h", 0),
     ("duration:1h-4h", 2), ("duration:30m-1h", 1), ("duration:4h", 1),
 ])
