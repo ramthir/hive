@@ -81,7 +81,7 @@ class DashboardApp extends HTMLElement {
   async loadStats() {
     try {
       this.renderTiles(statTiles(await api('/system/stats')));
-      this.setStatus(`Updated ${new Date().toLocaleTimeString()}`);
+      this.setStatus(''); // nothing to say while it works; a failed read shows in the header until the next one succeeds
     } catch (error) {
       this.setStatus(`Could not read stats: ${error.message}`, true);
     }
