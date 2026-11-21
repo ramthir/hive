@@ -1,5 +1,5 @@
 """Writes commit messages by running Codex once, the way Pandora's workflow agent step does: `codex exec` in a read-only
-sandbox, no saved session, no user config or rules, the prompt on standard input and the answer read from `-o <file>`.
+sandbox, no saved session (`--ephemeral`, so they never show in ccusage), no user config or rules, the prompt on standard input and the answer read from `-o <file>`.
 The note's diff is sent to the model (so this is opt-in: see HIVE_COMMIT_MESSAGES)."""
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ class CodexCommitMessages:
         try:
             answer = Path(scratch) / "answer.txt"
             args = [self.program, "exec", "--sandbox", "read-only", "--skip-git-repo-check",
-                    "--ignore-user-config", "--ignore-rules", "-C", scratch, "-o", str(answer),
+                    "--ignore-user-config", "--ignore-rules", "--ephemeral", "-C", scratch, "-o", str(answer),
                     *(["--model", self.model] if self.model else []),
                     *(["-c", f'model_reasoning_effort="{self.effort}"'] if self.effort else []), "-"]
             result = subprocess.run(args, input=prompt.encode(), capture_output=True, env=env, timeout=self.timeout, cwd=scratch)
