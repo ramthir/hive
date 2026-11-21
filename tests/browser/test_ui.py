@@ -794,7 +794,11 @@ def test_tasks_drawer_saves_title_status_priority_and_tags_in_one_request(page, 
     drawer.locator('[name="title"]').fill("Write the report")
     pick(drawer, "status", "In Progress")
     pick(drawer, "priority", "Must")
-    drawer.locator('[name="tags"]').fill("todo, work, q4")
+    tags = drawer.locator('app-combobox[name="tags"]')
+    tags.locator(".combobox-input").click()
+    page.keyboard.type("work,")
+    page.keyboard.type("q4")
+    drawer.locator(".modal-title").click()  # leaving the field adds the pending text
     drawer.locator("[data-save]").click()
     card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write the report")
     expect(card).to_have_count(1)
