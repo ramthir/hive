@@ -29,13 +29,6 @@ class ColabCollector:
         self.grace = grace
         self.feeds = {}
 
-    def cached(self, session):
-        feed = self.feeds.get(session['runtime_id'])
-        return self.payload(feed) if feed else {
-            'session': session, 'status': 'waiting', 'stats': None, 'processes': [],
-            'last_updated': None, 'message': 'Open the Colab dashboard to collect status.',
-        }
-
     @staticmethod
     def payload(feed):
         return {**feed.data, 'session': feed.session}

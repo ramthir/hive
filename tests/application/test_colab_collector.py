@@ -60,7 +60,7 @@ async def test_multiple_viewers_share_one_worker_and_last_disconnect_stops_it():
             assert not worker.done()
         await asyncio.sleep(.03)
         assert worker.done()
-        assert collector.cached(SESSION)['stats'] == SNAPSHOT['stats']
+        assert collector.payload(collector.feeds['runtime-1'])['stats'] == SNAPSHOT['stats']
     finally:
         await collector.shutdown()
 
@@ -89,7 +89,7 @@ async def test_runtime_identity_isolates_cache_and_inactive_runtime_never_execut
     assert old.data['status'] == 'inactive'
     collector.collect.assert_not_awaited()
     collector.feeds['old-runtime'] = old
-    assert collector.cached(SESSION)['stats'] is None
+    assert SESSION['runtime_id'] not in collector.feeds  # another runtime never gets the old one's data
 
 
 @pytest.mark.asyncio
