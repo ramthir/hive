@@ -1692,6 +1692,40 @@ def test_colab_tab_says_when_the_cli_cannot_be_reached(page, colab_server):
     assert page.errors == []
 
 
+def test_colab_tab_keeps_the_selected_runtime_during_a_failed_sessions_poll(page, colab_server):
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    cpu = page.locator('colab-tab stat-card[data-metric="cpu"]')
+    expect(cpu).to_have_attribute("value", "12.5%", timeout=15000)
+    process_filter = page.locator("colab-tab .proc-filter")
+    process_filter.fill("proc12")
+    status = page.locator("dashboard-app .dash-status")
+    original_stream = page.locator("colab-tab").evaluate_handle("(tab) => tab.source")
+
+    sessions_url = "**/api/colab/sessions"
+    page.route(sessions_url, lambda route: route.fulfill(json={"reachable": False, "sessions": [], "error": "Colab sessions timed out"}))
+    page.locator("colab-tab").evaluate("(tab) => tab.poll()")
+    expect(status).to_have_text("Colab sessions timed out")
+    expect(page.locator(".colab-picker-name")).to_have_text("sentinel-run")
+    expect(cpu).to_have_attribute("value", "12.5%")
+    expect(process_filter).to_have_value("proc12")
+    expect(page.locator("colab-tab app-table tbody")).to_contain_text("proc12")
+    assert page.locator("colab-tab").evaluate("(tab, source) => tab.source === source", original_stream)
+
+    page.unroute(sessions_url)
+    initial_session = colab_server.fake.sessions[0]
+    replacement = {**initial_session, "name": "another-run", "runtime_id": "m-s-2"}
+    colab_server.fake.sessions = [replacement, initial_session]
+    page.locator("colab-tab").evaluate("(tab) => tab.poll()")
+    expect(status).to_have_text("")
+    expect(page.locator(".colab-picker-name")).to_have_text("sentinel-run")
+    expect(process_filter).to_have_value("proc12")
+
+    colab_server.fake.sessions = [replacement]
+    page.locator("colab-tab").evaluate("(tab) => tab.poll()")
+    expect(page.locator(".colab-picker-name")).to_have_text("another-run")
+    expect(process_filter).to_have_value("")
+
+
 def test_colab_tab_says_why_usage_is_unreadable_even_with_a_runtime_selected(page, colab_server):
     colab_server.fake.usage_failure = "colab usage timed out"
     page.goto(f"{colab_server.url}/dashboard/colab")

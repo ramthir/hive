@@ -148,16 +148,16 @@ class ColabTab extends HTMLElement {
     const usageData = usage.status === 'fulfilled' ? usage.value : null;
     const sessionData = sessions.status === 'fulfilled' ? sessions.value : null;
     const usageOk = Boolean(usageData && usageData.reachable !== false);
-    const sessionsOk = Boolean(sessionData && sessionData.reachable !== false);
+    const sessionsOk = sessionData?.reachable !== false && Array.isArray(sessionData?.sessions);
+    const sessionsError = sessionsOk ? '' : sessionData?.error || 'Unable to read Colab sessions';
     if (!usageData) errors.push('Unable to read Colab usage');
     else if (usageData.reachable === false && usageData.error) errors.push(usageData.error);
-    if (!sessionData) errors.push('Unable to read Colab sessions');
-    else if (sessionData.reachable === false && sessionData.error) errors.push(sessionData.error);
+    if (sessionsError) errors.push(sessionsError);
     this.drawUsage(usageData);
-    this.setSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : [], {
+    this.setSessions(sessionsOk ? sessionData.sessions : this.sessions, {
       usageOk,
       sessionsOk,
-      sessionsError: !sessionData ? 'Unable to read Colab sessions.' : (sessionData.error || ''),
+      sessionsError,
     });
     this.pollErrors = errors;
     if (this.session) this.openStream();
