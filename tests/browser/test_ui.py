@@ -892,9 +892,9 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     wait_for_commits(property_notes, before + 1)
     text = (property_notes / "fix-it.md").read_text()
     assert "project: Acme" in text and "assignee: Bo" in text and "status: IN_PROGRESS" in text
-    assert "tags: [todo, must]" in text
+    assert "priority: must" in text and "tags: [todo]" in text
     assert len(git(property_notes, "rev-list", "HEAD").split()) == before + 1
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#todo", "#must"])
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#todo"])
     page.click("#note-properties-btn")  # reopened: shows what was saved
     expect(page.locator('.notes-properties-drawer [data-key="project"] .combobox-input')).to_have_value("Acme")
     assert page.errors == []
@@ -1299,16 +1299,18 @@ def test_a_tag_chip_searches_for_the_tag(page, server, notes_dir):
     assert page.errors == []
 
 
-def test_a_tag_added_by_the_properties_drawer_shows_on_an_untagged_note(page, server, notes_dir):
-    (notes_dir / "bare.md").write_text("---\ntitle: Bare\ntype: task\nupdated: 2026-11-21\n---\n\n# Bare\n")
+def test_a_tag_changed_by_the_properties_drawer_updates_the_footer_tags(page, server, notes_dir):
+    # An older note carries its priority as a tag; saving the priority from the drawer moves it into the `priority` key.
+    (notes_dir / "bare.md").write_text("---\ntitle: Bare\ntype: task\ntags: [must, work]\nupdated: 2026-11-21\n---\n\n# Bare\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "bare")
     page.goto(f"{server}/notes/bare")
-    expect(page.locator("#note-tags")).to_be_hidden()  # nothing to show
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#must", "#work"])
     page.click("#note-properties-btn")
-    pick_field(page.locator(".notes-properties-drawer"), "priority", "Must")
+    pick_field(page.locator(".notes-properties-drawer"), "priority", "Important")
     page.locator('.notes-properties-drawer [data-action="save"]').click()
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#must"])
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#work"])
+    assert "priority: important" in (notes_dir / "bare.md").read_text()
     assert page.errors == []
 
 

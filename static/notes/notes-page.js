@@ -599,7 +599,7 @@ class NotesApp extends HTMLElement {
     }).catch(() => {});
   }
 
-  // The footer's tag field after the tags changed outside it (the properties drawer sets the priority tag).
+  // The footer's tag field after the tags changed outside it (saving the priority in the properties drawer drops an older note's priority tag).
   showTags(tags) {
     const field = this.querySelector('#note-tags');
     if (!field) return;

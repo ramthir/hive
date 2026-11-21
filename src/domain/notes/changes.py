@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from src.domain.notes.entities import Note
-from src.domain.notes.tasks import task_priority
+from src.domain.notes.tasks import task_priority, without_priority
 
 KINDS = ("text", "properties", "time", "restore", "rename", "created", "saved")
 STATUS_LABELS = {"TODO": "To do", "IN_PROGRESS": "In progress", "DONE": "Done"}
@@ -69,9 +69,9 @@ def _property_parts(old: Note, new: Note) -> list[str]:
     if (old.status or "") != (new.status or ""):
         label = STATUS_LABELS.get(new.status or "", new.status)
         parts.append(f"moved to {label}" if new.status else "cleared the status")
-    if task_priority(old.tags) != task_priority(new.tags):
-        parts.append(f"set priority to {task_priority(new.tags)}" if task_priority(new.tags) else "removed the priority")
-    other_old, other_new = {t for t in old.tags if t != task_priority(old.tags)}, {t for t in new.tags if t != task_priority(new.tags)}
+    if task_priority(old) != task_priority(new):
+        parts.append(f"set priority to {task_priority(new)}" if task_priority(new) else "removed the priority")
+    other_old, other_new = set(without_priority(old.tags)), set(without_priority(new.tags))
     added, removed = sorted(other_new - other_old), sorted(other_old - other_new)
     if added or removed:
         parts.append(f"added {', '.join(added)}" if added and not removed else f"removed {', '.join(removed)}" if removed and not added else "changed the tags")
@@ -140,7 +140,7 @@ def _fields(note: Note | None) -> dict[str, str | None]:
     if note is None:
         return {}
     fields: dict[str, str | None] = {
-        "status": note.status, "week": note.week, "type": ", ".join(note.types) or None,
+        "status": note.status, "priority": note.priority, "week": note.week, "type": ", ".join(note.types) or None,
         "tags": ", ".join(note.tags) or None, "time": _time_text(note.time),
         "updated": str(note.updated) if note.updated else None,
     }

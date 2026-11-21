@@ -17,6 +17,7 @@ class Note:
     created: str | None = None
     updated: str | None = None
     status: str | None = None  # the `status:` frontmatter key (TODO / IN_PROGRESS / DONE) used by the task board
+    priority: str | None = None  # the `priority:` frontmatter key (must / important / nice-to-have) used by the task board
     week: str | None = None  # the `week:` frontmatter key, an ISO week like 2026-W47: when a task was finished
     types: tuple[str, ...] = ()  # the `type:` frontmatter key: a list like [task] or [contact, interview]; () = unset
     time: dict[str, int] = field(default_factory=dict)  # the `time:` frontmatter key: ISO day -> minutes logged

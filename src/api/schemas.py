@@ -142,7 +142,7 @@ class NoteUpdate(BaseModel):
     tags: list[str] | None = None
     types: list[str] | None = None  # omitted: unchanged; []: clear
     status: TaskStatus | None = None  # omitted: unchanged
-    priority: TaskPriority | Literal[""] | None = None  # replaces the priority tag; "" removes it; omitted: tags as given
+    priority: TaskPriority | Literal[""] | None = None  # stored in the `priority` key; "" removes it; omitted: unchanged
     week: str | None = Field(default=None, pattern=WEEK_PATTERN + "|^$")  # omitted: unchanged (set automatically with status); "" clears
     properties: dict[str, str] | None = None  # the type's own fields, e.g. {"project": "Acme"}; "" removes one; omitted: unchanged
     revision: str | None = None  # the `revision` the edit is based on; if the note has changed since, 412 instead of overwriting
@@ -247,4 +247,4 @@ class TaskOut(NoteSummary):
     @classmethod
     def from_task(cls, n: Note) -> "TaskOut":
         week_key, week_stored = task_week(n)
-        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n), "tags": list(without_priority(n.tags)), "priority": task_priority(n.tags), "week_key": week_key, "week_stored": week_stored, "ticket": str(n.extra.get("ticket") or "").strip() or None})
+        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n), "tags": list(without_priority(n.tags)), "priority": task_priority(n), "week_key": week_key, "week_stored": week_stored, "ticket": str(n.extra.get("ticket") or "").strip() or None})

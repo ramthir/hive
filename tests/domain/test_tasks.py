@@ -63,13 +63,15 @@ def test_task_week_is_the_stored_week_else_the_updated_day_else_none():
     assert task_week(note()) == (None, False)
 
 
-def test_priority_is_the_most_urgent_priority_tag():
-    from src.domain.notes.tasks import task_priority, with_priority, without_priority
-
-    assert task_priority(["x", "important", "#Must"]) == "must"
-    assert task_priority(["#nice-to-have"]) == "nice-to-have"
-    assert task_priority(["x", "musts"]) is None
+def test_priority_is_the_stored_key_else_the_most_urgent_priority_tag():
+    from dataclasses import replace
+    from src.domain.notes.tasks import tag_priority, task_priority, without_priority
+    assert tag_priority(["x", "important", "#Must"]) == "must"
+    assert tag_priority(["#nice-to-have"]) == "nice-to-have"
+    assert tag_priority(["x", "musts"]) is None
     assert without_priority(["a", "#must", "Important", "b"]) == ("a", "b")
-    assert with_priority(["a", "must", "b"], "important") == ("a", "b", "important")
-    assert with_priority(["a", "must"], None) == ("a",)
-    assert with_priority([], "must") == ("must",)
+    note = Note(slug="a", title="A", content="", tags=("must",))
+    assert task_priority(note) == "must"  # an older note: the tag
+    assert task_priority(replace(note, priority="Nice to have")) == "nice-to-have"  # the key wins
+    assert task_priority(replace(note, priority="urgent")) == "must"  # an unknown value is ignored
+    assert task_priority(replace(note, tags=(), priority=None)) is None

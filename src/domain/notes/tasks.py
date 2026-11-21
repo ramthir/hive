@@ -16,7 +16,8 @@ def week_label(day: date) -> str:
     return f"{year}-W{week:02d}"
 
 
-# "1 Must / 2 Important / 3 Nice to have": a task's priority is marked with one of these tags, most urgent first.
+# "1 Must / 2 Important / 3 Nice to have": a task's priority is the `priority:` key, one of these, most urgent first
+# (older notes mark it with the same word as a tag).
 TaskPriority = Literal["must", "important", "nice-to-have"]
 PRIORITIES: tuple[str, ...] = get_args(TaskPriority)
 
@@ -52,16 +53,18 @@ def _tag_name(tag: str) -> str:
     return tag.strip().lstrip("#").casefold()
 
 
-def task_priority(tags: tuple[str, ...] | list[str]) -> str | None:
-    """The most urgent priority among the tags (`#must` beats `#important`), or None."""
+def tag_priority(tags: tuple[str, ...] | list[str]) -> str | None:
+    """The most urgent priority among the tags (`#must` beats `#important`), or None. Older notes keep it there."""
     names = {_tag_name(t) for t in tags}
     return next((p for p in PRIORITIES if p in names), None)
+
+
+def task_priority(note: Note) -> str | None:
+    """The stored `priority:` if it is a known one, else the priority tag of an older note, else None."""
+    stored = (note.priority or "").strip().casefold().replace(" ", "-").replace("_", "-")
+    return stored if stored in PRIORITIES else tag_priority(note.tags)
 
 
 def without_priority(tags: tuple[str, ...] | list[str]) -> tuple[str, ...]:
     return tuple(t for t in tags if _tag_name(t) not in PRIORITIES)
 
-
-def with_priority(tags: tuple[str, ...] | list[str], priority: str | None) -> tuple[str, ...]:
-    """The tags with their priority tag(s) replaced by `priority` (None: no priority tag at all)."""
-    return without_priority(tags) + ((priority,) if priority else ())

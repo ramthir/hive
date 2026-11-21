@@ -43,7 +43,9 @@ def test_time_logged_and_removed():
 def test_tags_and_priority():
     assert describe(BASE, replace(BASE, tags=("x", "y"))).summary == "Added x, y"
     assert describe(replace(BASE, tags=("x",)), BASE).summary == "Removed x"
-    assert describe(BASE, replace(BASE, tags=("must",))).summary == "Set priority to must"
+    assert describe(BASE, replace(BASE, tags=("must",))).summary == "Set priority to must"  # older notes
+    assert describe(BASE, replace(BASE, priority="must")).summary == "Set priority to must"
+    assert describe(replace(BASE, priority="must"), BASE).summary == "Removed the priority"
 
 
 def test_rename_and_mixed_changes_list_every_kind():

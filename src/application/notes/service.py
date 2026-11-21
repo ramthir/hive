@@ -17,7 +17,7 @@ from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, Not
 from src.domain.notes.properties import apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
-from src.domain.notes.tasks import is_task, task_status, week_label, with_priority
+from src.domain.notes.tasks import is_task, task_status, week_label, without_priority
 from src.domain.notes.time import MAX_MINUTES_PER_DAY, accepts_time, parse_day
 from src.domain.notes.title import extract_h1, set_h1, with_h1
 from src.domain.notes.wiki_links import rewrite_targets
@@ -189,8 +189,8 @@ class NoteService:
         (NoteConflict) instead of overwriting the other edit. `types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
         Moving a task to DONE records the week it was finished in `week` (unless `week` is given); moving it out
         of DONE clears it again. `week` None leaves it unchanged otherwise ("" clears it). `priority` (must / important /
-        nice-to-have, "" for none) replaces the priority tag among the new `tags` (or the current ones); None leaves them
-        as given. `properties` sets the frontmatter fields of the note's type ("" removes one; `domain.notes.properties`)."""
+        nice-to-have, "" for none) is stored in the `priority` key and removes any priority tag from the new `tags` (or the
+        current ones); None leaves both as they are. `properties` sets the frontmatter fields of the note's type ("" removes one; `domain.notes.properties`)."""
         current = self.repo.get(slug)
         if revision is not None and current.revision != revision:
             raise NoteConflict("This note changed since you opened it (edited elsewhere).")
@@ -198,8 +198,10 @@ class NoteService:
         new_status = current.status if status is None else status
         new_week = current.week if week is None else (week or None)
         new_tags = current.tags if tags is None else tuple(tags)
-        if priority is not None:
-            new_tags = with_priority(new_tags, priority or None)
+        new_priority = current.priority
+        if priority is not None:  # the key replaces any priority tag an older note still carries
+            new_priority = priority or None
+            new_tags = without_priority(new_tags)
         if status is not None and week is None:
             before, after = task_status(current), task_status(replace(current, status=status))
             if after == "DONE" and before != "DONE":
@@ -225,13 +227,13 @@ class NoteService:
             self.invalidate([slug, new_slug])
             note = self.repo.update(replace(
                 current, slug=new_slug, title=new_title, content=body, types=new_types,
-                status=new_status, week=new_week, extra=extra,
+                status=new_status, priority=new_priority, week=new_week, extra=extra,
                 tags=new_tags))
             self._relink(linking, slug, new_slug, current.title, new_title)
         else:
             note = self.repo.update(replace(
                 current, title=new_title, content=body, types=new_types,
-                status=new_status, week=new_week, extra=extra,
+                status=new_status, priority=new_priority, week=new_week, extra=extra,
                 tags=new_tags))
         self.invalidate([slug, new_slug, *(linking if new_slug != slug else [])])
         return note

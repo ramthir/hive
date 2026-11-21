@@ -32,7 +32,7 @@ def _value(field: Field, note: Note, values: dict[str, str]) -> str:
     if field.target == "status":
         return task_status(note)
     if field.target == "priority":
-        return task_priority(note.tags) or ""
+        return task_priority(note) or ""
     if field.target == "week":
         return note.week or ""
     return values[field.key]

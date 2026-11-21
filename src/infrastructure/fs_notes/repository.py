@@ -17,7 +17,7 @@ from src.domain.notes.time import parse_day, parse_time, valid_minutes
 from src.infrastructure.fs_notes import frontmatter
 from src.infrastructure.git.client import Commit, GitClient
 
-MANAGED = ("title", "tags", "created", "updated", "type", "status", "week", "time")
+MANAGED = ("title", "tags", "created", "updated", "type", "status", "priority", "week", "time")
 
 
 def _day(value: Any) -> str | None:
@@ -116,6 +116,7 @@ class FileNoteRepository(NoteRepository):
             updated=_day(meta.get("updated")),
             types=parse_types(meta.get("type")),
             status=(str(meta["status"]).strip() or None) if meta.get("status") is not None else None,
+            priority=(str(meta["priority"]).strip() or None) if meta.get("priority") is not None else None,
             week=(str(meta["week"]).strip() or None) if meta.get("week") is not None else None,
             time=parse_time(meta.get("time")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
@@ -129,7 +130,7 @@ class FileNoteRepository(NoteRepository):
             meta = frontmatter.new_map()
         iso = self._today().isoformat()  # fresh date objects per key: shared ones become YAML anchors
         meta["title"] = note.title
-        # `tags`, `type`, `status`, `week` and `time` are only touched when they changed, so a file keeps its own list
+        # `tags`, `type`, `status`, `priority`, `week` and `time` are only touched when they changed, so a file keeps its own list
         # style (inline, block or scalar); a value that does change is written inline, as in the rest of the vault.
         # A new key goes right after the nearest key before it in the vault's order, not at the end.
         if tuple(note.tags) != parse_tags(meta.get("tags")):
@@ -142,11 +143,14 @@ class FileNoteRepository(NoteRepository):
         current_status = str(meta["status"]).strip() if meta.get("status") is not None else None
         if note.status != (current_status or None):
             _set_key(meta, "status", note.status, ("type", "tags", "title"))
+        current_priority = str(meta["priority"]).strip() if meta.get("priority") is not None else None
+        if note.priority != (current_priority or None):
+            _set_key(meta, "priority", note.priority, ("status", "type", "tags", "title"))
         current_week = str(meta["week"]).strip() if meta.get("week") is not None else None
         if note.week != (current_week or None):
-            _set_key(meta, "week", note.week, ("status", "type", "tags", "title"))
+            _set_key(meta, "week", note.week, ("priority", "status", "type", "tags", "title"))
         if note.time != parse_time(meta.get("time")):  # only when the usable days changed
-            _set_key(meta, "time", _time_value(note.time, meta.get("time")) or None, ("week", "status", "type", "tags", "title"))
+            _set_key(meta, "time", _time_value(note.time, meta.get("time")) or None, ("week", "priority", "status", "type", "tags", "title"))
         for k in [k for k in meta if k not in MANAGED and k not in note.extra]:
             del meta[k]  # an unmanaged key the note no longer has (a cleared property)
         for k, v in note.extra.items():
