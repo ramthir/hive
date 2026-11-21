@@ -121,3 +121,31 @@ def test_a_hardlinked_file_is_counted_once(tmp_path):
     storage = ContainerMonitor(tmp_path / "none", tmp_path / "none2", home=home).measure_storage()
     assert storage["used_bytes"] == 140
 
+
+def test_a_pid_the_kernel_reuses_gets_a_fresh_handle(tmp_path, monkeypatch):
+    from src.infrastructure.system import monitor as monitor_module
+
+    class Proc:
+        def __init__(self, pid, started):
+            self.pid, self.started, self.primed = pid, started, 0
+
+        def __eq__(self, other):  # psutil compares the pid and the creation time
+            return isinstance(other, Proc) and (self.pid, self.started) == (other.pid, other.started)
+
+        def cpu_percent(self, interval=None):
+            self.primed += 1
+            return 0.0
+
+        def memory_percent(self):
+            return 1.0
+
+    old, other, reused = Proc(5, 100), Proc(6, 100), Proc(5, 200)
+    batches = [[old, other], [old, other], [reused, other]]
+    monkeypatch.setattr(monitor_module.psutil, "process_iter", lambda: iter(batches.pop(0)))
+    monitor = ContainerMonitor(tmp_path, tmp_path / "none", home=tmp_path)
+    monitor._sample()
+    monitor._sample()
+    assert old.primed == 3 and other.primed == 3  # primed and read once, then only read: the same handle is kept
+    monitor._sample()
+    assert monitor._handles[5] is reused and reused.primed == 2  # the new process was primed, not read through the old handle
+    assert monitor._handles[6] is other

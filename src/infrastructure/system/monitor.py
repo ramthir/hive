@@ -185,7 +185,9 @@ class ContainerMonitor:
         seen = set()
         for p in psutil.process_iter():
             seen.add(p.pid)
-            if p.pid not in self._handles:
+            # A new process, or a pid the kernel has handed to another one: a stale handle would give the old one's deltas.
+            known = self._handles.get(p.pid)
+            if known is None or known != p:
                 self._handles[p.pid] = p
                 try:
                     p.cpu_percent(interval=None)  # primes the delta: the first reading would be 0
