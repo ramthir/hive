@@ -155,4 +155,17 @@ test('several GPUs are one card: the average load, the names and the VRAM added 
   assert.deepEqual([tiles[1].value, tiles[1].sub, tiles[1].progress], ['70.5%', '2× Tesla T4 · VRAM 6.0/30.0 GB (20%)', 70.5]);
   assert.equal(gpuSummary([gpu, { ...gpu, name: 'A100' }]).sub.startsWith('2× Tesla T4 + A100'), true);
   assert.equal(gpuSummary([{ name: 'Tesla T4' }]).value, '-'); // nothing measured yet
+  // Idle compute with nearly full VRAM still highlights VRAM pressure in red.
+  assert.equal(gpuSummary([{ name: 'Tesla T4', utilization_percent: 0, memory_used_mb: 14000, memory_total_mb: 15360, memory_percent: 91.1 }]).color, 'var(--color-red)');
+});
+
+test('Colab processes can be filtered by name or command before paging', () => {
+  const list = [
+    { pid: 1, name: 'python3', cmdline: 'train.py --epochs 10', cpu_percent: 80, mem_percent: 20 },
+    { pid: 2, name: 'jupyter', cmdline: 'notebook', cpu_percent: 5, mem_percent: 4 },
+  ];
+  const byCmd = processPage(list, { q: 'TRAIN.PY' });
+  assert.deepEqual(byCmd.items.map((p) => p.name), ['python3']);
+  assert.equal(byCmd.total, 1);
+  assert.equal(processPage(list, { q: 'missing' }).total, 0);
 });

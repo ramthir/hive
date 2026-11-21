@@ -27,7 +27,7 @@ colab-tab .colab-picker-runtime { flex: 1 1 0; display: inline-flex; align-items
 colab-tab .colab-picker-runtime span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 colab-tab .colab-picker-runtime i { font-size: 0.6rem; flex-shrink: 0; color: var(--color-green); opacity: 0.9; transition: transform 0.16s ease; }
 colab-tab .colab-picker-trigger[aria-expanded='true'] .colab-picker-runtime i { transform: rotate(180deg); }
-colab-tab .colab-picker-menu { top: calc(100% + 8px); left: 0; z-index: 200; min-width: 240px; background: var(--color-dark1); border-color: var(--color-dimmed4); }
+colab-tab .colab-picker-menu { top: calc(100% + 8px); right: 0; left: auto; z-index: 200; min-width: 240px; background: var(--color-dark1); border-color: var(--color-dimmed4); }
 colab-tab .colab-picker-menu[hidden] { display: none; }
 colab-tab .app-dropdown-item { display: flex; align-items: center; gap: 0.55rem; width: 100%; padding: 0.45rem 0.6rem; border: 1px solid transparent; border-radius: var(--radius-sm, 6px); background: transparent; color: var(--color-text); font: inherit; font-size: 0.78rem; text-align: left; cursor: pointer; }
 colab-tab .app-dropdown-item.active { background: color-mix(in srgb, var(--color-green) 12%, transparent); border-color: color-mix(in srgb, var(--color-green) 28%, transparent); }

@@ -44,6 +44,9 @@ class ColabCollector:
     async def subscribe(self, session):
         runtime_id = session['runtime_id']
         feed = self.feeds.setdefault(runtime_id, RuntimeFeed(session))
+        feed.session = session
+        if feed.data.get('status') == 'inactive':
+            feed.data = {**feed.data, 'status': 'loading', 'message': ''}
         if feed.stop:
             feed.stop.cancel()
             feed.stop = None
@@ -70,11 +73,12 @@ class ColabCollector:
 
         task.add_done_callback(finished)
 
-    @staticmethod
-    def _stop(feed):
+    def _stop(self, feed):
         feed.stop = None
         if not feed.viewers and feed.task and not feed.task.done():
             feed.task.cancel()
+        if not feed.viewers and feed.data.get('status') == 'inactive':
+            self.feeds.pop(feed.session['runtime_id'], None)
 
     async def refresh(self, feed):
         """Never send execution while state is busy, unknown, or unavailable."""

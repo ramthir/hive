@@ -27,13 +27,14 @@ class ColabTab extends HTMLElement {
     this.sort = 'cpu_percent';
     this.direction = 'desc';
     this.page = 0;
+    this.q = '';
     this.innerHTML = `
       <div class="colab-body">
         <section class="colab-grid" data-grid="usage" aria-label="Colab usage">
           ${[['balance', 'fa-coins', 'Compute Units'], ['rate', 'fa-gauge-high', 'Usage Rate'], ['uptime', 'fa-clock', 'Uptime']]
             .map(([key, icon, title]) => renderStatCard({ title, icon, value: '-', sub: '-', loading: true, attrs: { 'data-metric': key } })).join('')}
           <stat-card data-metric="assignments" title="Active Assignments" icon="fa-server" value="-" sub="" allow-overflow loading>
-            <app-dropdown-menu class="colab-picker" placement="bottom-start" hidden>
+            <app-dropdown-menu class="colab-picker" placement="bottom-end" hidden>
               <button slot="trigger" type="button" class="colab-picker-trigger" aria-label="Select Colab session">
                 <span class="colab-picker-name"></span>
                 <span class="colab-picker-runtime"><span></span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span>
@@ -53,6 +54,10 @@ class ColabTab extends HTMLElement {
             <button type="button" class="colab-reconnect"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Reconnect</button>
           </div>
           <section class="colab-grid" data-grid="machine" aria-label="Runtime statistics"></section>
+          <div class="proc-toolbar">
+            <input type="search" class="proc-filter" aria-label="Filter runtime processes" placeholder="Filter processes by name or command" autocomplete="off" />
+            <span class="proc-meta" aria-live="polite"></span>
+          </div>
           <div class="table-card"><app-table aria-label="Runtime processes"></app-table></div>
           <app-pagination hidden></app-pagination>
         </div>
@@ -65,12 +70,20 @@ class ColabTab extends HTMLElement {
     this.picker = this.querySelector('.colab-picker');
     this.table = this.querySelector('app-table');
     this.pagination = this.querySelector('app-pagination');
+    this.filter = this.querySelector('.proc-filter');
+    this.meta = this.querySelector('.proc-meta');
     this.table.setAttribute('sort-mode', 'server');
     this.table.setColumns(this.columns());
     this.table.setDefaultSort(this.sort, this.direction);
     this.table.setEmptyState({ icon: 'fa-microchip', title: 'No process data available' });
     this.table.setLoading(true);
     this.drawMachine();
+
+    this.filter.addEventListener('input', () => {
+      this.q = this.filter.value;
+      this.page = 0;
+      this.drawProcesses();
+    });
 
     this.querySelector('.colab-reconnect').addEventListener('click', () => {
       this.closeStream();
@@ -130,15 +143,22 @@ class ColabTab extends HTMLElement {
 
   async poll() {
     const [usage, sessions] = await Promise.allSettled([api('/colab/usage'), api('/colab/sessions')]);
+    if (!this.isConnected) return;
     const errors = [];
     const usageData = usage.status === 'fulfilled' ? usage.value : null;
     const sessionData = sessions.status === 'fulfilled' ? sessions.value : null;
+    const usageOk = Boolean(usageData && usageData.reachable !== false);
+    const sessionsOk = Boolean(sessionData && sessionData.reachable !== false);
     if (!usageData) errors.push('Unable to read Colab usage');
     else if (usageData.reachable === false && usageData.error) errors.push(usageData.error);
     if (!sessionData) errors.push('Unable to read Colab sessions');
     else if (sessionData.reachable === false && sessionData.error) errors.push(sessionData.error);
     this.drawUsage(usageData);
-    this.setSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : []);
+    this.setSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : [], {
+      usageOk,
+      sessionsOk,
+      sessionsError: !sessionData ? 'Unable to read Colab sessions.' : (sessionData.error || ''),
+    });
     this.pollErrors = errors;
     if (this.session) this.openStream();
     this.refreshStatus();
@@ -163,7 +183,8 @@ class ColabTab extends HTMLElement {
   }
 
   drawUptime() {
-    this.setCard(this.usageGrid, uptimeTile(this.stats, this.activeSession, this.session));
+    const loading = Boolean(this.session) && !this.stats && !waitingReason(this.stats, this.feed);
+    this.setCard(this.usageGrid, { ...uptimeTile(this.stats, this.activeSession, this.session), loading });
   }
 
   // The machine cards are rebuilt only when the set of cards changes (a GPU appears), so a refresh does not flash.
@@ -181,7 +202,7 @@ class ColabTab extends HTMLElement {
 
   // --- runtimes ------------------------------------------------------------------------------------------------------
 
-  setSessions(sessions) {
+  setSessions(sessions, { usageOk = true, sessionsOk = true, sessionsError = '' } = {}) {
     this.sessions = sessions;
     const chosen = chooseSession(sessions, this.session);
     if (chosen !== this.session) {
@@ -189,13 +210,28 @@ class ColabTab extends HTMLElement {
       this.stats = null;
       this.processes = [];
       this.page = 0;
+      this.q = '';
+      if (this.filter) this.filter.value = '';
       this.closeStream();
     }
     const has = Boolean(this.session);
     this.idle.hidden = has;
     this.sessionPane.hidden = !has;
     this.picker.hidden = !has;
-    this.setCard(this.usageGrid, { key: 'assignments', loading: false, sub: has ? '' : 'No active session' });
+    if (!has) {
+      const heading = this.idle.querySelector('h3');
+      const body = this.idle.querySelector('p');
+      if (sessionsOk) {
+        heading.textContent = 'No active session';
+        body.innerHTML = 'Start a runtime with <code>colab new</code> or <code>colab ssh</code> to view live VM metrics.';
+      } else {
+        heading.textContent = 'Unable to read Colab sessions';
+        body.textContent = sessionsError || 'Check that the colab CLI is installed and signed in.';
+      }
+    }
+    // Never clobber "Unable to read" on Active Assignments when `colab usage` failed.
+    if (has) this.setCard(this.usageGrid, { key: 'assignments', loading: false, sub: '' });
+    else if (usageOk) this.setCard(this.usageGrid, { key: 'assignments', loading: false, sub: 'No active session' });
     if (!has) {
       this.drawUptime();
       return;
@@ -211,7 +247,10 @@ class ColabTab extends HTMLElement {
     this.stats = null;
     this.processes = [];
     this.page = 0;
+    this.q = '';
+    if (this.filter) this.filter.value = '';
     this.closeStream();
+    this.refreshStatus();
     this.drawPicker();
     this.drawUptime();
     this.drawMachine();
@@ -284,7 +323,9 @@ class ColabTab extends HTMLElement {
       return;
     }
     this.stats = data.stats || this.stats;
-    this.processes = data.processes || [];
+    if (Array.isArray(data.processes) && (data.processes.length || data.status === 'ready')) {
+      this.processes = data.processes;
+    }
     this.drawMachine();
     this.drawUptime();
     this.drawProcesses();
@@ -297,6 +338,7 @@ class ColabTab extends HTMLElement {
   drawProcesses() {
     if (!this.stats && !this.processes.length) {
       const reason = waitingReason(this.stats, this.feed);
+      if (this.meta) this.meta.textContent = '';
       if (reason) { // say why there is nothing, instead of loading for ever
         if (this.emptyReason !== reason) {
           this.emptyReason = reason;
@@ -309,12 +351,21 @@ class ColabTab extends HTMLElement {
       this.pagination.hidden = true;
       return;
     }
-    if (this.emptyReason) {
-      this.emptyReason = '';
-      this.table.setEmptyState({ icon: 'fa-microchip', title: 'No process data available' });
+    const filtering = Boolean(this.q.trim());
+    const expectedEmpty = filtering ? 'filter' : '';
+    if (this.emptyReason !== expectedEmpty) {
+      this.emptyReason = expectedEmpty;
+      this.table.setEmptyState(filtering
+        ? { icon: 'fa-magnifying-glass', title: 'No process matches the filter' }
+        : { icon: 'fa-microchip', title: 'No process data available' });
     }
-    const view = processPage(this.processes, { sort: this.sort, dir: this.direction, page: this.page, pageSize: PAGE_SIZE });
+    const view = processPage(this.processes, { sort: this.sort, dir: this.direction, page: this.page, pageSize: PAGE_SIZE, q: this.q });
     this.page = view.page;
+    if (this.meta) {
+      this.meta.textContent = filtering
+        ? `${view.total} of ${this.processes.length} matching`
+        : `${this.processes.length} ${this.processes.length === 1 ? 'process' : 'processes'}`;
+    }
     this.table.setData(view.items);
     this.pagination.setAttribute('page', String(view.page));
     this.pagination.setAttribute('page-size', String(view.pageSize));

@@ -146,3 +146,25 @@ async def test_reconnect_during_cancellation_restarts_collection_after_cleanup()
             assert collector.collect.await_count == 2
     finally:
         await collector.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_inactive_feed_is_evicted_after_last_viewer_leaves_and_resubscribe_resets_status():
+    collector = make_collector(interval=100, grace=.01)
+    collector.sessions.return_value = []
+    try:
+        async with collector.subscribe(SESSION) as queue:
+            assert (await queue.get())['status'] == 'loading'
+            assert (await asyncio.wait_for(queue.get(), 1))['status'] == 'inactive'
+        await asyncio.sleep(.03)
+        assert SESSION['runtime_id'] not in collector.feeds
+
+        # If a runtime becomes active again before eviction, re-subscribing starts fresh as loading, not inactive.
+        feed = RuntimeFeed(SESSION)
+        feed.data['status'] = 'inactive'
+        collector.feeds[SESSION['runtime_id']] = feed
+        collector.sessions.return_value = [SESSION]
+        async with collector.subscribe(SESSION) as queue:
+            assert (await queue.get())['status'] == 'loading'
+    finally:
+        await collector.shutdown()

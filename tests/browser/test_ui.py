@@ -1654,6 +1654,11 @@ def test_colab_tab_shows_usage_the_runtime_its_live_stats_and_processes(page, co
     expect(page.locator("colab-tab app-pagination")).to_be_visible()
     page.locator("colab-tab app-table th", has_text="Memory").click()  # a sort is made here, with no request
     expect(rows).to_have_count(10)
+    page.locator("colab-tab .proc-filter").fill("proc12")
+    expect(rows).to_have_count(1)
+    expect(rows.first).to_contain_text("proc12")
+    page.locator("colab-tab .proc-filter").fill("")
+    expect(rows).to_have_count(10)
     expect(page.locator("dashboard-app .dash-status")).to_have_text("")
     card, chip = (page.locator(sel).bounding_box() for sel in ('colab-tab stat-card[data-metric="assignments"]', "colab-tab .colab-picker-trigger"))
     assert chip["x"] + chip["width"] <= card["x"] + card["width"]  # the runtime chip is cut short, never wider than its card
@@ -1682,6 +1687,8 @@ def test_colab_tab_says_when_the_cli_cannot_be_reached(page, colab_server):
     expect(page.locator("dashboard-app .dash-status")).to_have_text("colab CLI is not installed or not on PATH")
     expect(page.locator("dashboard-app .dash-status")).to_have_class("dash-status error")
     expect(page.locator('colab-tab stat-card[data-metric="balance"]')).to_have_attribute("sub", "Unable to read")
+    expect(page.locator('colab-tab stat-card[data-metric="assignments"]')).to_have_attribute("sub", "Unable to read")
+    expect(page.locator(".colab-idle h3")).to_have_text("Unable to read Colab sessions")
     assert page.errors == []
 
 

@@ -55,8 +55,10 @@ export function gpuSummary(gpus) {
   const total = measured.reduce((a, g) => a + g.memory_total_mb, 0);
   const share = gpus.length === 1 && has(gpus[0].memory_percent) ? gpus[0].memory_percent : total ? +(used / total * 100).toFixed(1) : 0;
   const vram = measured.length ? ` \u00b7 VRAM ${(used / 1024).toFixed(1)}/${(total / 1024).toFixed(1)} GB (${share}%)` : '';
+  const pressure = util !== null ? Math.max(util, measured.length ? share : 0) : (measured.length ? share : null);
+  const color = pressure !== null ? usageColor(pressure) : '';
   return { value: util !== null ? `${util}%` : '-', sub: `${label}${vram}`,
-           color: util !== null ? usageColor(util) : '', progress: util !== null ? clamp(util) : 0, progressColor: util !== null ? usageColor(util) : '' };
+           color, progress: util !== null ? clamp(util) : 0, progressColor: color };
 }
 
 /**
@@ -95,11 +97,15 @@ export function statusText(data, now = new Date()) {
   return { notice: text, error: '' };
 }
 
-/** One page of the processes, sorted here (the stream sends at most 100): highest first by default, and always the lower pid first on a tie. */
-export function processPage(processes, { sort = 'cpu_percent', dir = 'desc', page = 0, pageSize = PAGE_SIZE } = {}) {
+/** One page of the processes, filtered and sorted here (the stream sends at most 100): highest first by default, and always the lower pid first on a tie. */
+export function processPage(processes, { sort = 'cpu_percent', dir = 'desc', page = 0, pageSize = PAGE_SIZE, q = '' } = {}) {
   const field = SORTS[sort] || sort;
   const factor = dir === 'asc' ? 1 : -1;
-  const sorted = [...(processes || [])].sort((a, b) => factor * ((Number(a[field]) || 0) - (Number(b[field]) || 0)) || (Number(a.pid) || 0) - (Number(b.pid) || 0));
+  const needle = String(q || '').trim().toLowerCase();
+  const filtered = needle
+    ? (processes || []).filter((p) => `${p.name || ''} ${p.cmdline || ''} ${p.command || ''}`.toLowerCase().includes(needle))
+    : [...(processes || [])];
+  const sorted = filtered.sort((a, b) => factor * ((Number(a[field]) || 0) - (Number(b[field]) || 0)) || (Number(a.pid) || 0) - (Number(b.pid) || 0));
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const current = Math.min(Math.max(0, page), totalPages - 1);
   return { items: sorted.slice(current * pageSize, (current + 1) * pageSize), total: sorted.length, totalPages, page: current, pageSize };
