@@ -15,3 +15,11 @@ export function renderSearchTrigger() {
 export function wireSearchTrigger(root) {
   root.querySelector('#search-notes-btn')?.addEventListener('click', () => document.querySelector('note-spotlight')?.open());
 }
+
+/** The same field as a real input, for pages that filter what they show (the rows of a table note): same look, you type in it. */
+export function renderFilterField({ placeholder = 'Filter…', value = '', label = placeholder, inputClass = '', shortcut = '' } = {}) {
+  const esc = (text) => String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  return `<label class="header-search header-search--filter">
+    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="header-search-input ${esc(inputClass)}" type="search" placeholder="${esc(placeholder)}" aria-label="${esc(label)}" autocomplete="off" value="${esc(value)}" />${shortcut ? `<kbd class="header-search-key">${esc(shortcut)}</kbd>` : ''}
+  </label>`;
+}
