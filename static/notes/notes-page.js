@@ -809,9 +809,23 @@ class NotesApp extends HTMLElement {
 
   /* --- History (git) ------------------------------------------------- */
 
-  openNoteVersions() {
-    const slug = this.selectedNote?.slug;
-    if (!slug) return;
+  // Unsaved text is saved first (as in the properties drawer): the history and "compare with current" then show
+  // the note as it really is, and a restore cannot throw the edits away, because they stay one commit back.
+  async openNoteVersions() {
+    if (!this.selectedNote?.slug || this._historyOpening) return;
+    this._historyOpening = true;
+    try {
+      if (this.saveStatus === 'dirty') await this.saveCurrentNote();
+      if (this.saveStatus === 'dirty') return; // the save failed and said why
+      const slug = this.selectedNote?.slug;
+      if (!slug) return;
+      await this.showVersionHistory(slug);
+    } finally {
+      this._historyOpening = false;
+    }
+  }
+
+  showVersionHistory(slug) {
     return openVersionHistory(slug, {
       onRestored: (restored) => {
         this.saveStatus = 'saved';

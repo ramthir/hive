@@ -159,6 +159,28 @@ def test_edit_save_commits_to_git_and_writes_the_heading(page, server, notes_dir
     assert page.errors == []
 
 
+def test_opening_history_saves_unsaved_edits_so_a_restore_keeps_them(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type("\n\nUnsaved line")
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    page.click("#note-versions-btn")  # saves first, then opens
+    expect(page.locator(".hive-version-row").first).to_be_visible()
+    assert "Unsaved line" in (notes_dir / "beta.md").read_text()
+    rows = page.locator(".hive-version-row")
+    expect(rows.first.locator(".msg")).to_contain_text("Edited text")
+    rows.last.click()  # the oldest version
+    page.click("#version-restore")
+    page.click("[data-action=confirm]")
+    expect(page.locator(".hive-version-row")).to_have_count(0)
+    page.wait_for_function("!document.querySelector('.cm-content')?.textContent.includes('Unsaved line')")
+    # The edit is not lost: it is the version just before the restore.
+    assert "Unsaved line" in git(notes_dir, "show", "HEAD~1:beta.md")
+    assert page.errors == []
+
+
 def test_history_survives_a_commit_whose_sha_changed_while_it_was_open(page, server, notes_dir):
     page.goto(f"{server}/notes/beta")
     page.click("#note-versions-btn")
