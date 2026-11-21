@@ -411,7 +411,7 @@ class NotesApp extends HTMLElement {
 
     this.innerHTML = `
       <section class="notes-page notes-editor-page">
-        <app-header heading="Notes" variant="flush" attached>
+        <app-header heading="${esc(note.title || 'New note')}" variant="flush" attached>
           <div slot="actions" class="notes-header-actions app-header-action-group">
             ${renderSearchTrigger()}
           </div>
@@ -529,10 +529,13 @@ class NotesApp extends HTMLElement {
     }
   }
 
-  // The browser tab carries the note's title; the header heading stays "Notes".
+  // The note's title is the header's heading (the preview leaves out the content's own first
+  // heading) and the browser tab's.
   updateDocumentTitle() {
     const title = this.selectedNote?.title || 'New note';
     document.title = `${title} - Hive`;
+    const header = this.querySelector('app-header');
+    if (header && header.heading !== title) header.heading = title;
   }
 
   bindHeader() {
@@ -578,10 +581,11 @@ class NotesApp extends HTMLElement {
   }
 
   renderMarkdownPreview(content) {
-    return renderMarkdown(content, {
+    const html = renderMarkdown(content, {
       isRoute: (pathname) => Boolean(notesRouter.getMatch(pathname)),
       decorate: (parsed) => this._diagrams.markBlocks(parsed),
     });
+    return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, ''); // the title is in the header
   }
 
   updateLivePreview(content) {
@@ -590,6 +594,9 @@ class NotesApp extends HTMLElement {
     if (!preview || !body) return;
     const scrollTop = preview.scrollTop;
     body.innerHTML = this.renderMarkdownPreview(content);
+    const header = this.querySelector('app-header');
+    const title = this.getTitleFromContent(content);
+    if (header && title) header.heading = title;
     this.setupPreviewEvents();
     preview.scrollTop = scrollTop;
   }

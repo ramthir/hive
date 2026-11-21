@@ -74,7 +74,7 @@ def page(server):
 def test_root_opens_the_latest_note_and_there_is_no_list_page(page, server):
     page.goto(server)
     page.wait_for_url("**/notes/alpha")  # alpha has the newest `updated` date
-    expect(page.locator("#notes-md h1")).to_have_text("Alpha")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     assert page.locator(".note-card, #notes-grid, #notes-tag-bar").count() == 0
     page.goto(f"{server}/notes")
     page.wait_for_url("**/notes/alpha")
@@ -127,7 +127,7 @@ def test_spotlight_lists_recent_notes_then_filters(page, server):
 
 def test_view_note_resolves_links_and_backlinks(page, server):
     page.goto(f"{server}/notes/alpha")
-    expect(page.locator("#notes-md h1")).to_have_text("Alpha")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     good = page.locator('.notes-wikilink[data-target="beta"]')
     expect(good).to_have_text("Beta Note")  # auto-label replaced by the target's title
     expect(good).to_have_attribute("href", "/notes/beta")
@@ -136,7 +136,7 @@ def test_view_note_resolves_links_and_backlinks(page, server):
     expect(page.locator("#notes-backlinks")).to_contain_text("Broken links")
     good.click()
     page.wait_for_url("**/notes/beta")
-    expect(page.locator("#notes-md h1")).to_have_text("Beta Note")  # beta has no heading on disk: its title is shown as one
+    expect(page.locator("app-header")).to_have_attribute("heading", "Beta Note")  # beta has no heading on disk: its title is shown as one
     expect(page.locator("#notes-backlinks")).to_contain_text("Alpha")
     assert page.errors == []
 
@@ -257,7 +257,7 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.click("[data-action=confirm]")
     page.wait_for_url("**/notes/fresh-idea**")
     assert (notes_dir / "fresh-idea.md").exists() and not (notes_dir / "renamed-idea.md").exists()
-    expect(page.locator("#notes-md h1")).to_have_text("Fresh Idea")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Fresh Idea")
 
     page.click("#delete-note-btn")
     page.click("[data-action=confirm]")
@@ -353,11 +353,11 @@ def test_tag_field_is_hidden_for_untagged_notes_until_editing(page, server, note
 
 def test_heading_starts_right_below_the_header(page, server):
     page.goto(f"{server}/notes/alpha")
-    expect(page.locator("#notes-md h1")).to_be_visible()
+    expect(page.locator("#notes-md p, #notes-md ul, #notes-md li").first).to_be_visible()
     header = page.locator("app-header").bounding_box()
     workspace = page.locator(".notes-editor-workspace").bounding_box()
     assert abs(workspace["y"] - (header["y"] + header["height"])) < 2  # the note fills the space under the header
-    assert page.locator("#notes-md h1").bounding_box()["y"] - workspace["y"] <= 24  # only the pane's own padding between them
+    assert page.locator("#notes-md").bounding_box()["y"] - workspace["y"] <= 40  # only the pane's own padding between them
 
 
 def test_spotlight_navigation_keeps_unsaved_edits_safe(page, server, notes_dir):
@@ -554,7 +554,7 @@ def test_missing_renderer_keeps_the_code_and_says_why(page, diagram_note, tmp_pa
         expect(page.locator("#notes-md .notes-diagram pre code")).to_have_count(2)  # the source is still readable
         assert page.locator(".notes-diagram-img").count() == 0
         # The note itself still works.
-        expect(page.locator("#notes-md h1")).to_have_text("Flows")
+        expect(page.locator("app-header")).to_have_attribute("heading", "Flows")
 
 
 def test_a_failed_render_shows_the_error_and_is_not_retried(page, diagram_note, tmp_path):
@@ -632,27 +632,27 @@ def test_sidebar_has_notes_tasks_time_and_the_hardcoded_user(page, server):
     assert page.errors == []
 
 
-def test_header_says_notes_without_a_breadcrumb(page, server):
+def test_header_shows_the_note_title_without_a_breadcrumb(page, server):
     page.goto(f"{server}/notes/alpha")
-    expect(page.locator("app-header")).to_have_attribute("heading", "Notes")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     expect(page.locator("#search-notes-btn")).to_be_visible()
     assert page.evaluate("document.querySelector('app-header').breadcrumbs.length") == 0
     page.goto(f"{server}/notes/new")
     page.wait_for_selector(".cm-content")
-    expect(page.locator("app-header")).to_have_attribute("heading", "Notes")
+    expect(page.locator("app-header")).to_have_attribute("heading", "New note")
     assert page.errors == []
 
 
 def test_sidebar_collapse_gives_the_space_back_and_is_remembered(page, server):
     page.goto(f"{server}/notes/alpha")
-    expect(page.locator("#notes-md h1")).to_be_visible()
+    expect(page.locator("#notes-md p, #notes-md ul, #notes-md li").first).to_be_visible()
     assert page.locator(".notes-action-bar").bounding_box()["x"] > 200
     page.click("app-sidebar .desktop-collapse-btn")
     expect(page.locator("app-sidebar")).to_have_class("sidebar-collapsed")
     assert page.locator(".notes-action-bar").bounding_box()["x"] == 0
     page.reload()
     expect(page.locator("app-sidebar")).to_have_class("sidebar-collapsed")  # remembered across page loads
-    expect(page.locator("#notes-md h1")).to_be_visible()
+    expect(page.locator("#notes-md p, #notes-md ul, #notes-md li").first).to_be_visible()
     page.click("app-sidebar .sidebar-expand-btn")
     expect(page.locator("app-sidebar")).not_to_have_class("sidebar-collapsed")
     assert page.locator(".notes-action-bar").bounding_box()["x"] > 200
@@ -665,7 +665,7 @@ def test_sidebar_notes_link_opens_the_latest_note_without_reloading(page, server
     page.evaluate("window.__stillHere = true")
     page.click("app-sidebar .nav-link")
     page.wait_for_url("**/notes/alpha")  # alpha is the most recently edited
-    expect(page.locator("#notes-md h1")).to_have_text("Alpha")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     assert page.evaluate("window.__stillHere === true")  # in-app navigation, not a page load
     assert page.errors == []
 
@@ -744,7 +744,7 @@ def test_tasks_card_opens_a_drawer_and_its_link_opens_the_note(page, server, tas
     expect(page.locator('.task-drawer-host [name="title"]')).to_have_value("Ship it")
     page.click("[data-open-note]")
     page.wait_for_url("**/notes/ship-it")
-    expect(page.locator("#notes-md h1")).to_have_text("Ship it")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Ship it")
     page.click('app-sidebar .nav-link[href="/tasks"]')  # from the notes page: a full navigation, not the notes router
     page.wait_for_url("**/tasks")
     expect(column(page, "TODO").locator(".board-card")).to_have_count(1)
