@@ -169,3 +169,12 @@ test('a provider the quota calls unavailable has no rings, and the usage still d
   assert.equal(quotaDonut('claude', undefined), '');
   assert.match(renderUsage(view(), { providers: {} }), /data-provider="claude"/);
 });
+
+test('every rule of agents.css is scoped to <agents-tab>, so its class names cannot leak into other pages', async () => {
+  const css = (await readFile(new URL('../../static/agents/agents.css', import.meta.url), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+  const loose = [];
+  for (const [, selectors] of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    for (const selector of selectors.split(',').map((s) => s.trim()).filter(Boolean)) if (!selector.startsWith('agents-tab')) loose.push(selector);
+  }
+  assert.deepEqual(loose, []);
+});

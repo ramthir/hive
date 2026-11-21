@@ -3,7 +3,7 @@
 agents-tab { display: block; }
 agents-tab .totals-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 agents-tab .totals-row .metric, agents-tab .totals-row .state { flex: 1; min-width: 0; }
-.agents-body { display: block; padding: var(--space-4); min-width: 0; }
+agents-tab .agents-body { display: block; padding: var(--space-4); min-width: 0; }
 agents-tab { --chart-height: 160px; --tick-height: 1.2rem; color: var(--color-text); font-family: var(--font-family); }
 agents-tab h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: var(--space-2); }
 agents-tab time, agents-tab .state, agents-tab .facts, agents-tab .legend, agents-tab .metric dt, agents-tab .tick { color: var(--color-dimmed1); font-size: var(--btn-header-font-size, 0.8rem); line-height: 1.5; }
@@ -15,7 +15,9 @@ agents-tab .card { display: flex; flex-direction: column; gap: var(--space-3); m
 agents-tab .panel { margin-bottom: var(--space-4); overflow-x: auto; }
 agents-tab .card header, agents-tab .panel-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 agents-tab .dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: var(--radius-full); background: var(--color-dimmed3); }
-agents-tab .dot.claude, agents-tab .seg.claude { background: var(--color-orange); } .dot.codex, .seg.codex { background: var(--color-blue); } .dot.antigravity, .seg.antigravity { background: var(--color-purple); }
+agents-tab .dot.claude, agents-tab .seg.claude { background: var(--color-orange); }
+agents-tab .dot.codex, agents-tab .seg.codex { background: var(--color-blue); }
+agents-tab .dot.antigravity, agents-tab .seg.antigravity { background: var(--color-purple); }
 agents-tab .metrics { display: flex; flex-direction: column; gap: var(--space-2); }
 agents-tab .subs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 agents-tab .metric { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-2); align-items: center; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-dark2); min-width: 0; }
@@ -29,14 +31,19 @@ agents-tab .subs .metric dd { grid-column: 2; margin: 0; font-size: 1.05rem; lin
 agents-tab .metric.totals { padding: var(--space-3) var(--space-4); }
 agents-tab .metric.totals dt i { grid-row: 1 / span 2; width: calc(var(--space-7) + var(--space-2)); font-size: var(--space-5); }
 agents-tab .metric.totals dd { grid-column: 2; margin: 0; font-size: 1.3rem; line-height: 1.1; }
-agents-tab .metric.input { --usage-accent: var(--color-blue); } .metric.cached { --usage-accent: var(--color-yellow); } .metric.output { --usage-accent: var(--color-green); } .metric.totals { --usage-accent: var(--color-purple); }
+agents-tab .metric.input { --usage-accent: var(--color-blue); }
+agents-tab .metric.cached { --usage-accent: var(--color-yellow); }
+agents-tab .metric.output { --usage-accent: var(--color-green); }
+agents-tab .metric.totals { --usage-accent: var(--color-purple); }
 agents-tab .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
 agents-tab .facts li:nth-child(2) { justify-content: flex-end; text-align: right; }
 agents-tab .card header .facts { display: flex; gap: var(--space-3); padding-right: var(--space-2); }
 agents-tab .facts li, agents-tab .state { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
 agents-tab .facts i, agents-tab .state i { color: var(--color-dimmed2); width: 1rem; text-align: center; }
-agents-tab .state { padding: var(--space-4) 0; } .state.error, .state.error i { color: var(--color-red); }
-agents-tab .legend { display: flex; gap: var(--space-4); list-style: none; margin: 0; padding: 0; } .legend li { display: flex; align-items: center; gap: var(--space-2); }
+agents-tab .state { padding: var(--space-4) 0; }
+agents-tab .state.error, agents-tab .state.error i { color: var(--color-red); }
+agents-tab .legend { display: flex; gap: var(--space-4); list-style: none; margin: 0; padding: 0; }
+agents-tab .legend li { display: flex; align-items: center; gap: var(--space-2); }
 agents-tab .chart { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
 agents-tab .axis { list-style: none; margin: 0; padding: 0; width: max-content; height: calc(var(--chart-height) - var(--tick-height)); display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; color: var(--color-dimmed2); font-size: 0.65rem; line-height: 1; font-variant-numeric: tabular-nums; }
 agents-tab .plot { position: relative; flex: 1; min-width: 0; }
@@ -55,7 +62,10 @@ agents-tab .session-resume:hover { color: var(--color-accent5); }
 agents-tab .session-resume:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 agents-tab .sessions { margin-bottom: var(--space-4); }
 agents-tab .data-table th.num, agents-tab .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-agents-tab .data-table th.input, agents-tab .data-table td.input { color: var(--color-blue); } .data-table th.cached, .data-table td.cached { color: var(--color-yellow); } .data-table th.output, .data-table td.output { color: var(--color-green); } .data-table th.totals, .data-table td.totals { color: var(--color-purple); font-weight: 600; }
+agents-tab .data-table th.input, agents-tab .data-table td.input { color: var(--color-blue); }
+agents-tab .data-table th.cached, agents-tab .data-table td.cached { color: var(--color-yellow); }
+agents-tab .data-table th.output, agents-tab .data-table td.output { color: var(--color-green); }
+agents-tab .data-table th.totals, agents-tab .data-table td.totals { color: var(--color-purple); font-weight: 600; }
 agents-tab .data-table td .dot { margin-right: var(--space-2); }
 agents-tab .skeleton { display: block; background: var(--color-dimmed5); opacity: 0.7; border-radius: 4px; }
 agents-tab .metric dt i.skeleton-icon { background: var(--color-dimmed5); }
