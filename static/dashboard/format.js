@@ -8,15 +8,20 @@ export function levelColor(percent, warn = 60, crit = 80) {
   return 'var(--color-red)';
 }
 
+/** The colour of the disk's free space: green until it is three quarters full, yellow to nine tenths, then red. */
+export const diskColor = (percentUsed) => levelColor(percentUsed, 75, 90);
+
 export const STORAGE_COLORS = { home: 'var(--color-blue)', notes: 'var(--color-yellow)', downloads: 'var(--color-purple)' };
 const STORAGE_NAMES = { home: 'Home', notes: 'Notes', downloads: 'Downloads' };
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPES[char]);
 
 /** The line under the Storage value: each size in the colour of its piece of the bar. */
-export function storageSubHtml(storage) {
+export function storageSubHtml(storage, disk = null) {
   const parts = Object.keys(STORAGE_NAMES).map((key) =>
     `${STORAGE_NAMES[key]} <span class="sub-size" style="color:${STORAGE_COLORS[key]}">${esc(storage[key])}</span>`);
+  // What is left on the disk, in the colour of how full it is: a filling disk is the thing to notice.
+  if (disk) parts.push(`Free <span class="sub-size" style="color:${diskColor(disk.percent_used)}">${esc(disk.free)}</span>`);
   return `<span slot="sub">${parts.join('\u2003')}</span>`;
 }
 
@@ -32,6 +37,7 @@ export function statTiles(stats) {
   const mem = stats.memory || {};
   const load = stats.load_average || {};
   const storage = stats.storage;
+  const disk = stats.disk;
   const limit = Number(cpu.limit) || 1;
   const loadPercent = ((Number(load['1min']) || 0) / limit) * 100;
   const tiles = [
@@ -48,7 +54,7 @@ export function statTiles(stats) {
   } else if (storage) {
     // Home (what is left of it), Notes and Downloads never overlap, so the bar is the whole home folder.
     tiles.push({ key: 'storage', icon: 'fa-hard-drive', title: 'Storage', value: storage.used,
-      sub: `Home ${storage.home}\u2003Notes ${storage.notes}\u2003Downloads ${storage.downloads}`, slotHtml: storageSubHtml(storage),
+      sub: `Home ${storage.home}\u2003Notes ${storage.notes}\u2003Downloads ${storage.downloads}${disk ? `\u2003Free ${disk.free}` : ''}`, slotHtml: storageSubHtml(storage, disk),
       progress: 100, segments: [storage.home_percent, storage.notes_percent, storage.downloads_percent].join(','),
       segmentColors: [STORAGE_COLORS.home, STORAGE_COLORS.notes, STORAGE_COLORS.downloads].join(',') });
   }

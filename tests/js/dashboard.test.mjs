@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { levelColor, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
+import { diskColor, levelColor, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -66,4 +66,14 @@ test('a process state is green when running, yellow when it needs a look and qui
 test('the dashboard page is styled by one dashboard-app rule', async () => {
   const css = await readFile(new URL('../../static/dashboard/dashboard.css', import.meta.url), 'utf8');
   assert.equal(css.match(/^dashboard-app \{/gm).length, 1);
+});
+
+test('the storage card says what is free on the disk, in the colour of how full it is', () => {
+  assert.deepEqual([10, 74, 75, 89, 90, 99].map(diskColor), ['var(--color-green)', 'var(--color-green)', 'var(--color-yellow)', 'var(--color-yellow)', 'var(--color-red)', 'var(--color-red)']);
+  const disk = { free: '40.2 GB', percent_used: 93 };
+  const tile = statTiles({ ...stats, disk }).find((t) => t.key === 'storage');
+  assert.equal(tile.sub, 'Home 6.0 GB Notes 83.0 MB Downloads 5.9 GB Free 40.2 GB');
+  assert.match(tile.slotHtml, /Free <span class="sub-size" style="color:var\(--color-red\)">40\.2 GB<\/span><\/span>$/);
+  assert.equal(tile.slotHtml, storageSubHtml(stats.storage, disk));
+  assert.equal(statTiles(stats).find((t) => t.key === 'storage').sub.includes('Free'), false); // no disk reading, no Free
 });

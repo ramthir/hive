@@ -1435,7 +1435,8 @@ def test_dashboard_shows_stat_cards_and_the_container_processes(page, server):
     expect(page.locator('stat-card[data-metric="storage"]')).to_have_attribute("title", "Storage")
     expect(page.locator('stat-card[data-metric="uptime"]')).to_have_count(0)
     sizes = page.locator('stat-card[data-metric="storage"] .sub-size')
-    expect(sizes).to_have_count(3, timeout=30000)  # Home, Notes and Downloads, each in the colour of its part of the bar
+    expect(sizes).to_have_count(4, timeout=30000)  # Home, Notes and Downloads, each in the colour of its part of the bar, then what is free on the disk
+    expect(page.locator('stat-card[data-metric="storage"]')).to_contain_text("Free")
     expect(sizes.nth(1)).to_have_css("color", page.evaluate("getComputedStyle(document.body).getPropertyValue('--color-accent3').trim() && (()=>{const e=document.createElement('i');e.style.color='var(--color-yellow)';document.body.append(e);return getComputedStyle(e).color})()"))
     rows = page.locator("app-table tbody tr")
     expect(rows.first).to_be_visible()

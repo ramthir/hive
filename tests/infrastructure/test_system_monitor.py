@@ -149,3 +149,10 @@ def test_a_pid_the_kernel_reuses_gets_a_fresh_handle(tmp_path, monkeypatch):
     monitor._sample()
     assert monitor._handles[5] is reused and reused.primed == 2  # the new process was primed, not read through the old handle
     assert monitor._handles[6] is other
+
+
+def test_the_disk_is_the_filesystem_the_home_folder_is_on(tmp_path):
+    disk = ContainerMonitor(tmp_path, tmp_path / "none", home=tmp_path).disk()
+    assert disk["total_bytes"] > 0 and 0 <= disk["percent_used"] <= 100
+    assert disk["free"] == human_bytes(disk["free_bytes"])
+    assert ContainerMonitor(tmp_path, tmp_path / "none", home=tmp_path / "missing").disk() is None

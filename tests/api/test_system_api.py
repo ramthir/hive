@@ -17,7 +17,8 @@ def client(tmp_path):
 
 def test_stats_have_the_dashboard_cards(client):
     body = client.get("/api/system/stats").json()
-    assert {"cpu", "memory", "load_average", "processes", "storage", "uptime", "app"} <= body.keys()
+    assert {"cpu", "memory", "load_average", "processes", "storage", "disk", "uptime", "app"} <= body.keys()
+    assert {"total", "used", "free", "percent_used"} <= body["disk"].keys() and body["disk"]["total_bytes"] > 0
     assert body["app"]["pid"] == os.getpid()
 
 

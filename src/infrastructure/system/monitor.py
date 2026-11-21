@@ -6,6 +6,7 @@ are read from the cgroup (v2, then v1) so the numbers are the container's use ag
 from __future__ import annotations
 
 import os
+import shutil
 import threading
 import time
 from pathlib import Path
@@ -147,6 +148,16 @@ class ContainerMonitor:
             with self._lock:
                 self._storage_busy = False
 
+    def disk(self) -> dict | None:
+        """The filesystem the home folder lives on: the storage card shows what is free on it, not only how the home folder splits."""
+        try:
+            usage = shutil.disk_usage(self.home)
+        except OSError:
+            return None
+        return {"total": human_bytes(usage.total), "used": human_bytes(usage.used), "free": human_bytes(usage.free),
+                "total_bytes": usage.total, "free_bytes": usage.free,
+                "percent_used": round(usage.used / usage.total * 100, 1) if usage.total else 0.0}
+
     # --- stats ----------------------------------------------------------------------------------------------------
     def stats(self) -> dict:
         with self._lock:
@@ -174,6 +185,7 @@ class ContainerMonitor:
             "processes": {"total": len(procs), "running": sum(1 for p in procs if p.info.get("status") == psutil.STATUS_RUNNING),
                           "threads": threads},
             "storage": self.storage(),
+            "disk": self.disk(),
             "uptime": human_duration(time.time() - started),
             "uptime_s": int(time.time() - started),
             "in_container": Path("/.dockerenv").exists() or _read(Path("/proc/1/cgroup")) not in (None, "0::/"),
