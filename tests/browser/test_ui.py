@@ -686,16 +686,16 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
 
 # --- Pandora's shell: header and sidebar --------------------------------------------------------------------------------
 
-def test_sidebar_has_dashboard_tasks_notes_time_and_the_hardcoded_user(page, server):
+def test_sidebar_has_dashboard_notes_tasks_time_chat_and_the_hardcoded_user(page, server):
     page.goto(f"{server}/notes/alpha")
     links = page.locator("app-sidebar .nav-link")
     expect(links).to_have_count(5)
     expect(links.first).to_have_text("Dashboard")
-    expect(links.nth(1)).to_have_text("Tasks")
-    notes = links.nth(2)
+    notes = links.nth(1)
     expect(notes).to_have_text("Notes")
     expect(notes).to_have_class("nav-link active")
     expect(notes).to_have_attribute("aria-current", "page")
+    expect(links.nth(2)).to_have_text("Tasks")  # right under Notes
     expect(links.nth(3)).to_have_text("Time Entries")
     expect(links.nth(4)).to_have_text("Chat")
     expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
