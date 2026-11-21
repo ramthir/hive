@@ -124,6 +124,10 @@ class AgentsTab extends HTMLElement {
     if (this.timer && this.quota && !this.quota.generated_at) this.quotaTimer = setTimeout(() => this.loadQuota(), QUOTA_RETRY_MS);
   }
 
+  say(text, error = false) {
+    this.dispatchEvent(new CustomEvent('tab-status', { bubbles: true, detail: { text, error } }));
+  }
+
   async load() {
     this.loadQuota();
     const seq = ++this.seq;
@@ -131,10 +135,16 @@ class AgentsTab extends HTMLElement {
       const [view, sessions] = await Promise.all([api('/agents/usage'), this.fetchSessions()]);
       if (seq !== this.seq) return;
       this.sessions = sessions;
+      this.loaded = true;
+      this.say('');
       this.draw(view);
       this.applySessions();
     } catch (error) {
       if (seq !== this.seq) return;
+      if (this.loaded) { // a blip must not wipe a good report: keep it and say so
+        this.say('Could not refresh the usage; showing the last report.', true);
+        return;
+      }
       this.sessions = { items: [], total: 0, page: 0, page_size: SESSION_PAGE_SIZE };
       this.draw({ status: 'unavailable', reason: MESSAGE, providers: {}, month: null, generated_at: null });
     }

@@ -1482,6 +1482,19 @@ def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_t
     assert page.errors == []
 
 
+def test_agents_tab_keeps_the_last_report_when_a_refresh_fails(page, agents_server):
+    page.goto(f"{agents_server}/dashboard/agents")
+    expect(page.locator("agents-tab .card[data-provider]")).to_have_count(3)
+    page.route("**/api/agents/usage*", lambda route: route.abort())
+    page.evaluate("document.querySelector('agents-tab').load()")
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("Could not refresh the usage; showing the last report.")
+    expect(page.locator("agents-tab .card[data-provider]")).to_have_count(3)
+    expect(page.locator("agents-tab app-table tbody tr")).to_have_count(3)
+    page.unroute("**/api/agents/usage*")
+    page.evaluate("document.querySelector('agents-tab').load()")
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("")
+
+
 def test_agents_tab_draws_the_quota_rings_with_their_tooltip(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     donuts = page.locator("agents-tab .quota-donut")
