@@ -127,6 +127,18 @@ def test_spa_and_static_served(client):
     assert client.get("/api/nothing").status_code == 404
 
 
+def test_favicon_is_the_sidebar_logo(client):
+    """The tab icon is the sidebar's circle-nodes glyph in the accent colour, as an SVG and as a multi-size ICO."""
+    svg = client.get("/static/favicon.svg")
+    assert svg.status_code == 200 and "#ff6188" in svg.text and "<path" in svg.text
+    assert "--color-accent1: #ff6188" in client.get("/static/tokens.css").text  # the colour the logo uses
+    assert "fa-circle-nodes" in client.get("/static/sidebar.js").text
+    ico = client.get("/static/favicon.ico").content
+    count = int.from_bytes(ico[4:6], "little")
+    sizes = {(ico[6 + 16 * i] or 256, ico[7 + 16 * i] or 256) for i in range(count)}
+    assert ico[:4] == b"\x00\x00\x01\x00" and {(16, 16), (32, 32), (256, 256)} <= sizes
+
+
 def test_latest(client, root):
     assert client.get("/api/latest").status_code == 404
     make(client, "First")
