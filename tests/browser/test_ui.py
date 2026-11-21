@@ -649,15 +649,17 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
 
 # --- Pandora's shell: header and sidebar --------------------------------------------------------------------------------
 
-def test_sidebar_has_notes_tasks_time_and_the_hardcoded_user(page, server):
+def test_sidebar_has_dashboard_tasks_notes_time_and_the_hardcoded_user(page, server):
     page.goto(f"{server}/notes/alpha")
     links = page.locator("app-sidebar .nav-link")
-    expect(links).to_have_count(3)
-    expect(links.first).to_have_text("Notes")
-    expect(links.first).to_have_class("nav-link active")
-    expect(links.first).to_have_attribute("aria-current", "page")
+    expect(links).to_have_count(4)
+    expect(links.first).to_have_text("Dashboard")
     expect(links.nth(1)).to_have_text("Tasks")
-    expect(links.nth(2)).to_have_text("Time Entries")
+    notes = links.nth(2)
+    expect(notes).to_have_text("Notes")
+    expect(notes).to_have_class("nav-link active")
+    expect(notes).to_have_attribute("aria-current", "page")
+    expect(links.nth(3)).to_have_text("Time Entries")
     expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
     expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
     # The user sits at the bottom of the sidebar, below the navigation.
@@ -698,7 +700,7 @@ def test_sidebar_notes_link_opens_the_latest_note_without_reloading(page, server
     page.goto(f"{server}/notes/beta")
     expect(page.locator("#notes-md")).to_contain_text("Beta body text")
     page.evaluate("window.__stillHere = true")
-    page.click("app-sidebar .nav-link")
+    page.click("app-sidebar .nav-link[href=\"/notes\"]")
     page.wait_for_url("**/notes/alpha")  # alpha is the most recently edited
     expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     assert page.evaluate("window.__stillHere === true")  # in-app navigation, not a page load
@@ -711,11 +713,11 @@ def test_sidebar_link_asks_before_dropping_unsaved_edits(page, server, notes_dir
     page.click(".cm-content")
     page.keyboard.type("unsaved words")
     expect(page.locator("#save-note-btn")).to_be_enabled()
-    page.click("app-sidebar .nav-link")
+    page.click("app-sidebar .nav-link[href=\"/notes\"]")
     page.click("[data-action=cancel]")
     assert page.url.endswith("/notes/beta?mode=edit")
     expect(page.locator("#save-note-btn")).to_be_enabled()
-    page.click("app-sidebar .nav-link")
+    page.click("app-sidebar .nav-link[href=\"/notes\"]")
     page.click("[data-action=confirm]")
     page.wait_for_url("**/notes/alpha")
     assert "unsaved words" not in (notes_dir / "beta.md").read_text()
