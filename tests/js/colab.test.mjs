@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PAGE_SIZE, chooseSession, headerStatus, machineTiles, pickerItems, processPage, statusText, streamIsLive, waitingReason, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
+import { PAGE_SIZE, chooseSession, gpuSummary, headerStatus, machineTiles, pickerItems, processPage, statusText, streamIsLive, waitingReason, uptimeText, uptimeTile, usageColor, usageTiles } from '../../static/colab/format.js';
 
 const SESSION = { name: 'sentinel-run', runtime_id: 'm-s-1', hardware: 'GPU', shape: 'Standard', variant: 'T4' };
 const stats = (extra = {}) => ({ cpu_count: 2, cpu_percent: 42.26, load_average: { '1min': 1.14, '5min': 0.73, '15min': 0.38 }, uptime: '1:05',
@@ -146,4 +146,13 @@ test('a runtime with no data yet says why, instead of loading for ever', () => {
   assert.equal(waitingReason(null, { status: 'loading' }), ''); // the first probe is still running
   assert.equal(waitingReason(null, null), '');
   assert.equal(waitingReason({ uptime: '1:05' }, { status: 'waiting', message: 'busy' }), ''); // the last good stats stay on screen
+});
+
+test('several GPUs are one card: the average load, the names and the VRAM added up', () => {
+  const two = [gpu, { ...gpu, utilization_percent: 50, memory_used_mb: 2048, memory_percent: 13.3 }];
+  const tiles = machineTiles(stats({ gpu: two }), SESSION);
+  assert.deepEqual(tiles.map((t) => t.key), ['cpu', 'gpu', 'memory', 'disk']);
+  assert.deepEqual([tiles[1].value, tiles[1].sub, tiles[1].progress], ['70.5%', '2× Tesla T4 · VRAM 6.0/30.0 GB (20%)', 70.5]);
+  assert.equal(gpuSummary([gpu, { ...gpu, name: 'A100' }]).sub.startsWith('2× Tesla T4 + A100'), true);
+  assert.equal(gpuSummary([{ name: 'Tesla T4' }]).value, '-'); // nothing measured yet
 });

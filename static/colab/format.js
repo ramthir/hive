@@ -43,6 +43,23 @@ function meter(key, icon, title, part) {
 }
 
 /**
+ * One card for every GPU: the average utilisation, the names (`2× Tesla T4`) and the VRAM added up. With one GPU it is that GPU's numbers.
+ */
+export function gpuSummary(gpus) {
+  const utils = gpus.map((g) => g.utilization_percent).filter(has);
+  const util = utils.length ? +(utils.reduce((a, b) => a + b, 0) / utils.length).toFixed(1) : null;
+  const names = [...new Set(gpus.map((g) => g.name || 'GPU'))];
+  const label = gpus.length > 1 ? `${gpus.length}\u00d7 ${names.join(' + ')}` : names[0];
+  const measured = gpus.filter((g) => has(g.memory_used_mb) && has(g.memory_total_mb));
+  const used = measured.reduce((a, g) => a + g.memory_used_mb, 0);
+  const total = measured.reduce((a, g) => a + g.memory_total_mb, 0);
+  const share = gpus.length === 1 && has(gpus[0].memory_percent) ? gpus[0].memory_percent : total ? +(used / total * 100).toFixed(1) : 0;
+  const vram = measured.length ? ` \u00b7 VRAM ${(used / 1024).toFixed(1)}/${(total / 1024).toFixed(1)} GB (${share}%)` : '';
+  return { value: util !== null ? `${util}%` : '-', sub: `${label}${vram}`,
+           color: util !== null ? usageColor(util) : '', progress: util !== null ? clamp(util) : 0, progressColor: util !== null ? usageColor(util) : '' };
+}
+
+/**
  * The machine cards for the session's stats. With a GPU the GPU card takes the load average's place, after the CPU's.
  * `session` supplies the hardware label; `stats` may be null before the first collection.
  */
@@ -62,11 +79,7 @@ export function machineTiles(stats, session) {
             sub: has(load['5min']) && has(load['15min']) ? `5m: ${load['5min'].toFixed(2)} / 15m: ${load['15min'].toFixed(2)}` : '5m: - / 15m: -' },
   };
   if (!gpus.length) return [tiles.cpu, tiles.memory, tiles.disk, tiles.load];
-  const gpu = gpus[0];
-  const util = has(gpu.utilization_percent) ? gpu.utilization_percent : null;
-  const vram = has(gpu.memory_used_mb) && has(gpu.memory_total_mb) ? ` · VRAM ${(gpu.memory_used_mb / 1024).toFixed(1)}/${(gpu.memory_total_mb / 1024).toFixed(1)} GB (${gpu.memory_percent}%)` : '';
-  const gpuTile = { key: 'gpu', icon: 'fa-microchip', title: 'GPU Usage', value: util !== null ? `${util}%` : '-', sub: `${gpu.name || 'GPU'}${vram}`,
-                    color: util !== null ? usageColor(util) : '', progress: util !== null ? clamp(util) : 0, progressColor: util !== null ? usageColor(util) : '' };
+  const gpuTile = { key: 'gpu', icon: 'fa-microchip', title: 'GPU Usage', ...gpuSummary(gpus) };
   return [tiles.cpu, gpuTile, tiles.memory, tiles.disk];
 }
 
