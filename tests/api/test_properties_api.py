@@ -46,6 +46,7 @@ def test_each_type_gets_its_own_fields(client):
     assert keys(make(client, "T", "task")) == ["project", "specification", "ticket", "status", "priority", "assignee", "week", "tags"]
     assert keys(make(client, "M", "meeting")) == ["week", "project"]
     assert keys(make(client, "P", "project")) == ["billing"]
+    assert keys(make(client, "Co", "company")) == ["billing"]
     assert keys(make(client, "C", "contact")) == ["role", "project", "team", "billing", "acting_for"]
     assert keys(make(client, "S", "spec")) == ["project", "application"]
     assert keys(make(client, "Both", "meeting", "task"))[:2] == ["project", "specification"]  # a task and a meeting: the task's
@@ -67,6 +68,24 @@ def test_the_form_has_current_values_and_choices(client, root):
     assert [c["value"] for c in f["status"]["choices"]] == ["TODO", "IN_PROGRESS", "DONE"]
     this_week = week_label(date.today())
     assert this_week in [c["value"] for c in f["week"]["choices"]] and len(f["week"]["choices"]) == 5
+
+
+def test_a_company_can_be_picked_as_the_project(client):
+    make(client, "Acme", "project")
+    make(client, "Big Co", "company")
+    make(client, "Bo", "contact")
+    for kind in ("task", "meeting", "contact", "spec", "prompt"):
+        slug = make(client, f"Sample {kind}", kind)
+        assert [c["value"] for c in form(client, slug)["project"]["choices"]] == ["Acme", "Big Co"], kind
+
+
+def test_a_company_has_billing_like_a_project(client, root):
+    slug = make(client, "Big Co", "company")
+    f = form(client, slug)["billing"]
+    assert [c["value"] for c in f["choices"]] == ["Billable", "Non Billable", "Prospecting"]
+    assert client.put(f"/api/notes/{slug}", json={"properties": {"billing": "Prospecting"}}).status_code == 200
+    assert "billing: Prospecting" in (root / "big-co.md").read_text()
+    assert client.put(f"/api/notes/{slug}", json={"properties": {"billing": "Free"}}).status_code == 422
 
 
 def test_a_value_typed_by_hand_stays_a_choice_and_so_does_a_far_off_week(client, root):

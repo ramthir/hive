@@ -47,11 +47,16 @@ def _choices(*labels: str) -> tuple[tuple[str, str], ...]:
     return tuple((label, label) for label in labels)
 
 
+PROJECT_TYPES = ("project", "company")  # work is booked against a client company as well as a project
+
+
 def _project() -> Field:
-    return Field("project", "Project", "briefcase", "note", note_types=("project",), placeholder="Select project...")
+    return Field("project", "Project", "briefcase", "note", note_types=PROJECT_TYPES, placeholder="Select project...")
 
 
 BILLING = ("Billable", "Non Billable")
+ENGAGEMENT_BILLING = Field("billing", "Billing", "money-bill-wave", "select", choices=_choices(*BILLING, "Prospecting"),
+                           placeholder="Not set")
 TASK_STATUS = (("TODO", "To Do"), ("IN_PROGRESS", "In Progress"), ("DONE", "Done"))
 TASK_PRIORITY = (("must", "Must"), ("important", "Important"), ("nice-to-have", "Nice to have"))
 
@@ -59,7 +64,7 @@ TASK = Form(
     "Task",
     groups={"context": "Project & Context", "execution": "Task Execution & Schedule", "tags": "Tags"},
     fields=(
-        Field("project", "Project", "briefcase", "note", group="context", note_types=("project",), placeholder="Select project..."),
+        Field("project", "Project", "briefcase", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
         Field("specification", "Specification", "certificate", "note", group="context", note_types=("spec", "specification"),
               placeholder="Select specification..."),
         Field("ticket", "Ticket ID", "ticket", group="context", placeholder="e.g. PROJ-123"),
@@ -78,7 +83,7 @@ CONTACT = Form(
     groups={"context": "Project & Team"},
     fields=(
         Field("role", "Role", "id-badge", placeholder="Role or job title"),
-        Field("project", "Project", "briefcase", "note", group="context", note_types=("project",), placeholder="Select project..."),
+        Field("project", "Project", "briefcase", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
         Field("team", "Team", "users", group="context", placeholder="Team name"),
         Field("billing", "Billing", "money-bill-wave", "select", group="context", choices=_choices(*BILLING, "Shadowed"),
               placeholder="Not set"),
@@ -92,8 +97,8 @@ CONTACT = Form(
 FORMS: dict[str, Form] = {
     "task": TASK,
     "meeting": Form("Meeting", fields=(Field("week", "Week", "calendar-week", "select", target="week", placeholder="No week"), _project())),
-    "project": Form("Project", fields=(Field("billing", "Billing", "money-bill-wave", "select", choices=_choices(*BILLING, "Prospecting"),
-                                  placeholder="Not set"),)),
+    "project": Form("Project", fields=(ENGAGEMENT_BILLING,)),
+    "company": Form("Company", fields=(ENGAGEMENT_BILLING,)),
     "contact": CONTACT,
     "spec": SPEC,
     "specification": SPEC,
