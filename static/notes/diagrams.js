@@ -22,6 +22,20 @@ export class DiagramPreviews {
     return img;
   }
 
+  // The rendered diagram plus a "Download PNG" pulldown (Dark / Light, as in Pandora). Markup only: the page
+  // listens for the menu's `dropdown-select` (the figure may be re-parsed from HTML, which loses listeners).
+  content(doc, figure, dataUrl) {
+    const tools = doc.createElement('div');
+    tools.className = 'notes-diagram-tools';
+    tools.innerHTML = `<app-dropdown-menu class="diagram-download-menu" placement="bottom-end">
+      <button slot="trigger" type="button" class="notes-diagram-download" title="Download PNG (high resolution)" aria-label="Download PNG"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Download</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+      <div slot="menu">
+        <button class="app-dropdown-item notes-menu-item" type="button" data-download-theme="dark"><i class="fa-regular fa-moon" aria-hidden="true"></i><span>Dark theme</span></button>
+        <button class="app-dropdown-item notes-menu-item" type="button" data-download-theme="light"><i class="fa-regular fa-sun" aria-hidden="true"></i><span>Light theme</span></button>
+      </div></app-dropdown-menu>`;
+    return [this.image(doc, dataUrl), tools];
+  }
+
   // Replace each plantuml fence in the parsed document by a figure: the image if known, else the code with a status line.
   markBlocks(parsed) {
     parsed.querySelectorAll('pre > code.language-plantuml, pre > code.language-puml').forEach((code) => {
@@ -34,7 +48,7 @@ export class DiagramPreviews {
       const image = this.cache.get(source);
       const error = this.errors.get(source);
       if (image) {
-        figure.appendChild(this.image(parsed, image));
+        figure.append(...this.content(parsed, figure, image));
       } else {
         figure.appendChild(pre.cloneNode(true));
         const note = parsed.createElement('p');
@@ -85,7 +99,7 @@ export class DiagramPreviews {
       const image = this.cache.get(source);
       const error = this.errors.get(source);
       if (image) {
-        figure.replaceChildren(this.image(figure.ownerDocument, image));
+        figure.replaceChildren(...this.content(figure.ownerDocument, figure, image));
       } else if (error) {
         const status = figure.querySelector('.notes-diagram-status, .notes-diagram-error');
         if (status) {

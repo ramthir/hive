@@ -1935,3 +1935,34 @@ def test_chat_left_mid_answer_comes_back_stopped_with_what_it_had(page, chat_ser
     expect(page.locator(".chat-message.user .chat-user-text")).to_have_text("slow one")
     expect(page.locator(".chat-stopped")).to_be_visible()
     expect(page.locator("#chat-send")).to_have_class("chat-send")  # ready for the next question
+
+
+def test_a_diagram_can_be_downloaded_as_a_png(page, diagram_note, tmp_path):
+    png = b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + (400).to_bytes(4, "big") + (300).to_bytes(4, "big") + b"\x08\x06\0\0\0"
+    base = FakeRunner()
+
+    def runner(cmd, data, env, timeout):
+        done = base(cmd, data, env, timeout)
+        return subprocess.CompletedProcess(cmd, 0, png if "-tpng" in cmd else done.stdout, b"")
+
+    with serve(diagram_note, fake_diagrams(tmp_path, diagram_note, runner)) as server:
+        page.goto(f"{server}/notes/flows")
+        expect(page.locator("#notes-md .notes-diagram-img")).to_have_count(2)
+        figure = page.locator("#notes-md .notes-diagram").first
+        figure.hover()
+        with page.expect_download() as download:
+            figure.locator("button.notes-diagram-download").click()
+            figure.locator('button[data-download-theme="light"]').click()
+        assert download.value.suggested_filename.endswith("-light.png")
+        assert open(download.value.path(), "rb").read().startswith(b"\x89PNG")
+        # Reopened from the page's cache the diagram is built from markup: the pulldown still works.
+        page.goto(f"{server}/notes/alpha")
+        page.goto(f"{server}/notes/flows")
+        figure = page.locator("#notes-md .notes-diagram").first
+        expect(figure.locator(".notes-diagram-img")).to_be_visible()
+        figure.hover()
+        with page.expect_download() as again:
+            figure.locator("button.notes-diagram-download").click()
+            figure.locator('button[data-download-theme="dark"]').click()
+        assert again.value.suggested_filename.endswith("-dark.png")
+        assert page.errors == []

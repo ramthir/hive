@@ -27,6 +27,12 @@ MONOKAI_FILE = "puml-theme-monokai-pro.puml"
 _INCLUDE = re.compile(r"^[ \t]*!include(?:_once)?[ \t]+(?P<target>[^\r\n]+?)[ \t]*$", re.MULTILINE | re.IGNORECASE)
 _THEME = re.compile(r"^[ \t]*!theme[ \t]+(?P<name>[^\s]+)[^\r\n]*$", re.MULTILINE | re.IGNORECASE)
 
+EXPORT_DPI = 300
+DEFAULT_DPI = 96
+SAFE_IMAGE_SIDE = 4000
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_START = re.compile(r"(^[ \t]*@start[a-z0-9_-]*[^\r\n]*)", re.MULTILINE | re.IGNORECASE)
+
 Runner = Callable[[list[str], bytes, dict, float], "subprocess.CompletedProcess[bytes]"]
 
 
@@ -45,6 +51,35 @@ class DiagramTooLarge(DiagramError):
 
 class DiagramFailed(DiagramError):
     status = 502
+
+
+def _png_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 24 or not data.startswith(_PNG_SIGNATURE):
+        return None
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def _after_start(source: str, lines: str) -> str:
+    if _START.search(source):
+        return _START.sub(lambda m: m[1] + "\n" + lines, source, count=1)
+    return lines + "\n" + source
+
+
+def _with_dpi(source: str, dpi: int) -> str:
+    return _after_start(source, f"skinparam dpi {dpi}")
+
+
+def _for_export(source: str, theme: str) -> str:
+    """Pandora's download tweaks: no frame around the image and, for `light`, the monokai theme's light palette."""
+    if theme == "light" and not re.search(r"^[ \t]*!define[ \t]+THEME_LIGHT\b", source, re.MULTILINE | re.IGNORECASE):
+        theme_line = re.search(r"^[ \t]*!(?:theme[ \t]+monokai[\w-]*|include[ \t]+.*monokai.*)$", source, re.MULTILINE | re.IGNORECASE)
+        if theme_line:
+            source = source[:theme_line.start()] + "!define THEME_LIGHT\n" + source[theme_line.start():]
+        else:
+            source = _after_start(source, "!define THEME_LIGHT\n!theme monokai-pro")
+    if not re.search(r"^[ \t]*skinparam[ \t]+DiagramBorderColor\b", source, re.MULTILINE | re.IGNORECASE):
+        source = _after_start(source, "skinparam DiagramBorderColor transparent\nskinparam DiagramBorderThickness 0")
+    return source
 
 
 def _default_runner(cmd: list[str], data: bytes, env: dict, timeout: float):
@@ -150,8 +185,35 @@ class DiagramService:
                 self._cache.popitem(last=False)
         return svg
 
+    def render_png(self, source: str, theme: str = "dark", dpi: int = EXPORT_DPI) -> bytes:
+        """A high-resolution PNG for download. `theme` is `dark` (the bundled monokai look) or `light`."""
+        source = (source or "").strip()
+        if not source:
+            raise DiagramFailed("There is no diagram source to render.")
+        if len(source) > MAX_SOURCE_LENGTH:
+            raise DiagramTooLarge(f"Diagram source is too large: {len(source):,} characters (the limit is {MAX_SOURCE_LENGTH:,}).")
+        st = self.status()
+        if not st["available"]:
+            raise DiagramUnavailable(st["reason"])
+        resolved = self.resolve_includes(_for_export(source, theme))
+        if len(resolved) > MAX_SOURCE_LENGTH * 2:
+            raise DiagramTooLarge("Diagram source is too large once its includes are expanded.")
+        natural = self._run_bytes(resolved, "-tpng")
+        size = _png_size(natural)
+        if size is None or re.search(r"^\s*(?:skinparam\s+dpi|scale)\b", resolved, re.MULTILINE | re.IGNORECASE):
+            return natural
+        # PlantUML cuts an image off at about 4096 px a side: pick the highest dpi that still fits.
+        dpi = min(dpi, DEFAULT_DPI * SAFE_IMAGE_SIDE // max(*size, 1))
+        if dpi <= DEFAULT_DPI:
+            return natural
+        return self._run_bytes(_with_dpi(resolved, dpi), "-tpng")
+
     def _run(self, source: str) -> str:
-        cmd = [self.java, "-Xmx512m", "-Djava.awt.headless=true", "-jar", str(self.jar), "-pipe", "-tsvg", "-charset", "UTF-8"]
+        svg = self._run_bytes(source, "-tsvg").decode("utf-8", errors="replace")
+        return svg[svg.index("<svg"):]
+
+    def _run_bytes(self, source: str, fmt: str) -> bytes:
+        cmd = [self.java, "-Xmx512m", "-Djava.awt.headless=true", "-jar", str(self.jar), "-pipe", fmt, "-charset", "UTF-8"]
         # SANDBOX: PlantUML itself may not read files or fetch URLs (includes were resolved above).
         env = {**os.environ, "PLANTUML_SECURITY_PROFILE": "SANDBOX"}
         with self._slots:
@@ -162,8 +224,8 @@ class DiagramService:
                 raise DiagramFailed(f"Rendering took longer than {self.timeout:g} seconds.") from None
             except OSError as exc:
                 raise DiagramUnavailable(f"Could not start Java: {exc}") from None
-        svg = proc.stdout.decode("utf-8", errors="replace")
-        if "<svg" not in svg:
+        marker = b"\x89PNG" if fmt == "-tpng" else b"<svg"
+        if marker not in proc.stdout:
             detail = proc.stderr.decode("utf-8", errors="replace").strip()[:300]
             raise DiagramFailed(f"PlantUML produced no image. {detail}".strip())
-        return svg[svg.index("<svg"):]
+        return proc.stdout[proc.stdout.index(marker):]

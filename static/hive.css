@@ -112,7 +112,15 @@
 /* PlantUML previews */
 .notes-diagram { margin: 1.25rem 0; }
 .notes-diagram-img { display: block; max-width: 100%; height: auto; margin-inline: auto; border-radius: var(--radius-md); }
+.notes-diagram { position: relative; }
 .notes-diagram pre { margin: 0; }
+.notes-diagram-tools { position: absolute; top: .5rem; right: .5rem; display: flex; gap: .3rem; opacity: 0; transition: opacity .15s; }
+.notes-diagram:hover .notes-diagram-tools, .notes-diagram-tools:focus-within { opacity: 1; }
+.notes-diagram-tools, .notes-diagram-tools .app-dropdown-popup { font-family: var(--font-family); line-height: 1.3; letter-spacing: normal; text-transform: none; }
+.notes-diagram-tools .app-dropdown-item { font-family: var(--font-family); font-size: .82rem; font-weight: 500; }
+.notes-diagram-download { display: inline-flex; align-items: center; gap: .5rem; padding: .45rem .9rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md); background: var(--color-dark2); color: var(--color-dimmed2); font: 500 .95rem var(--font-family); cursor: pointer; }
+.notes-diagram-download:hover { color: inherit; }
+.notes-diagram-download .fa-chevron-down { font-size: .7rem; }
 .notes-diagram-status, .notes-diagram-error { margin-top: .4rem; font: 500 .8rem var(--font-family); color: var(--color-dimmed2); }
 .notes-diagram-error { color: var(--color-red, #ff6188); }
 

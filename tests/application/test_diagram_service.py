@@ -192,3 +192,60 @@ def test_real_class_diagram_connectors_are_boxed_when_the_theme_asks_for_ortho(t
     for path in connectors:
         for (x1, y1), (x2, y2) in zip(path, path[1:]):
             assert abs(x1 - x2) < 0.5 or abs(y1 - y2) < 0.5, f"diagonal segment {(x1, y1)} -> {(x2, y2)}"
+
+
+def _png(width, height):
+    return b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x06\0\0\0"
+
+
+def png_parts(tmp_path, natural):
+    notes = tmp_path / "notes"
+    notes.mkdir(exist_ok=True)
+    (tmp_path / "java").write_text("")
+    (tmp_path / "plantuml.jar").write_text("")
+    runner = FakeRunner()
+    svc = DiagramService(str(tmp_path / "java"), tmp_path / "plantuml.jar", notes, runner=runner)
+    runner.png = natural
+    original = runner.__call__
+
+    def call(cmd, data, env, timeout):
+        original(cmd, data, env, timeout)
+        return subprocess.CompletedProcess(cmd, 0, runner.png, b"")
+
+    svc._runner = call
+    return svc, runner
+
+
+def test_png_is_rendered_again_at_300_dpi_when_it_fits(tmp_path):
+    svc, runner = png_parts(tmp_path, _png(400, 300))
+    assert svc.render_png("@startuml\nA -> B\n@enduml").startswith(b"\x89PNG")
+    assert [c["cmd"][-4:-1] for c in runner.calls] == [["-pipe", "-tpng", "-charset"]] * 2
+    assert "skinparam dpi 300" in runner.calls[1]["source"] and "skinparam dpi" not in runner.calls[0]["source"]
+    assert "DiagramBorderColor transparent" in runner.calls[0]["source"]
+
+
+def test_png_dpi_is_lowered_so_a_large_diagram_is_not_cut_off(tmp_path):
+    svc, runner = png_parts(tmp_path, _png(2000, 500))  # 300 dpi would be 6250 px wide
+    svc.render_png("@startuml\nA -> B\n@enduml")
+    assert "skinparam dpi 192" in runner.calls[1]["source"]
+    svc, runner = png_parts(tmp_path, _png(4200, 500))  # already past the limit at the default dpi
+    svc.render_png("@startuml\nA -> B\n@enduml")
+    assert len(runner.calls) == 1
+
+
+def test_png_keeps_a_dpi_the_author_chose_and_light_theme_defines_the_light_palette(tmp_path):
+    svc, runner = png_parts(tmp_path, _png(400, 300))
+    svc.render_png("@startuml\nskinparam dpi 150\nA -> B\n@enduml", theme="light")
+    assert len(runner.calls) == 1
+    src = runner.calls[0]["source"]
+    assert src.index("!define THEME_LIGHT") < src.index("skinparam dpi 150")
+
+
+def test_png_failures(tmp_path):
+    svc, runner = png_parts(tmp_path, b"not an image")
+    with pytest.raises(DiagramFailed):
+        svc.render_png("@startuml\nA -> B\n@enduml")
+    with pytest.raises(DiagramFailed):
+        svc.render_png("  ")
+    with pytest.raises(DiagramUnavailable):
+        DiagramService(None, None, tmp_path).render_png("@startuml\nA\n@enduml")

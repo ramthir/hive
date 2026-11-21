@@ -151,3 +151,14 @@ test('parseDiff numbers old and new lines and skips the file header', () => {
 test('markWords leaves unrelated lines unmarked', () => {
   assert.deepEqual(markWords('abc', 'xyz'), ['abc', 'xyz']);
 });
+
+test('a rendered diagram carries a Download pulldown with a dark and a light item', () => {
+  const nodes = [];
+  const doc = { createElement: () => ({ set innerHTML(html) { this.html = html; }, setAttribute() {}, className: '' }) };
+  const diagrams = new DiagramPreviews(async () => ({}));
+  const [, tools] = diagrams.content(doc, {}, 'data:x');
+  assert.match(tools.html, /<app-dropdown-menu/);
+  assert.match(tools.html, /data-download-theme="dark"/);
+  assert.match(tools.html, /data-download-theme="light"/);
+  assert.equal(nodes.length, 0);
+});

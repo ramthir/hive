@@ -52,3 +52,14 @@ def test_render_metrics(root):
         c.post("/api/diagram/render", json={"source": "@startuml\nA -> B\n@enduml"})
     m = c.get("/api/metrics").json()
     assert m["counters"]["diagram_cache_hits"] == 1 and m["timings"]["diagram_render"]["count"] == 1
+
+
+def test_render_png(root):
+    png = b"\x89PNG\r\n\x1a\n" + b"\0" * 20
+    runner = FakeRunner()
+    runner.stdout = ""
+    c = client_with(root, runner=lambda cmd, data, env, timeout: subprocess.CompletedProcess(cmd, 0, png, b""))
+    r = c.post("/api/diagram/render/png", json={"source": "@startuml\nA -> B\n@enduml", "theme": "light"})
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png" and r.content.startswith(b"\x89PNG")
+    assert c.post("/api/diagram/render/png", json={"source": "@startuml\nA\n@enduml", "theme": "blue"}).status_code == 422
+    assert client_with(root, java=False).post("/api/diagram/render/png", json={"source": "A"}).status_code == 503

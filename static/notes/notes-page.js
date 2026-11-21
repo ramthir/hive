@@ -11,6 +11,7 @@ import { DEFAULT_TYPE, typeIcon, typeLabel, typeOptions } from '/static/type-ico
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
+import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
@@ -81,6 +82,11 @@ class NotesApp extends HTMLElement {
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
     // PlantUML previews: rendered diagrams are cached by source; failed sources are not retried until edited.
     this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }));
+    this._diagramMenuHandler = (event) => {
+      const figure = event.target.closest?.('.notes-diagram[data-diagram]');
+      const theme = event.detail?.action;
+      if (figure && (theme === 'dark' || theme === 'light')) this.downloadDiagramPng(figure.dataset.diagram, theme);
+    };
   }
 
   connectedCallback() {
@@ -686,6 +692,32 @@ class NotesApp extends HTMLElement {
     return heading ? heading[1].trim() : '';
   }
 
+  // Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi).
+  async downloadDiagramPng(source, theme) {
+    try {
+      const res = await fetch('/api/diagram/render/png', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, theme }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().then((body) => body.detail).catch(() => '');
+        throw new Error(detail || 'Could not render the PNG.');
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      const name = String(this.selectedNote?.title || 'diagram').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
+      link.href = url;
+      link.download = `${name}-${theme}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      showToast(error.message || 'Could not download the diagram PNG.', 'error');
+    }
+  }
+
   renderMarkdownPreview(content) {
     const html = renderMarkdown(content, {
       isRoute: (pathname) => Boolean(notesRouter.getMatch(pathname)),
@@ -712,6 +744,8 @@ class NotesApp extends HTMLElement {
     if (!preview) return;
     preview.removeEventListener('click', this._previewClickHandler);
     preview.addEventListener('click', this._previewClickHandler);
+    preview.removeEventListener('dropdown-select', this._diagramMenuHandler);
+    preview.addEventListener('dropdown-select', this._diagramMenuHandler);
     this.decorateWikilinks(preview);
     this._diagrams.decorate(preview, { editing: this.isNoteEditing });
     setupCodeBlockActions(preview);
