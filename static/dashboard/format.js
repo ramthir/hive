@@ -64,3 +64,10 @@ export function processTitle(p) {
 export function processColor(percent) {
   return levelColor(percent, 50, 80);
 }
+
+/** The colour of a process's state: running is green, a wait on the disk, a zombie or a stopped process draws the eye, the rest is quiet. */
+export function statusColor(status) {
+  if (status === 'running') return 'var(--color-green)';
+  if (status === 'disk-sleep' || status === 'zombie' || status === 'stopped') return 'var(--color-yellow)';
+  return 'var(--color-dimmed2)';
+}

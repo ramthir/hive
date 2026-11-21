@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelColor, processTitle, statTiles, storageSubHtml } from '../../static/dashboard/format.js';
+import { levelColor, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -54,4 +54,10 @@ test('without storage or stats the cards are left out', () => {
 test('a process row\'s tooltip is its full command', () => {
   assert.equal(processTitle({ name: 'python', cmdline: 'main.py' }), 'python main.py');
   assert.equal(processTitle({ name: 'tini', cmdline: '' }), 'tini');
+});
+
+test('a process state is green when running, yellow when it needs a look and quiet otherwise', () => {
+  assert.equal(statusColor('running'), 'var(--color-green)');
+  for (const state of ['disk-sleep', 'zombie', 'stopped']) assert.equal(statusColor(state), 'var(--color-yellow)');
+  for (const state of ['sleeping', 'idle', undefined]) assert.equal(statusColor(state), 'var(--color-dimmed2)');
 });

@@ -1495,6 +1495,13 @@ def test_agents_tab_keeps_the_last_report_when_a_refresh_fails(page, agents_serv
     expect(page.locator("dashboard-app .dash-status")).to_have_text("")
 
 
+def test_debian_tab_shows_each_process_state_and_how_long_it_has_run(page, server):
+    page.goto(f"{server}/dashboard")
+    expect(page.locator("debian-tab app-table th", has_text="Status")).to_be_visible()
+    expect(page.locator("debian-tab app-table th", has_text="Running")).to_be_visible()
+    expect(page.locator("debian-tab app-table tbody tr").first).not_to_contain_text("Up ")
+
+
 def test_agents_tab_draws_the_quota_rings_with_their_tooltip(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     donuts = page.locator("agents-tab .quota-donut")

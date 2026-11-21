@@ -4,7 +4,7 @@ import '/static/components/stat-card.js';
 import '/static/components/pagination.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { api } from '/static/notes/api.js';
-import { processColor, processTitle, statTiles } from '/static/dashboard/format.js';
+import { processColor, processTitle, statTiles, statusColor } from '/static/dashboard/format.js';
 
 const REFRESH_MS = 5000;
 const PAGE_SIZE = 10;
@@ -128,8 +128,10 @@ class DebianTab extends HTMLElement {
         render: (_v, p) => `<span class="proc-label" title="${esc(processTitle(p))}"><span class="proc-name">${esc(p.name)}</span>${p.cmdline ? `<span class="proc-cmd">${esc(p.cmdline)}</span>` : ''}</span>` },
       { key: 'pid', label: 'PID', className: 'muted tabular', width: '5.5rem', render: (v) => esc(v) },
       { key: 'threads', label: 'Threads', className: 'muted tabular', width: '6rem', render: (v) => esc(v) },
-      { key: 'running_for', label: 'Status', className: 'tabular', width: '8.5rem',
-        render: (v) => `<span style="color:var(--color-green)">${esc(v ? `Up ${v}` : '--')}</span>` },
+      { key: 'status', label: 'Status', className: 'tabular', width: '7rem',
+        render: (v) => `<span style="color:${statusColor(v)}">${esc(v || '--')}</span>` },
+      { key: 'running_for', label: 'Running', className: 'tabular', width: '7rem',
+        render: (v) => `<span class="muted">${esc(v || '--')}</span>` },
       { key: 'cpu_percent', label: 'CPU', className: 'tabular', width: '6rem', sortable: true, render: percent },
       { key: 'mem', label: 'Memory', className: 'tabular', width: '7.5rem', sortable: true,
         render: (v, row) => `<span title="${(Number(row.mem_percent) || 0).toFixed(1)}%">${esc(v || '—')}</span>` },
