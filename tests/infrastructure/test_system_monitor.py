@@ -45,6 +45,23 @@ def test_cpu_percent_is_the_usage_delta_over_the_limit(tmp_path):
     assert monitor._container_cpu() == pytest.approx(20, abs=1)
 
 
+def test_rapid_cpu_polls_do_not_starve_the_baseline_sample(tmp_path, monkeypatch):
+    from src.infrastructure.system import monitor as monitor_module
+
+    cg = cgroup(tmp_path, cpu__max="100000 100000", cpu__stat="usage_usec 1000000\n")
+    clock = [100.0]
+    monkeypatch.setattr(monitor_module.time, "monotonic", lambda: clock[0])
+    monitor = ContainerMonitor(tmp_path, cg)
+    assert monitor._container_cpu() == 0.0
+    # Rapid calls under 0.5 s keep the original baseline instead of resetting it every call.
+    clock[0] = 100.3
+    (cg / "cpu.stat").write_text("usage_usec 1150000\n")
+    assert monitor._container_cpu() == 0.0
+    clock[0] = 100.6
+    (cg / "cpu.stat").write_text("usage_usec 1300000\n")  # 0.3 CPU-s over 0.6 s on 1 CPU = 50%
+    assert monitor._container_cpu() == pytest.approx(50.0, abs=0.5)
+
+
 def test_stats_describe_this_process_and_the_notes_disk(tmp_path):
     stats = ContainerMonitor(tmp_path, tmp_path / "none").stats()
     assert stats["app"]["pid"] == os.getpid()
@@ -159,9 +176,9 @@ def test_a_pid_the_kernel_reuses_gets_a_fresh_handle(tmp_path, monkeypatch):
     monitor = ContainerMonitor(tmp_path, tmp_path / "none", home=tmp_path)
     monitor._sample()
     monitor._sample()
-    assert old.primed == 3 and other.primed == 3  # primed and read once, then only read: the same handle is kept
+    assert old.primed == 2 and other.primed == 2  # primed once, then read on the next sweep: never double-sampled in one sweep
     monitor._sample()
-    assert monitor._handles[5] is reused and reused.primed == 2  # the new process was primed, not read through the old handle
+    assert monitor._handles[5] is reused and reused.primed == 1  # the new process was primed without an immediate noisy read
     assert monitor._handles[6] is other
 
 

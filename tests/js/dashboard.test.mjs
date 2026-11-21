@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
+import { containerSummary, diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml, storageTooltipDetails } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -83,4 +83,22 @@ test('the process query carries the filter only when there is one', () => {
   assert.equal(processQuery(base), 'page=2&page_size=10&sort=mem_percent&direction=asc');
   assert.equal(processQuery({ ...base, q: '   ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc');
   assert.equal(processQuery({ ...base, q: ' python main ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc&q=python+main');
+});
+
+test('CPU, memory and load cards carry threshold colours and storage has a tooltip breakdown', () => {
+  const disk = { free: '40.2 GB', percent_used: 93 };
+  const tiles = Object.fromEntries(statTiles({ ...stats, disk }).map((t) => [t.key, t]));
+  assert.equal(tiles.cpu.color, 'var(--color-green)');
+  assert.equal(tiles.memory.color, 'var(--color-green)');
+  assert.equal(tiles.load.color, 'var(--color-red)');
+  assert.equal(tiles.storage.attrs['data-tooltip-title'], 'Storage');
+  const details = storageTooltipDetails(stats.storage, disk);
+  assert.deepEqual(details.map((r) => r.label), ['Home', 'Notes', 'Downloads', 'Disk Free']);
+  assert.equal(details[3].color, 'var(--color-red)');
+});
+
+test('containerSummary formats uptime, process count and thread count', () => {
+  assert.equal(containerSummary(stats), 'Up 3h 2m · 12 processes · 40 threads');
+  assert.equal(containerSummary({ uptime: '10s', processes: { total: 1, threads: 1 } }), 'Up 10s · 1 process · 1 thread');
+  assert.equal(containerSummary(null), '');
 });

@@ -13,7 +13,7 @@ class DashboardApp extends HTMLElement {
     this.innerHTML = `
       <section class="dash-page">
         <app-header heading="Dashboard" variant="flush" attached>
-          <div slot="actions" class="notes-header-actions app-header-action-group">
+          <div slot="actions" class="app-header-action-group">
             <span class="dash-status" role="status" aria-live="polite"></span>
             <app-tab-bar></app-tab-bar>
           </div>
@@ -49,6 +49,7 @@ class DashboardApp extends HTMLElement {
 
   setStatus(text, isError = false) {
     this.status.textContent = text;
+    this.status.title = text || '';
     this.status.classList.toggle('error', Boolean(isError));
   }
 }

@@ -13,8 +13,10 @@ dashboard-app {
 .dash-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); min-width: 0; }
 .dash-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 .dash-grid stat-card { min-width: 0; }
-.dash-status { color: var(--color-dimmed2); font-size: 0.85rem; white-space: nowrap; }
+.dash-status { color: var(--color-dimmed2); font-size: 0.85rem; white-space: nowrap; min-width: 0; max-width: 40rem; overflow: hidden; text-overflow: ellipsis; }
 .dash-status.error { color: var(--color-red); }
+.proc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
+.proc-meta { color: var(--color-dimmed2); font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .proc-filter { align-self: flex-start; box-sizing: border-box; width: min(24rem, 100%); height: var(--header-control-height, 2.25rem); padding: 0 var(--space-3); font: inherit; font-size: 0.85rem; color: var(--color-text); background: var(--color-dark2); border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md); }
 .proc-filter:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset-tight); }
 .proc-name { font-weight: 600; color: var(--color-text); }

@@ -25,6 +25,37 @@ export function storageSubHtml(storage, disk = null) {
   return `<span slot="sub">${parts.join('\u2003')}</span>`;
 }
 
+/** Rich tooltip rows for the Storage card, so clipped sizes on narrower screens stay readable on hover. */
+export function storageTooltipDetails(storage, disk = null) {
+  const rows = Object.keys(STORAGE_NAMES).map((key) => ({
+    label: STORAGE_NAMES[key],
+    value: String(storage[key] ?? ''),
+    color: STORAGE_COLORS[key],
+  }));
+  if (disk) {
+    rows.push({
+      label: 'Disk Free',
+      note: disk.percent_used != null ? `· ${disk.percent_used}% used` : '',
+      value: String(disk.free ?? ''),
+      color: diskColor(disk.percent_used),
+    });
+  }
+  return rows;
+}
+
+/** One-line container summary shown beside the process filter: uptime, processes and threads. */
+export function containerSummary(stats) {
+  if (!stats) return '';
+  const parts = [];
+  if (stats.uptime) parts.push(`Up ${stats.uptime}`);
+  const procs = stats.processes;
+  if (procs && typeof procs.total === 'number') {
+    parts.push(`${procs.total} ${procs.total === 1 ? 'process' : 'processes'}`);
+    if (typeof procs.threads === 'number') parts.push(`${procs.threads} ${procs.threads === 1 ? 'thread' : 'threads'}`);
+  }
+  return parts.join(' · ');
+}
+
 const clamp = (n) => Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
 
 /**
@@ -40,14 +71,17 @@ export function statTiles(stats) {
   const disk = stats.disk;
   const limit = Number(cpu.limit) || 1;
   const loadPercent = ((Number(load['1min']) || 0) / limit) * 100;
+  const cpuColor = levelColor(cpu.percent);
+  const memColor = levelColor(mem.percent_used);
+  const loadColor = levelColor(loadPercent, 70, 100);
   const tiles = [
     { key: 'cpu', icon: 'fa-microchip', title: 'CPU', value: `${(Number(cpu.percent) || 0).toFixed(1)}%`,
-      sub: `of ${limit} ${limit === 1 ? 'CPU' : 'CPUs'}`, progress: clamp(cpu.percent), progressColor: levelColor(cpu.percent) },
+      sub: `of ${limit} ${limit === 1 ? 'CPU' : 'CPUs'}`, color: cpuColor, progress: clamp(cpu.percent), progressColor: cpuColor },
     { key: 'memory', icon: 'fa-memory', title: 'Memory', value: mem.used || 'N/A',
-      sub: `of ${mem.total || 'N/A'} (${Number(mem.percent_used) || 0}%)`, progress: clamp(mem.percent_used), progressColor: levelColor(mem.percent_used) },
+      sub: `of ${mem.total || 'N/A'} (${Number(mem.percent_used) || 0}%)`, color: memColor, progress: clamp(mem.percent_used), progressColor: memColor },
     { key: 'load', icon: 'fa-chart-line', title: 'Load Average', value: (Number(load['1min']) || 0).toFixed(2),
       sub: `5m: ${(Number(load['5min']) || 0).toFixed(2)} / 15m: ${(Number(load['15min']) || 0).toFixed(2)}`,
-      progress: clamp(loadPercent), progressColor: levelColor(loadPercent, 70, 100) },
+      color: loadColor, progress: clamp(loadPercent), progressColor: loadColor },
   ];
   if (storage?.pending) {
     tiles.push({ key: 'storage', icon: 'fa-hard-drive', title: 'Storage', value: '…', sub: 'Calculating…', progress: 0 });
@@ -56,7 +90,8 @@ export function statTiles(stats) {
     tiles.push({ key: 'storage', icon: 'fa-hard-drive', title: 'Storage', value: storage.used,
       sub: `Home ${storage.home}\u2003Notes ${storage.notes}\u2003Downloads ${storage.downloads}${disk ? `\u2003Free ${disk.free}` : ''}`, slotHtml: storageSubHtml(storage, disk),
       progress: 100, segments: [storage.home_percent, storage.notes_percent, storage.downloads_percent].join(','),
-      segmentColors: [STORAGE_COLORS.home, STORAGE_COLORS.notes, STORAGE_COLORS.downloads].join(',') });
+      segmentColors: [STORAGE_COLORS.home, STORAGE_COLORS.notes, STORAGE_COLORS.downloads].join(','),
+      attrs: { 'data-tooltip-title': 'Storage', 'data-tooltip-no-total': true, 'data-tooltip-details': JSON.stringify(storageTooltipDetails(storage, disk)) } });
   }
   return tiles;
 }

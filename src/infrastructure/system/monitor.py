@@ -96,9 +96,12 @@ class ContainerMonitor:
         usage, now = self._cpu_usage_usec(), time.monotonic()
         if usage is None:
             return psutil.cpu_percent(interval=None)
-        previous, self._cpu_sample = self._cpu_sample, (now, usage)
-        if previous is None or now - previous[0] < 0.5:
+        if self._cpu_sample is None:
+            self._cpu_sample = (now, usage)
             return self._cpu_percent
+        if now - self._cpu_sample[0] < 0.5:
+            return self._cpu_percent
+        previous, self._cpu_sample = self._cpu_sample, (now, usage)
         elapsed = (now - previous[0]) * 1_000_000 * self._cpu_limit()
         self._cpu_percent = max(0.0, min(100.0, (usage - previous[1]) / elapsed * 100)) if elapsed else 0.0
         return self._cpu_percent
@@ -194,13 +197,14 @@ class ContainerMonitor:
 
     # --- processes ------------------------------------------------------------------------------------------------
     def _sample(self):
-        seen = set()
+        seen, primed = set(), set()
         for p in psutil.process_iter():
             seen.add(p.pid)
             # A new process, or a pid the kernel has handed to another one: a stale handle would give the old one's deltas.
             known = self._handles.get(p.pid)
             if known is None or known != p:
                 self._handles[p.pid] = p
+                primed.add(p.pid)
                 try:
                     p.cpu_percent(interval=None)  # primes the delta: the first reading would be 0
                 except psutil.Error:
@@ -210,7 +214,10 @@ class ContainerMonitor:
         rows = []
         for pid, proc in list(self._handles.items()):
             try:
-                rows.append((proc.cpu_percent(interval=None), proc.memory_percent(), pid, proc))
+                cpu = 0.0 if pid in primed else proc.cpu_percent(interval=None)
+                mem = proc.memory_percent()
+                name, full_cmd = _identity(proc)
+                rows.append((cpu, mem, pid, proc, name, full_cmd))
             except psutil.Error:
                 continue
         return rows
@@ -225,7 +232,7 @@ class ContainerMonitor:
             rows = list(self._snapshot[1])
         needle = q.strip().lower()
         if needle:  # the filter is on the server so it reaches every page, not only the one on screen
-            rows = [r for r in rows if _matches(r[3], needle)]
+            rows = [r for r in rows if needle in f"{r[4]} {r[5]}".lower()]
         index, sign = (0 if sort == "cpu_percent" else 1), (-1 if direction == "desc" else 1)
         rows.sort(key=lambda r: (sign * r[index], r[2]))
         while True:
@@ -233,9 +240,9 @@ class ContainerMonitor:
             total_pages = max(1, -(-total // page_size))
             current = min(page, total_pages)
             out, gone = [], set()
-            for cpu, mem, pid, proc in rows[(current - 1) * page_size:current * page_size]:
+            for cpu, mem, pid, proc, name, full_cmd in rows[(current - 1) * page_size:current * page_size]:
                 try:
-                    out.append(describe(cpu, mem, pid, proc))
+                    out.append(describe(cpu, mem, pid, proc, name=name, command=full_cmd))
                 except psutil.Error:  # exited since the sweep: drop it and re-cut the page
                     gone.add(pid)
             if not gone:
@@ -287,13 +294,16 @@ def _command(name: str, args: list[str]) -> str:
     return " ".join(args[1:] if args and os.path.basename(args[0]) in (name, "") else args)
 
 
-def _matches(proc: psutil.Process, needle: str) -> bool:
-    """Whether a process's name or command line contains `needle` (lower case); one that has exited or cannot be read does not."""
+def _identity(proc: psutil.Process) -> tuple[str, str]:
+    """Process name and displayed command line, cached in the snapshot so filtering avoids re-reading /proc."""
+    if not hasattr(proc, "name"):
+        return "", ""
+    name = proc.name()
     try:
-        name = proc.name()
-        return needle in f"{name} {_command(name, proc.cmdline())}".lower()
-    except psutil.Error:
-        return False  # the text the table shows, so a match is always visible in the row
+        args = proc.cmdline()
+    except psutil.AccessDenied:
+        args = []
+    return name, _command(name, args)
 
 
 def _count(fn) -> int | None:
@@ -303,14 +313,10 @@ def _count(fn) -> int | None:
         return None
 
 
-def describe(cpu: float, mem: float, pid: int, proc: psutil.Process) -> dict:
+def describe(cpu: float, mem: float, pid: int, proc: psutil.Process, *, name: str | None = None, command: str | None = None) -> dict:
     with proc.oneshot():
-        name = proc.name()
-        try:
-            args = proc.cmdline()
-        except psutil.AccessDenied:
-            args = []
-        command = _command(name, args)
+        if name is None or command is None:
+            name, command = _identity(proc)
         if len(command) > MAX_COMMAND:
             command = command[:MAX_COMMAND - 1] + "…"
         return {"pid": pid, "name": name, "cmdline": command, "status": proc.status(),
