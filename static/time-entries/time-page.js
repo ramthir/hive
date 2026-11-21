@@ -56,6 +56,14 @@ class TimeEntriesApp extends HTMLElement {
     this.drawer = this.createDrawer();
     this.loadNotes();
     this.load();
+    // notes created or retitled in another tab: refresh the picker when this page is shown again
+    document.addEventListener('visibilitychange', this.onVisible = () => {
+      if (!document.hidden) { this.loadNotes(); this.load(); }
+    });
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('visibilitychange', this.onVisible);
   }
 
   go(state) {
@@ -147,7 +155,7 @@ class TimeEntriesApp extends HTMLElement {
       buildPayload: (form) => Object.fromEntries(new FormData(form)),
       onSave: async (values, record) => {
         for (const call of savePlan(record, values)) await api(call.path, { method: call.method, body: call.body });
-        await this.load();
+        await Promise.all([this.load(), this.loadNotes()]);
       },
       onDelete: async (record) => {
         const call = deleteCall(record);
