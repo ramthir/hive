@@ -5,7 +5,7 @@ import { showToast } from '/static/toast.js';
 import { api } from '/static/notes/api.js';
 import { copySessionResume } from '/static/agents/session-resume.js';
 import { shouldRetryQuota } from '/static/agents/quota-donuts.js';
-import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery } from '/static/agents/usage-render.js';
+import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, updatedText } from '/static/agents/usage-render.js';
 
 const REFRESH_MS = 60000; // the server makes a new report every 15 minutes; the page just asks again
 const QUOTA_RETRY_MS = 8000; // the first quota run takes a few seconds: ask again soon instead of after a minute
@@ -63,7 +63,10 @@ class AgentsTab extends HTMLElement {
     // The report changes every 15 minutes: redrawing identical data would reset the table's sort arrow.
     this.view = view;
     const key = JSON.stringify([view, this.quota]);
-    if (key === this.drawn) return;
+    if (key === this.drawn) {
+      this.refreshUpdated(); // the report is the same but is a minute older
+      return;
+    }
     this.drawn = key;
     this.appliedKey = null;
     this.body.innerHTML = renderUsage(view, this.quota);
@@ -73,6 +76,11 @@ class AgentsTab extends HTMLElement {
     this.table.setDefaultSort(this.sort, this.direction);
     this.table.setEmptyState({ icon: 'fa-comments', title: 'No sessions this month' });
     this.applySessions();
+  }
+
+  refreshUpdated() {
+    const time = this.querySelector('time.updated');
+    if (time && this.view?.generated_at) time.textContent = updatedText(this.view.generated_at);
   }
 
   applySessions() {

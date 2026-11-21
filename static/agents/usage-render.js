@@ -204,6 +204,14 @@ function legend(view) {
   return names.length ? `<ul class="legend" aria-hidden="true">${names.map((name) => `<li><span class="dot ${esc(name)}"></span>${esc(PROVIDER_LABELS[name] || name)}</li>`).join('')}</ul>` : '';
 }
 
+/** "Updated 4m ago": how old the report on screen is, so a person can tell fresh numbers from a 15-minute-old report. */
+export function updatedText(generatedAt) {
+  const age = formatRelativeTime(generatedAt);
+  return age ? `Updated ${age === 'Just now' ? 'just now' : age}` : '';
+}
+
+const updatedTime = (view) => (view.generated_at ? `<time class="updated" datetime="${esc(view.generated_at)}" title="${esc(formatFullDateTime(view.generated_at))}">${esc(updatedText(view.generated_at))}</time>` : '');
+
 /** The whole tab body for one /api/agents/usage answer; `null` renders the loading state. */
 export function renderUsage(view, quota = null) {
   if (!view) return skeleton();
@@ -211,7 +219,7 @@ export function renderUsage(view, quota = null) {
   const trend = view.status === 'unavailable' || view.status === 'waiting' ? '<p class="state">No daily usage to show.</p>' : renderTrend(view);
   return `${banner(view)}
     <div class="cards">${cards}</div>
-    <section class="panel"><div class="panel-head"><h3>${esc(monthLabel(view.month))}</h3>${legend(view)}</div>${trend}</section>
+    <section class="panel"><div class="panel-head"><h3>${esc(monthLabel(view.month))}</h3>${updatedTime(view)}${legend(view)}</div>${trend}</section>
     ${sessionsPanel()}`;
 }
 

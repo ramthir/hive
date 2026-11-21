@@ -1517,6 +1517,12 @@ def test_a_dashboard_tab_opened_in_a_hidden_page_polls_nothing_until_it_is_shown
     assert requests  # shown: it loads at once
 
 
+def test_agents_tab_says_how_old_the_report_is(page, agents_server):
+    page.goto(f"{agents_server}/dashboard/agents")
+    expect(page.locator("agents-tab time.updated")).to_have_text("Updated just now")
+    assert page.errors == []
+
+
 def test_agents_tab_draws_the_quota_rings_with_their_tooltip(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     donuts = page.locator("agents-tab .quota-donut")

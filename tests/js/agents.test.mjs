@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession } from '../../static/agents/usage-render.js';
+import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession, updatedText } from '../../static/agents/usage-render.js';
 import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, quotaLevel, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
 import { sessionResumeCommand } from '../../static/agents/session-resume.js';
 import { TABS, tabBarTabs, tabForPath } from '../../static/dashboard/tabs.js';
@@ -203,4 +203,13 @@ test('a ring turns orange under a quarter left and red under a tenth', () => {
   assert.equal(ring(40), 'class="arc outer"');
   assert.equal(ring(80), 'class="arc outer warn"');
   assert.equal(ring(95), 'class="arc outer low"');
+});
+
+test('the report says how old it is', () => {
+  const ago = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+  assert.equal(updatedText(ago(0)), 'Updated just now');
+  assert.equal(updatedText(ago(7)), 'Updated 7m ago');
+  assert.equal(updatedText(null), '');
+  assert.match(renderUsage(view({ generated_at: ago(7) })), /<time class="updated" datetime="[^"]+" title="[^"]+">Updated 7m ago<\/time>/);
+  assert.equal(renderUsage(view({ generated_at: null })).includes('class="updated"'), false);
 });
