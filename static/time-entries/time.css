@@ -51,3 +51,5 @@ time-entries-app {
   .time-summary { grid-template-columns: 1fr; }
   .time-search { flex: 1 1 auto; width: auto; }
 }
+
+.time-page .log-time-hint { margin: 0; color: var(--color-dimmed2); font-size: 0.85rem; min-height: 1.2em; }

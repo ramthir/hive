@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deleteCall, listQuery, readState, savePlan, stateSearch, tableColumns, timeNoteOptions } from '../../static/time-entries/entries.js';
 import { formatDay, formatDuration, today } from '../../static/time-entries/format.js';
-import { canLogTime, dayHint, loggedLabel, loggedMinutes } from '../../static/time-entries/logged.js';
+import { canLogTime, dayHint, entryHint, loggedLabel, loggedMinutes } from '../../static/time-entries/logged.js';
 import { monthSparkline, summaryTiles } from '../../static/time-entries/summary.js';
 
 test('durations read as hours and minutes', () => {
@@ -146,6 +146,16 @@ test('the sparkline has a value per day of the server\'s month and tooltip rows 
   assert.equal(monthSparkline({ month: '2024-02' }).values.length, 29);
   assert.equal(monthSparkline({}), null);
   assert.equal(summaryTiles({ month: '2026-02', days: meta.days })[0].sparkline.values[2], 105);
+});
+
+test('the drawer warns when the target day already holds time, except when editing in place', () => {
+  const time = { '2026-11-20': 90 };
+  const hint = '1h 30m already logged on Fri, Nov 20, 2026. This adds to it.';
+  assert.equal(entryHint(null, { slug: 'fix', day: '2026-11-20' }, time), hint);
+  assert.equal(entryHint({ slug: 'old', day: '2026-11-19' }, { slug: 'fix', day: '2026-11-20' }, time), hint);
+  assert.equal(entryHint({ slug: 'fix', day: '2026-11-20' }, { slug: 'fix', day: '2026-11-20' }, time), '');
+  assert.equal(entryHint(null, { slug: 'fix', day: '2026-11-21' }, time), '');
+  assert.equal(entryHint(null, { slug: 'fix', day: '2026-11-20' }, null), '');
 });
 
 test('time left on a retyped note shows a warning icon', () => {

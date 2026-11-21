@@ -16,6 +16,7 @@ import {
 } from '/static/time-entries/entries.js';
 import { today } from '/static/time-entries/format.js';
 import { summaryTiles } from '/static/time-entries/summary.js';
+import { entryHint } from '/static/time-entries/logged.js';
 
 const EMPTY = { icon: 'fa-clock', title: 'No time entries found', subtitle: 'Add time to a task or meeting, or adjust your search.' };
 
@@ -103,6 +104,23 @@ class TimeEntriesApp extends HTMLElement {
       .join('');
   }
 
+  // Say when the chosen note and day already hold time (saving adds to it). Fetched per choice: the page only has one
+  // page of rows, so the note's own `time` map is the source.
+  async showEntryHint(form) {
+    const hint = form.querySelector('.log-time-hint');
+    const { slug, day } = Object.fromEntries(new FormData(form));
+    const record = this.drawer?.current() ?? null;
+    const seq = (this.hintSeq = (this.hintSeq || 0) + 1);
+    hint.textContent = '';
+    if (!slug || !day) return;
+    try {
+      const note = await api(`/notes/${encodeURIComponent(slug)}`);
+      if (seq === this.hintSeq) hint.textContent = entryHint(record, { slug, day }, note.time);
+    } catch {
+      /* the hint is a courtesy: saving reports real problems */
+    }
+  }
+
   createDrawer() {
     return createCrudDrawer({
       host: this.querySelector('.time-drawer-host'),
@@ -112,13 +130,19 @@ class TimeEntriesApp extends HTMLElement {
         <div class="time-form-row">
           <label class="field">Date<app-datepicker name="day" required></app-datepicker></label>
           <label class="field">Duration<app-durationpicker name="minutes" required></app-durationpicker></label>
-        </div>`,
+        </div>
+        <p class="log-time-hint" aria-live="polite"></p>`,
       populateForm: (record, form) => {
         const note = form.querySelector('app-combobox[name="slug"]');
         note.optionsList = this.noteOptions || [];
         note.value = record?.slug || '';
         form.querySelector('app-datepicker[name="day"]').value = record?.day || today();
         form.querySelector('app-durationpicker[name="minutes"]').value = record?.minutes || 60;
+        if (!form.dataset.hintBound) {
+          form.dataset.hintBound = '1';
+          form.addEventListener('change', () => this.showEntryHint(form));
+        }
+        this.showEntryHint(form);
       },
       buildPayload: (form) => Object.fromEntries(new FormData(form)),
       onSave: async (values, record) => {

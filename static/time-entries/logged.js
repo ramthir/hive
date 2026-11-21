@@ -18,3 +18,15 @@ export function dayHint(time, day) {
   const minutes = Number(time?.[day]) || 0;
   return minutes ? `${formatDuration(minutes)} already logged on ${formatDay(day)}. This adds to it.` : `Nothing logged on ${formatDay(day)} yet.`;
 }
+
+/**
+ * What the drawer says about where an entry lands. Adding, or moving a row to another note or day, adds to whatever
+ * the target day holds; editing in place replaces the row's minutes, so there is nothing to warn about.
+ * `existing` is the target note's `time` map (null while it is loading or unknown).
+ */
+export function entryHint(record, { slug, day }, existing) {
+  if (!slug || !day || !existing) return '';
+  if (record && record.slug === slug && record.day === day) return '';
+  const before = Number(existing[day]) || 0;
+  return before ? `${formatDuration(before)} already logged on ${formatDay(day)}. This adds to it.` : '';
+}
