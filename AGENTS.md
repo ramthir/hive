@@ -19,6 +19,9 @@ Under `/api`: `GET/POST /notes`, `GET/PUT/DELETE /notes/{slug}`, `/notes/{slug}/
 - Design: the watcher (watchfiles/inotify, `step=250ms`, `debounce=400ms`) only invalidates the index; it is rebuilt lazily on the next request, so bursts coalesce into one rebuild and an idle app does nothing. The rebuild is incremental twice over: `FileNoteRepository.list()` re-parses only files whose (mtime, size) changed, and the watcher and service writes name the slugs they touched, so `NoteIndex.updated` patches just those notes (`index_patch` timing; copy-on-write, so readers never see a half-updated index). More than `PATCH_LIMIT` (50) changed notes, `POST /api/reindex` or a file the repository cannot load by name fall back to a full rebuild.
 - `commit --only` runs hooks on a temp index, so `GitClient.commit_paths` re-syncs the real index afterwards; do not remove that or formatter hooks leave phantom staged changes.
 
+## Layout
+Hive is a desktop app: there is no mobile or narrow-screen layout (no `@media` width queries, no sidebar menu button). Pages are laid out for a wide window and the sidebar is always a left column that can be collapsed (Ctrl/⌘+\\ or B). Do not add breakpoints.
+
 ## Running
 `NOTES_DIR=~/Workspace/notes uv run python main.py` serves on port 80 (needs `net.ipv4.ip_unprivileged_port_start` <= 80 or root). Binds 0.0.0.0 by default and there is no auth, so anyone who can reach the port can edit notes; `HOST=127.0.0.1` limits it to this machine. `PORT` overrides the port. `HIVE_WATCH=0` turns the file watcher off (edits made outside Hive are then only seen after `POST /api/reindex`). `GRAPHVIZ_DOT` points at Graphviz `dot` when it is not on PATH. Every save is a real git commit in `NOTES_DIR`.
 

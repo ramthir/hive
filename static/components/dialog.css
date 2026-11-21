@@ -143,31 +143,7 @@ body.dialog-open {
 .modal-header--tabs .modal-title {
   margin-right: auto;
 }
-@media (max-width: 640px) {
-  /* On a phone the title and the icon controls share the first row and the tabs take the full row below. */
-  .modal-header--tabs {
-    padding-block: var(--space-2, 0.5rem);
-  }
-  .modal-header--tabs .modal-header-actions {
-    order: 2;
-  }
-  .modal-header--tabs > app-tab-bar,
-  .modal-header--tabs > .tab-bar {
-    order: 3;
-    flex: 1 1 100%;
-    justify-content: stretch;
-  }
-  .modal-header--tabs > app-tab-bar .tab-bar-item {
-    flex: 1 1 0;
-    justify-content: center;
-  }
-}
 /* An icon control that only makes sense when the drawer is narrower than the screen, such as expand. */
-@media (max-width: 640px) {
-  .modal-icon-btn--wide-only {
-    display: none;
-  }
-}
 /* A drawer switched to the full screen width. */
 .modal-panel--drawer.modal-panel--drawer-full {
   --panel-width: 100vw;
@@ -330,11 +306,6 @@ body.dialog-open {
 .field-full-width {
   grid-column: 1 / -1;
 }
-@media (max-width: 600px) {
-  .properties-form-grid {
-    grid-template-columns: 1fr;
-  }
-}
 @keyframes drawer-slide-in {
   from {
     transform: translateX(100%);
@@ -378,4 +349,3 @@ body.dialog-open {
 
 /* Two fields side by side in a drawer or dialog form (date and duration of a time entry). */
 .time-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-@media (max-width: 640px) { .time-form-row { grid-template-columns: 1fr; } }

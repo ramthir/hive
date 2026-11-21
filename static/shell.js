@@ -69,14 +69,10 @@ class AppShell extends HTMLElement {
                     height: 100%;
                 }
 
-                /* min-width values below must match --breakpoint-sm /
-                   --breakpoint-lg in tokens.css — @media conditions can't
-                   reference custom properties. */
-                @media (min-width: 1024px) {
-                    .shell {
-                        flex-direction: row;
-                    }
+                .shell {
+                    flex-direction: row;
                 }
+            
 
                 .page {
                     display: flex;
@@ -112,18 +108,16 @@ class AppShell extends HTMLElement {
                     margin: 0;
                 }
 
-                @media (min-width: 640px) {
-                    .page-container {
-                        --page-block-padding: var(--space-6, 1.5rem);
-                        --page-inline-padding: var(--space-6, 1.5rem);
-                    }
+                .page-container {
+                    --page-block-padding: var(--space-6, 1.5rem);
+                    --page-inline-padding: var(--space-6, 1.5rem);
                 }
+            
 
-                @media (min-width: 1024px) {
-                    .page-container {
-                        --page-inline-padding: var(--space-7, 2rem);
-                    }
+                .page-container {
+                    --page-inline-padding: var(--space-7, 2rem);
                 }
+            
 
                 /* fill: occupy exactly the viewport and let the slotted app
                    (e.g. chat) manage its own scrolling. */
@@ -145,11 +139,10 @@ class AppShell extends HTMLElement {
                     gap: 0;
                 }
 
-                @media (min-width: 1024px) {
-                    :host([fill]) .page-container {
-                        --page-inline-padding: var(--space-7, 2rem);
-                    }
+                :host([fill]) .page-container {
+                    --page-inline-padding: var(--space-7, 2rem);
                 }
+            
 
             </style>
 

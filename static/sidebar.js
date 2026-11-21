@@ -1,6 +1,6 @@
 /**
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
- * A left sidebar on wide screens; on narrow ones it becomes a top bar with a dropdown menu.
+ * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
  *
  * Hive's version is deliberately small: three navigation items (Notes, the Tasks board and Time entries), and a hardcoded user at the bottom
  * (there is no sign-in yet).
@@ -16,7 +16,6 @@ const NAVIGATION_ITEMS = Object.freeze([
 ]);
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';
-const DESKTOP = '(min-width: 1024px)';
 
 const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -38,7 +37,6 @@ class AppSidebar extends HTMLElement {
 
   constructor() {
     super();
-    this._mobileMenuOpen = false;
     this._shortcutHandler = null;
   }
 
@@ -61,14 +59,13 @@ class AppSidebar extends HTMLElement {
   /* --- visibility ------------------------------------------------------ */
 
   restoreVisibilityPreference() {
-    if (!window.matchMedia(DESKTOP).matches) return;
     try {
       if (localStorage.getItem(COLLAPSED_KEY) === 'true') this.setSidebarVisible(false, false);
     } catch (_) { /* storage unavailable: stay expanded */ }
   }
 
   isSidebarVisible() {
-    return window.matchMedia(DESKTOP).matches ? !this.classList.contains('sidebar-collapsed') : this._mobileMenuOpen;
+    return !this.classList.contains('sidebar-collapsed');
   }
 
   setSidebarVisible(visible, persist = true) {
@@ -88,33 +85,10 @@ class AppSidebar extends HTMLElement {
     collapseBtn?.setAttribute('aria-expanded', String(visible));
     expandBtn?.setAttribute('aria-expanded', String(visible));
 
-    if (window.matchMedia(DESKTOP).matches) {
-      this.classList.toggle('sidebar-collapsed', !visible);
-      const focusTarget = visible ? collapseBtn : expandBtn;
-      if (focusTarget && document.activeElement && this.contains(document.activeElement)) {
-        requestAnimationFrame(() => focusTarget.focus());
-      }
-      return;
-    }
-    this._mobileMenuOpen = visible;
-    this.updateMobileMenu();
-  }
-
-  toggleMobileMenu() {
-    this._mobileMenuOpen = !this._mobileMenuOpen;
-    this.updateMobileMenu();
-  }
-
-  updateMobileMenu() {
-    const nav = this.querySelector('.sidebar-nav');
-    const button = this.querySelector('.mobile-menu-btn');
-    const menuIcon = this.querySelector('.menu-icon');
-    const closeIcon = this.querySelector('.close-icon');
-    button?.setAttribute('aria-expanded', String(this._mobileMenuOpen));
-    if (nav && menuIcon && closeIcon) {
-      nav.classList.toggle('open', this._mobileMenuOpen);
-      menuIcon.style.display = this._mobileMenuOpen ? 'none' : 'block';
-      closeIcon.style.display = this._mobileMenuOpen ? 'block' : 'none';
+    this.classList.toggle('sidebar-collapsed', !visible);
+    const focusTarget = visible ? collapseBtn : expandBtn;
+    if (focusTarget && document.activeElement && this.contains(document.activeElement)) {
+      requestAnimationFrame(() => focusTarget.focus());
     }
   }
 
@@ -153,10 +127,6 @@ class AppSidebar extends HTMLElement {
       </button>
       <nav class="app-sidebar" aria-label="Main Navigation">
         <div class="sidebar-header">
-          <button class="mobile-menu-btn" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar-nav">
-            <i class="fa-solid fa-bars menu-icon" aria-hidden="true"></i>
-            <i class="fa-solid fa-xmark close-icon" aria-hidden="true"></i>
-          </button>
           <a href="/notes" class="logo" aria-label="Note Hive Home">
             <i class="fa-solid fa-circle-nodes" aria-hidden="true"></i>
             <span class="logo-text">Note Hive</span>
@@ -180,13 +150,8 @@ class AppSidebar extends HTMLElement {
         </div>
       </nav>`;
 
-    this.querySelector('.mobile-menu-btn')?.addEventListener('click', () => this.toggleMobileMenu());
     this.querySelector('.desktop-collapse-btn')?.addEventListener('click', () => this.setSidebarVisible(false));
     this.querySelector('.sidebar-expand-btn')?.addEventListener('click', () => this.setSidebarVisible(true));
-    // Picking a destination closes the mobile menu. The page decides what the click does (it can ask about unsaved edits).
-    this.querySelectorAll('.nav-link, .logo').forEach((link) => link.addEventListener('click', () => {
-      if (this._mobileMenuOpen) this.toggleMobileMenu();
-    }));
 
     // The shell hides its content until the sidebar's own stylesheets have loaded, then fades it in.
     const sheets = [...this.querySelectorAll('link[rel="stylesheet"]')];

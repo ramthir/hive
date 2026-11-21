@@ -251,13 +251,4 @@
   --dialog-card-max-width-drawer-wide: 42rem;
   --table-row-height: 3.25rem;
   --table-cell-padding-y: 0.65rem;
-
-  /* Breakpoints — CSS custom properties can't be referenced inside
-       @media conditions (a CSS spec limitation, not fixable here), so
-       these exist for documentation/JS use (matchMedia, getComputedStyle)
-       only. Every @media rule using one of these values must still
-       hardcode it — keep them in sync by hand. */
-  --breakpoint-sm: 640px;
-  --breakpoint-md: 768px;
-  --breakpoint-lg: 1024px;
 }

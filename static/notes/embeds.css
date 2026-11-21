@@ -11,17 +11,6 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 639px) {
-  .notes-editor-workspace.write {
-    flex-direction: column;
-  }
-  .notes-markdown-drawer {
-    flex-basis: 50%;
-    width: 100%;
-    border-left: 0;
-    border-top: 1px solid var(--color-dimmed5);
-  }
-}
 
 /* Keep wide equations within the note rather than widening the page. */
 .notes-preview-pane .notes-math-display {

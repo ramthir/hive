@@ -24,11 +24,9 @@
   box-shadow: 0 -0.35rem 0.75rem rgba(0, 0, 0, 0.18);
 }
 
-@media (min-width: 1024px) {
-  
-  .notes-action-bar {
-    left: var(--sidebar-content-offset, var(--sidebar-width, 15rem));
-  }
+
+.notes-action-bar {
+  left: var(--sidebar-content-offset, var(--sidebar-width, 15rem));
 }
 
 /* Left section: stats, divider, status pill, updated timestamp */
@@ -125,28 +123,8 @@
   background: color-mix(in srgb, var(--color-accent5) 16%, transparent);
 }
 
-@media (max-width: 960px) {
-  .stat-reading,
-  .notes-footer-stats .stat-bullet {
-    display: none;
-  }
-}
 
-@media (max-width: 768px) {
-  .notes-footer-divider,
-  .stat-updated,
-  .notes-footer-status .stat-bullet {
-    display: none;
-  }
-}
 
-@media (max-width: 639px) {
-  
-  .notes-action-bar {
-    padding: 0 1rem;
-    gap: 0.5rem;
-  }
-}
 
 
 /* Time logged on a task or meeting note, beside the updated stamp. */

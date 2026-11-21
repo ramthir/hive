@@ -62,12 +62,6 @@
   border-radius: var(--tab-bar-compact-item-radius);
   font-size: var(--tab-bar-compact-font-size);
 }
-@media (max-width: 640px) {
-  .tab-bar {
-    align-self: flex-start;
-    min-width: max-content;
-  }
-}
 
 .tab-bar[hidden] {
   display: none;

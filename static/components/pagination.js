@@ -161,18 +161,6 @@ class AppPagination extends HTMLElement {
                     cursor: default;
                 }
 
-                /* Mobile view */
-                @media (max-width: 500px) {
-                    .pagination {
-                        flex-direction: column;
-                        gap: 0.75rem;
-                    }
-
-                    .page-numbers {
-                        display: none;
-                    }
-                }
-
                 .page-numbers {
                     display: contents;
                 }

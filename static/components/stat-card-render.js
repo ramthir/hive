@@ -16,17 +16,7 @@ export const STAT_CARD_GRID_CSS = `
     min-width: 0;
   }
 
-  @media (max-width: 900px) {
-    .stat-card-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
 
-  @media (max-width: 500px) {
-    .stat-card-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
 `;
 
 const PROP_TO_ATTR = [

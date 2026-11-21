@@ -104,11 +104,6 @@
 .notes-type-chip + .notes-type-chip { margin-left: .5rem; }
 .notes-type-name { text-transform: capitalize; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notes-footer-actions { flex: 0 0 auto; }
-@media (max-width: 900px) {
-  .notes-footer-stats, .notes-footer-status, .notes-footer-left .notes-footer-divider:not(.notes-footer-tags-divider) { display: none; }
-  .notes-footer-tags { flex: 1 1 8rem; }
-  .notes-tags-combobox { min-width: 6rem; }
-}
 
 /* The rendered note sits in #notes-md, so Pandora's `.notes-preview-pane > :first-child` no longer reaches the
    heading: drop its top margin here so the title starts right under the header. */
@@ -145,7 +140,6 @@
 }
 .header-search-input::placeholder { color: var(--search-text-color); opacity: 1; }
 .header-search-input::-webkit-search-cancel-button { cursor: pointer; }
-@media (max-width: 640px) { .header-search { flex: 1 1 100%; width: 100%; } }
 .hive-version-day { position: relative; margin: .6rem .6rem .15rem 3.4rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .55; }
 .hive-version-day:first-child { margin-top: 0; }
 .hive-version-row[hidden], .hive-version-day[hidden] { display: none; }

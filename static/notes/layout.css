@@ -10,20 +10,16 @@ notes-app {
   box-sizing: border-box;
 }
 
-@media (min-width: 640px) {
-  notes-app {
-    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
-    width: calc(100% + 2 * var(--space-6));
-  }
+notes-app {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  width: calc(100% + 2 * var(--space-6));
 }
 
-@media (min-width: 1024px) {
-  notes-app {
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
-    width: calc(100% + 2 * var(--space-7));
-  }
+notes-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+  width: calc(100% + 2 * var(--space-7));
 }
 
 .notes-page {
@@ -114,11 +110,6 @@ notes-app {
   box-sizing: border-box;
 }
 
-@media (max-width: 639px) {
-  .notes-grid {
-    padding: 0 1rem;
-  }
-}
 
 .note-card {
   position: relative;
@@ -230,11 +221,9 @@ notes-app {
   gap: 0;
 }
 
-@media (min-width: 1024px) {
-  .notes-editor-page {
-    height: 100vh;
-    height: 100dvh;
-  }
+.notes-editor-page {
+  height: 100vh;
+  height: 100dvh;
 }
 
 .notes-editor-page app-header {
@@ -279,11 +268,6 @@ notes-app {
   background: var(--color-background);
 }
 
-@media (max-width: 639px) {
-  .notes-preview-pane {
-    padding: 1rem 1rem calc(1rem + var(--footer-bar-height, 3.75rem)) 1rem;
-  }
-}
 
 /* Save Version button in the header */
 .note-versions-header-actions {

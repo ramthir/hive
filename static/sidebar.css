@@ -24,36 +24,6 @@ app-sidebar {
   padding: 0 var(--space-4);
   flex-shrink: 0;
 }
-/* Mobile menu toggle */
-.mobile-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2);
-  margin-left: calc(-1 * var(--space-2));
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-dimmed2);
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
-}
-.mobile-menu-btn:hover {
-  color: var(--color-text);
-  background: var(--color-dimmed5);
-}
-.mobile-menu-btn:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-offset);
-}
-.mobile-menu-btn i {
-  font-size: 1.25rem;
-}
-.close-icon {
-  display: none;
-}
 /* Logo / brand */
 .logo {
   display: flex;
@@ -81,9 +51,8 @@ app-sidebar {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Nav links — collapsed dropdown on mobile, full list on desktop */
+/* Nav links */
 .sidebar-nav {
-  display: none;
   flex-direction: column;
   gap: 0.125rem;
   padding: 0 var(--space-3) var(--space-5);
@@ -104,9 +73,6 @@ app-sidebar {
 .sidebar-nav::-webkit-scrollbar-thumb:hover {
   background: var(--color-dimmed4);
 }
-.sidebar-nav.open {
-  display: flex;
-}
 .sidebar-profile {
   box-sizing: border-box;
   display: none;
@@ -119,9 +85,6 @@ app-sidebar {
 }
 .sidebar-profile[hidden] {
   display: none !important;
-}
-.sidebar-nav.open + .sidebar-profile {
-  display: flex;
 }
 .sidebar-profile-avatar {
   display: inline-flex;
@@ -202,117 +165,110 @@ app-sidebar {
   color: var(--color-state-selected-text);
 }
 
-/* Desktop: persistent left sidebar. min-width here must match
-   --breakpoint-lg in tokens.css — @media conditions can't reference
-   custom properties, so this can't be var()-ified. */
-@media (min-width: 1024px) {
-  .app-sidebar {
-    width: var(--sidebar-width, 15rem);
-    height: 100%;
-    border-bottom: none;
-    border-right: 1px solid var(--color-dimmed5);
-  }
-  .sidebar-header {
-    padding: 0 var(--space-5);
-  }
-  .mobile-menu-btn {
-    display: none;
-  }
-  .desktop-collapse-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--color-dimmed3);
-    cursor: pointer;
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-  }
-  .desktop-collapse-btn:hover {
-    color: var(--color-text);
-    background: var(--color-dimmed5);
-  }
-  .desktop-collapse-btn:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: var(--focus-offset);
-  }
-  .desktop-collapse-btn i {
-    font-size: 0.95rem;
-  }
-  .sidebar-nav {
-    display: flex !important;
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-3);
-  }
-  .sidebar-profile {
-    display: flex;
-    padding: 0 var(--space-5);
-  }
-  app-sidebar.sidebar-collapsed {
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    visibility: hidden;
-    border-right: 0;
-  }
-  app-sidebar.sidebar-collapsed .sidebar-expand-btn {
-    visibility: visible;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    top: 6.625rem;
-    left: 0;
-    transform: translateY(-50%);
-    width: 1.5rem;
-    height: 2.25rem;
-    z-index: 100;
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-dimmed4) 40%, transparent),
-      color-mix(in srgb, var(--color-dimmed5) 40%, transparent)
-    );
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid color-mix(in srgb, var(--color-dimmed4) 50%, transparent);
-    border-left: none;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    color: var(--color-text);
-    cursor: pointer;
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-    transition:
-      color 0.15s ease,
-      background 0.15s ease,
-      border-color 0.15s ease,
-      box-shadow 0.15s ease,
-      width 0.15s ease;
-  }
-  app-sidebar.sidebar-collapsed .sidebar-expand-btn:hover {
-    color: var(--color-text);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-dimmed3) 60%, transparent),
-      color-mix(in srgb, var(--color-dimmed4) 60%, transparent)
-    );
-    border-color: color-mix(in srgb, var(--color-dimmed3) 70%, transparent);
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
-    width: 1.75rem;
-  }
-  app-sidebar.sidebar-collapsed .sidebar-expand-btn:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: var(--focus-offset);
-  }
-  app-sidebar.sidebar-collapsed .sidebar-expand-btn i {
-    font-size: 0.85rem;
-  }
+/* The persistent left sidebar. */
+.app-sidebar {
+  width: var(--sidebar-width, 15rem);
+  height: 100%;
+  border-bottom: none;
+  border-right: 1px solid var(--color-dimmed5);
+}
+.sidebar-header {
+  padding: 0 var(--space-5);
+}
+.desktop-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-dimmed3);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+.desktop-collapse-btn:hover {
+  color: var(--color-text);
+  background: var(--color-dimmed5);
+}
+.desktop-collapse-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.desktop-collapse-btn i {
+  font-size: 0.95rem;
+}
+.sidebar-nav {
+  display: flex !important;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+.sidebar-profile {
+  display: flex;
+  padding: 0 var(--space-5);
+}
+app-sidebar.sidebar-collapsed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  border-right: 0;
+}
+app-sidebar.sidebar-collapsed .sidebar-expand-btn {
+  visibility: visible;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 6.625rem;
+  left: 0;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 2.25rem;
+  z-index: 100;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-dimmed4) 40%, transparent),
+    color-mix(in srgb, var(--color-dimmed5) 40%, transparent)
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--color-dimmed4) 50%, transparent);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-text);
+  cursor: pointer;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    width 0.15s ease;
+}
+app-sidebar.sidebar-collapsed .sidebar-expand-btn:hover {
+  color: var(--color-text);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-dimmed3) 60%, transparent),
+    color-mix(in srgb, var(--color-dimmed4) 60%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--color-dimmed3) 70%, transparent);
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+  width: 1.75rem;
+}
+app-sidebar.sidebar-collapsed .sidebar-expand-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+app-sidebar.sidebar-collapsed .sidebar-expand-btn i {
+  font-size: 0.85rem;
 }
 
 /* Chord HUD indicator */

@@ -9,19 +9,15 @@ time-entries-app {
   width: calc(100% + 2 * var(--space-4));
   box-sizing: border-box;
 }
-@media (min-width: 640px) {
-  time-entries-app {
-    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
-    width: calc(100% + 2 * var(--space-6));
-  }
+time-entries-app {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  width: calc(100% + 2 * var(--space-6));
 }
-@media (min-width: 1024px) {
-  time-entries-app {
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
-    width: calc(100% + 2 * var(--space-7));
-  }
+time-entries-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+  width: calc(100% + 2 * var(--space-7));
 }
 .time-page { display: flex; flex: 1; flex-direction: column; min-width: 0; width: 100%; }
 .time-header-actions { justify-content: flex-end; }
@@ -47,9 +43,5 @@ time-entries-app {
 .time-duration { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .time-pagination[hidden] { display: none; }
 .time-drawer-host { display: contents; }
-@media (max-width: 640px) {
-  .time-summary { grid-template-columns: 1fr; }
-  .time-search { flex: 1 1 auto; width: auto; }
-}
 
 .time-page .log-time-hint { margin: 0; color: var(--color-dimmed2); font-size: 0.85rem; min-height: 1.2em; }

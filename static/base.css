@@ -104,40 +104,6 @@ app-shell.ready {
   border-color: var(--btn-header-danger-border-hover);
 }
 
-@media (max-width: 640px) {
-  .app-header-action-group {
-    width: 100%;
-    flex-wrap: wrap;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: var(--space-2, 0.5rem);
-  }
-
-  .app-header-action-group > app-autocomplete,
-  .app-header-action-group > .notes-search-wrapper,
-  .app-header-action-group > .notes-note-search-wrapper,
-  .app-header-action-group > .quotes-search-wrapper,
-  .app-header-action-group > .assets-search-wrapper,
-  .app-header-action-group > .search-wrapper {
-    flex: 1 1 100%;
-    width: 100% !important;
-    max-width: 100%;
-  }
-
-  .app-header-action-group > app-tab-bar,
-  .app-header-action-group > .quotes-view-toggle {
-    flex: 1 1 auto;
-  }
-
-  .app-header-action-group > button,
-  .app-header-action-group > .notes-btn,
-  .app-header-action-group > .work-btn,
-  .app-header-action-group > .quotes-btn,
-  .app-header-action-group > .assets-btn {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-}
 
 a {
   color: var(--color-accent5);
@@ -260,14 +226,4 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .stat-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
-@media (max-width: 500px) {
-  .stat-card-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}

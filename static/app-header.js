@@ -33,11 +33,6 @@ const COMPONENT_CSS = `
                     padding: 1rem var(--space-6);
                 }
 
-                @media (max-width: 639px) {
-                    :host([variant="flush"]) .page-header-content {
-                        padding: 1rem var(--space-4);
-                    }
-                }
 
                 /* bar: a compact bar that sits flush at the top of its pane, with no gap below. */
                 :host([variant="bar"]) .page-header-content {
@@ -63,13 +58,12 @@ const COMPONENT_CSS = `
                     margin-bottom: 0;
                 }
 
-                @media (min-width: 640px) {
-                    .page-header-content {
-                        flex-direction: row;
-                        align-items: center;
-                        justify-content: space-between;
-                    }
+                .page-header-content {
+                    flex-direction: row;
+                    align-items: center;
+                    justify-content: space-between;
                 }
+            
 
                 .page-header-title {
                     min-width: 0;
@@ -125,15 +119,12 @@ const COMPONENT_CSS = `
                     font-family: var(--font-family, -apple-system, sans-serif);
                 }
 
-                /* min-width here must match --breakpoint-sm in tokens.css
-                   — @media conditions can't reference custom properties. */
-                @media (min-width: 640px) {
-                    .page-title {
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                    }
+                .page-title {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
+            
 
                 ::slotted([slot="title"]) {
                     font-size: 1.5rem;
@@ -163,8 +154,6 @@ const COMPONENT_CSS = `
                     margin-top: 0.3rem;
                 }
 
-                /* Mobile first: actions wrap across the full width, then sit on one row
-                   from --breakpoint-sm up (same value as the layout rule above). */
                 .page-header-actions {
                     display: flex;
                     align-items: center;
@@ -173,12 +162,11 @@ const COMPONENT_CSS = `
                     gap: var(--app-header-action-gap, var(--space-3, 0.75rem));
                 }
 
-                @media (min-width: 640px) {
-                    .page-header-actions {
-                        flex-wrap: nowrap;
-                        width: auto;
-                    }
+                .page-header-actions {
+                    flex-wrap: nowrap;
+                    width: auto;
                 }
+            
 
                 .page-header-actions:empty {
                     display: none;
