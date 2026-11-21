@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsQuery, shortSession } from '../../static/agents/usage-render.js';
+import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession } from '../../static/agents/usage-render.js';
 import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
 import { sessionResumeCommand } from '../../static/agents/session-resume.js';
 import { TABS, tabBarTabs, tabForPath } from '../../static/dashboard/tabs.js';
@@ -177,6 +177,14 @@ test('every rule of agents.css is scoped to <agents-tab>, so its class names can
     for (const selector of selectors.split(',').map((s) => s.trim()).filter(Boolean)) if (!selector.startsWith('agents-tab')) loose.push(selector);
   }
   assert.deepEqual(loose, []);
+});
+
+test('the sessions table is drawn again when the minute changes, not only when the sessions do', () => {
+  const answer = { items: [{ session: 'a' }], total: 1 };
+  const noon = Date.parse('2026-11-21T12:00:10Z');
+  assert.equal(sessionsKey(answer, noon), sessionsKey(answer, noon + 20000)); // same minute, same sessions: nothing to redraw
+  assert.notEqual(sessionsKey(answer, noon), sessionsKey(answer, noon + 60000)); // "5 min ago" has moved on
+  assert.notEqual(sessionsKey(answer, noon), sessionsKey({ ...answer, total: 2 }, noon));
 });
 
 test('the quota is asked for again soon only while the first run is under way, and not for ever', () => {

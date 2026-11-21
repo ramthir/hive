@@ -214,3 +214,9 @@ export function renderUsage(view, quota = null) {
     <section class="panel"><div class="panel-head"><h3>${esc(monthLabel(view.month))}</h3>${legend(view)}</div>${trend}</section>
     ${sessionsPanel()}`;
 }
+
+/**
+ * What decides whether the sessions table is drawn again: the answer, and the minute, so "5 min ago" is redrawn by the
+ * page's minute poll even when the sessions themselves have not changed.
+ */
+export const sessionsKey = (answer, now = Date.now()) => JSON.stringify([answer, Math.floor(now / 60000)]);

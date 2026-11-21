@@ -5,7 +5,7 @@ import { showToast } from '/static/toast.js';
 import { api } from '/static/notes/api.js';
 import { copySessionResume } from '/static/agents/session-resume.js';
 import { shouldRetryQuota } from '/static/agents/quota-donuts.js';
-import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsQuery } from '/static/agents/usage-render.js';
+import { SESSION_PAGE_SIZE, pagerState, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery } from '/static/agents/usage-render.js';
 
 const REFRESH_MS = 60000; // the server makes a new report every 15 minutes; the page just asks again
 const QUOTA_RETRY_MS = 8000; // the first quota run takes a few seconds: ask again soon instead of after a minute
@@ -77,7 +77,7 @@ class AgentsTab extends HTMLElement {
 
   applySessions() {
     const answer = this.sessions;
-    const key = JSON.stringify(answer);
+    const key = sessionsKey(answer);
     if (!this.table || key === this.appliedKey) return;
     this.appliedKey = key;
     if (!answer) {
