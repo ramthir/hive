@@ -2,7 +2,7 @@
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
  *
- * Hive's version is deliberately small: four navigation items (the container Dashboard, the Tasks board, Notes and Time entries), and a hardcoded user at the bottom
+ * Hive's version is deliberately small: five navigation items (the container Dashboard, the Tasks board, Notes, Time entries and Chat), and a hardcoded user at the bottom
  * (there is no sign-in yet).
  */
 
@@ -14,6 +14,7 @@ const NAVIGATION_ITEMS = Object.freeze([
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
   { href: '/notes', label: 'Notes', icon: 'fa-solid fa-book-open', activePaths: ['/notes'] },
   { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
+  { href: '/chat', label: 'Chat', icon: 'fa-solid fa-comments', activePaths: ['/chat'] },
 ]);
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';

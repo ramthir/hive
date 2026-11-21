@@ -689,7 +689,7 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
 def test_sidebar_has_dashboard_tasks_notes_time_and_the_hardcoded_user(page, server):
     page.goto(f"{server}/notes/alpha")
     links = page.locator("app-sidebar .nav-link")
-    expect(links).to_have_count(4)
+    expect(links).to_have_count(5)
     expect(links.first).to_have_text("Dashboard")
     expect(links.nth(1)).to_have_text("Tasks")
     notes = links.nth(2)
@@ -697,6 +697,7 @@ def test_sidebar_has_dashboard_tasks_notes_time_and_the_hardcoded_user(page, ser
     expect(notes).to_have_class("nav-link active")
     expect(notes).to_have_attribute("aria-current", "page")
     expect(links.nth(3)).to_have_text("Time Entries")
+    expect(links.nth(4)).to_have_text("Chat")
     expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
     expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
     # The user sits at the bottom of the sidebar, below the navigation.
@@ -1824,3 +1825,115 @@ def test_leaving_the_colab_tab_stops_the_probing(page, colab_server):
     assert not colab_server.collector.feeds["m-s-1"].viewers  # the stream closed, so the grace period starts
     time.sleep(0.6)
     assert colab_server.collector.feeds["m-s-1"].task.done()  # and then the collector itself stops
+
+
+# --- Chat ----------------------------------------------------------------------------------------------------------------
+
+class ChatRunner:
+    """Stands in for Codex: it records the prompt and answers like a run that read one note and saved another."""
+
+    def __init__(self, notes_dir):
+        self.notes_dir, self.prompts, self.gate = notes_dir, [], threading.Event()
+        self.gate.set()
+
+    def run(self, prompt):
+        from src.application.chat.tools import NotesTools
+        self.prompts.append(prompt)
+        yield {"type": "message", "text": "Let me look."}
+        yield {"type": "step", "id": "1", "tool": "read_note", "label": "Reading alpha", "write": False, "status": "running"}
+        yield {"type": "step", "id": "1", "tool": "read_note", "label": "Reading alpha", "write": False, "status": "done"}
+        self.gate.wait(10)
+        if "tidy" in prompt.rsplit("Question from the user", 1)[1]:
+            NotesTools(self.service).call("append_to_note", {"slug": "beta", "text": "Tidied."})
+            yield {"type": "step", "id": "2", "tool": "append_to_note", "label": "Adding to beta", "write": True, "status": "done"}
+        yield {"type": "message", "text": "Alpha links to [[beta]] and has **code**."}
+        yield {"type": "done", "usage": {}}
+
+
+@pytest.fixture
+def chat_server(notes_dir):
+    runner = ChatRunner(notes_dir)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    app = create_app(notes_dir, chat_runner=runner)
+    runner.service = app.state.notes
+    srv = uvicorn.Server(uvicorn.Config(app, port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    yield SimpleNamespace(url=f"http://127.0.0.1:{port}", runner=runner, root=notes_dir)
+    runner.gate.set()
+    srv.should_exit = True
+    thread.join(5)
+
+
+def test_chat_answers_with_steps_links_and_follow_ups_that_remember_the_conversation(page, chat_server):
+    page.goto(f"{chat_server.url}/chat")
+    expect(page.locator("app-sidebar .nav-link.active")).to_have_text("Chat")
+    expect(page.locator(".chat-empty")).to_be_visible()
+    page.locator(".chat-suggestion").first.click()  # a suggestion sends it at once
+    expect(page.locator(".chat-message.user .chat-user-text")).to_have_text("What are my open tasks, most urgent first?")
+    answer = page.locator(".chat-message.assistant .chat-answer")
+    expect(answer).to_contain_text("Alpha links to")
+    expect(answer.locator("strong")).to_have_text("code")
+    expect(page.locator(".chat-steps li").first).to_have_text("Let me look.")  # earlier text is narration, not the answer
+    expect(page.locator(".chat-steps li", has_text="Reading alpha")).to_be_visible()
+    expect(answer.locator("a.notes-wikilink")).to_have_attribute("href", "/notes/beta")  # [[beta]] resolved to the note
+    page.locator("#chat-input").fill("and the second?")
+    page.locator("#chat-input").press("Enter")
+    expect(page.locator(".chat-message.assistant")).to_have_count(2)
+    expect(page.locator(".chat-message.assistant .chat-answer").nth(1)).to_contain_text("Alpha links to")
+    last = chat_server.runner.prompts[-1]
+    assert "User: What are my open tasks" in last and "Assistant: Alpha links to" in last and last.endswith("and the second?")
+    page.locator("#chat-new").click()  # nothing was stored: starting over is only forgetting
+    expect(page.locator(".chat-message")).to_have_count(0)
+    expect(page.locator(".chat-empty")).to_be_visible()
+    page.reload()
+    expect(page.locator(".chat-message")).to_have_count(0)
+
+
+def test_chat_edits_are_reported_as_changed_notes_that_open(page, chat_server):
+    page.goto(f"{chat_server.url}/chat")
+    page.locator("#chat-input").fill("please tidy beta")
+    page.locator("#chat-send").click()
+    changed = page.locator(".chat-changed a")
+    expect(changed).to_have_text("Beta Note")
+    assert "Tidied." in (chat_server.root / "beta.md").read_text()
+    assert git(chat_server.root, "log", "-1", "--format=%s").strip() == "doc: update Beta Note"
+    expect(page.locator(".chat-steps li.write")).to_have_text("Adding to beta")
+    changed.click()
+    expect(page).to_have_url(f"{chat_server.url}/notes/beta")
+
+
+def test_chat_can_be_stopped_while_codex_works(page, chat_server):
+    chat_server.runner.gate.clear()
+    page.goto(f"{chat_server.url}/chat")
+    page.locator("#chat-input").fill("slow one")
+    page.locator("#chat-send").click()
+    expect(page.locator(".chat-steps li", has_text="Reading alpha")).to_be_visible()
+    expect(page.locator("#chat-send")).to_have_class("chat-send stop")
+    page.locator("#chat-send").click()
+    expect(page.locator(".chat-stopped")).to_be_visible()
+    expect(page.locator("#chat-send")).to_have_class("chat-send")
+    chat_server.runner.gate.set()
+
+
+def test_chat_says_when_codex_is_missing(page, notes_dir, monkeypatch):
+    monkeypatch.setattr("src.api.main.codex_program", lambda configured=None: None)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    try:
+        page.goto(f"http://127.0.0.1:{port}/chat")
+        expect(page.locator("#chat-notice")).to_contain_text("Codex was not found")
+        expect(page.locator("#chat-send")).to_be_disabled()
+    finally:
+        srv.should_exit = True
+        thread.join(5)

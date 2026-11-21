@@ -1,0 +1,48 @@
+"""Chat with the notes through Codex. Nothing is stored: the page sends the recent turns with each question."""
+from __future__ import annotations
+
+import json
+from typing import Literal
+
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from src.application.chat.service import MAX_MESSAGE_CHARS
+
+router = APIRouter()
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=MAX_MESSAGE_CHARS * 2)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=100)
+
+
+@router.get("/chat/status")
+def status(request: Request) -> dict:
+    chat = request.app.state.chat
+    return {"available": chat.available,
+            "reason": None if chat.available else "Codex was not found. Install it or set HIVE_CODEX."}
+
+
+@router.post("/chat")
+def chat(request: Request, body: ChatRequest) -> StreamingResponse:
+    """Server-sent events: `step` (a notes tool running), `message` (Codex's latest text; the last one is the answer), `done`,
+    `error` and `changed` (the notes the answer saved). A plain `def` stream: it runs in a worker thread, and a client that
+    leaves stops Codex."""
+    service = request.app.state.chat
+    messages = [m.model_dump() for m in body.messages]
+
+    def events():
+        try:
+            for event in service.stream(messages):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as error:  # the stream is already open: tell the page instead of cutting it
+            yield f"data: {json.dumps({'type': 'error', 'message': str(error) or type(error).__name__})}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

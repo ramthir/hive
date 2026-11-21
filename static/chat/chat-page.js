@@ -1,0 +1,192 @@
+import { escapeHtml as esc } from '/static/html.js';
+import '/static/components/action-bar.js';
+import { api } from '/static/notes/api.js';
+import { renderMarkdownPreview } from '/static/notes/markdown.js';
+import { showToast } from '/static/toast.js';
+import { applyEvent, finishTurn, historyFor, newTurn, parseSse, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
+
+/* Chat with the notes. The answers come from Codex (server side) using only the notes tools. Nothing is saved: the turns
+   live in this element, are sent back with each question so follow-ups work, and are gone on reload or "New chat". */
+
+class ChatApp extends HTMLElement {
+  connectedCallback() {
+    this.turns = [];
+    this.abort = null;
+    this.available = true;
+    this.innerHTML = `
+      <section class="chat-page">
+        <app-header heading="Chat" variant="flush" attached>
+          <div slot="actions" class="app-header-action-group">
+            <button type="button" id="chat-new" title="Start over (nothing is saved)"><i class="fa-solid fa-plus"></i><span>New chat</span></button>
+          </div>
+        </app-header>
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-notice" id="chat-notice" role="status" hidden></div>
+          <div class="chat-column" id="chat-log" aria-live="polite"></div>
+        </div>
+        <app-action-bar class="chat-action-bar" aria-label="Message">
+          <form class="chat-composer" id="chat-form">
+            <textarea id="chat-input" rows="1" placeholder="Ask about your notes, or ask me to change one…  (Enter to send, Shift+Enter for a new line)" aria-label="Message"></textarea>
+            <button type="submit" class="chat-send" id="chat-send" title="Send" aria-label="Send"><i class="fa-solid fa-arrow-right"></i></button>
+          </form>
+        </app-action-bar>
+      </section>`;
+    this.log = this.querySelector('#chat-log');
+    this.scroller = this.querySelector('#chat-scroll');
+    this.input = this.querySelector('#chat-input');
+    this.sendButton = this.querySelector('#chat-send');
+    this.querySelector('#chat-form').addEventListener('submit', (event) => { event.preventDefault(); this.submit(); });
+    this.querySelector('.chat-action-bar').addEventListener('click', () => this.input.focus());
+    this.querySelector('#chat-new').addEventListener('click', () => this.reset());
+    this.input.addEventListener('input', () => this.grow());
+    this.input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); this.submit(); }
+    });
+    this.log.addEventListener('click', (event) => {
+      const suggestion = event.target.closest('[data-suggestion]');
+      if (suggestion) this.submit(suggestion.dataset.suggestion);
+    });
+    this.render();
+    this.checkStatus();
+    this.input.focus();
+  }
+
+  disconnectedCallback() {
+    this.abort?.abort();
+  }
+
+  async checkStatus() {
+    try {
+      const status = await api('/chat/status');
+      this.available = status.available;
+      const notice = this.querySelector('#chat-notice');
+      notice.hidden = status.available;
+      notice.textContent = status.reason || '';
+      this.updateControls();
+    } catch (_error) { /* the first question reports a real failure */ }
+  }
+
+  get running() { return Boolean(this.abort); }
+
+  reset() {
+    this.abort?.abort();
+    this.turns = [];
+    this.render();
+    this.input.focus();
+  }
+
+  grow() {
+    this.input.style.height = '26px';
+    this.input.style.height = `${Math.min(this.input.scrollHeight, 180)}px`;
+  }
+
+  updateControls() {
+    const stop = this.running;
+    this.sendButton.classList.toggle('stop', stop);
+    this.sendButton.title = this.sendButton.ariaLabel = stop ? 'Stop' : 'Send';
+    this.sendButton.innerHTML = `<i class="fa-solid ${stop ? 'fa-stop' : 'fa-arrow-right'}"></i>`;
+    this.sendButton.disabled = !stop && !this.available;
+  }
+
+  async submit(text) {
+    if (this.running) { this.abort.abort(); return; }  // the send button is a stop button while Codex works
+    const question = (text ?? this.input.value).trim();
+    if (!question || !this.available) return;
+    this.input.value = '';
+    this.grow();
+    this.turns.push({ role: 'user', content: question });
+    let turn = { role: 'assistant', ...newTurn() };
+    this.turns.push(turn);
+    const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)) });
+    this.abort = new AbortController();
+    this.updateControls();
+    this.render();
+    const set = (next) => { turn = Object.assign(turn, next); this.renderLast(); };
+    try {
+      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: this.abort.signal });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || `HTTP ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const parsed = parseSse(buffer + decoder.decode(value, { stream: true }));
+        buffer = parsed.rest;
+        for (const event of parsed.events) set(applyEvent(turn, event));
+      }
+      set(finishTurn(turn));
+    } catch (error) {
+      set(finishTurn(turn, error.name === 'AbortError' ? { stopped: true } : { failure: error.message }));
+    } finally {
+      this.abort = null;
+      this.updateControls();
+      this.renderLast();
+      this.input.focus();
+    }
+  }
+
+  render() {
+    if (!this.turns.length) {
+      this.log.innerHTML = `
+        <div class="chat-empty">
+          <i class="fa-solid fa-comments chat-empty-icon"></i>
+          <h2>Ask your notes</h2>
+          <p>Answers come only from your notes, and I can change them too: “add a line to my Home network note”, “mark the Tax task as done”.</p>
+          <div class="chat-suggestions">${SUGGESTIONS.map((s) => `<button type="button" class="chat-suggestion" data-suggestion="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+        </div>`;
+      return;
+    }
+    this.log.innerHTML = this.turns.map((turn, i) => this.messageHtml(turn, i)).join('');
+    this.afterRender(this.log);
+  }
+
+  /** Redraw only the newest message (an event arrived), keeping the scroll at the bottom when it already was. */
+  renderLast() {
+    const last = this.log.lastElementChild;
+    if (!last || !last.classList.contains('assistant')) return;
+    const atBottom = this.scroller.scrollHeight - this.scroller.scrollTop - this.scroller.clientHeight < 80;
+    last.outerHTML = this.messageHtml(this.turns[this.turns.length - 1], this.turns.length - 1);
+    this.afterRender(this.log.lastElementChild);
+    if (atBottom) this.scroller.scrollTop = this.scroller.scrollHeight;
+  }
+
+  messageHtml(turn, index) {
+    if (turn.role === 'user') {
+      return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar"><i class="fa-solid fa-user"></i></div>
+        <div class="chat-body"><div class="chat-sender">You</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
+    }
+    const steps = [...turn.narration.map((text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`),
+      ...turn.steps.map((s) => `<li class="${s.write ? 'write ' : ''}${s.status}"><i class="${stepIcon(s)}"></i><span title="${esc(s.label)}">${esc(s.label)}</span></li>`)];
+    const running = turn.status === 'running';
+    return `<div class="chat-message assistant" data-index="${index}"><div class="chat-avatar"><i class="fa-solid fa-robot"></i></div>
+      <div class="chat-body"><div class="chat-sender">Hive</div>
+        ${steps.length ? `<ul class="chat-steps">${steps.join('')}</ul>` : ''}
+        ${turn.answer ? `<div class="chat-answer notes-preview-pane text-flow">${renderMarkdownPreview(turn.answer, { isRoute: (path) => path.startsWith('/notes') })}</div>`
+          : running ? '<div class="chat-thinking">Thinking…</div>' : ''}
+        ${turn.status === 'error' ? `<div class="chat-error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(turn.error)}</div>` : ''}
+        ${turn.status === 'stopped' ? '<div class="chat-stopped">Stopped. Anything already saved stays saved (see History on the note).</div>' : ''}
+        ${turn.changed.length ? `<div class="chat-changed"><span><i class="fa-solid fa-pen"></i> Changed</span>${turn.changed.map((n) => `<a href="/notes/${encodeURIComponent(n.slug)}">${esc(n.title)}</a>`).join('')}</div>` : ''}
+      </div></div>`;
+  }
+
+  /** Link [[wiki links]] in an answer to the notes they name (the same lookup the note page uses). */
+  async afterRender(root) {
+    const links = [...root.querySelectorAll('.chat-answer .notes-wikilink')];
+    const targets = [...new Set(links.map((link) => link.dataset.target).filter(Boolean))];
+    if (!targets.length) return;
+    let resolved;
+    try {
+      resolved = await api(`/resolve?${targets.map((t) => `target=${encodeURIComponent(t)}`).join('&')}`);
+    } catch (_error) { return; }
+    for (const link of links) {
+      const hit = resolved[link.dataset.target];
+      if (!link.isConnected) continue;
+      if (!hit) { link.classList.add('unresolved'); continue; }
+      link.setAttribute('href', `/notes/${encodeURIComponent(hit.slug)}`);
+      if (link.dataset.autoLabel === 'true') link.textContent = hit.title;
+    }
+  }
+}
+
+customElements.define('chat-app', ChatApp);
