@@ -1,4 +1,4 @@
-import { noteTypeIcon } from '../type-icons.js';
+import { noteTypeIcon, noteTypeColor } from '../type-icons.js';
 
 const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -142,7 +142,7 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
         .map((item, index) => {
           const active = index === this._activeIndex;
           return `<button type="button" class="spotlight-item${active ? ' active' : ''}" role="option" aria-selected="${active ? 'true' : 'false'}" data-index="${index}">
-            <span class="spotlight-item-icon" title="${escapeHtml(item.types.join(', ') || 'note')}"><i class="fa-solid fa-${escapeHtml(noteTypeIcon(item.types))}" aria-hidden="true"></i></span>
+            <span class="spotlight-item-icon" style="${noteTypeColor(item.types) ? `color: ${noteTypeColor(item.types)}` : ''}" title="${escapeHtml(item.types.join(', ') || 'note')}"><i class="fa-solid fa-${escapeHtml(noteTypeIcon(item.types))}" aria-hidden="true"></i></span>
             <span class="spotlight-item-title">${escapeHtml(item.title)}</span>
             <span class="spotlight-item-meta">
               ${item.tags.slice(0, 3).map((tag) => `<span class="spotlight-tag">#${escapeHtml(tag)}</span>`).join('')}

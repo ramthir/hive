@@ -48,6 +48,18 @@ export const TYPE_ICONS = {
   interview: 'comments',
 };
 
+// Icon colour per type: a palette token (tokens.css, --color-<name>). Where Pandora colours a type (document, table,
+// diagram, contact, project, spec, minutes, month, week) the colour is the same; the rest follow the same groups.
+// A type that is not listed keeps the muted default.
+export const TYPE_COLORS = {
+  note: 'purple', document: 'purple', clipping: 'purple', reference: 'purple', book: 'purple', glossary: 'purple', week: 'purple',
+  project: 'blue', specification: 'blue', spec: 'blue', product: 'blue', component: 'blue', application: 'blue', month: 'blue', year: 'blue', timeline: 'blue',
+  table: 'green', contact: 'green', team: 'green', role: 'green', company: 'green', education: 'green',
+  task: 'orange', status: 'orange', priority: 'orange', prompt: 'orange', runbook: 'orange', guideline: 'orange', decision: 'orange',
+  meeting: 'yellow', meeting_minutes: 'yellow', interview: 'yellow', holiday: 'yellow', keynote: 'yellow',
+  diagram: 'red', hub: 'red', environment: 'red', resource: 'red', domain: 'red', technology: 'red', city: 'red', folder: 'red', work_nature: 'red',
+};
+
 export const DEFAULT_TYPE = 'note';
 export const FALLBACK_ICON = 'file-lines';
 
@@ -59,6 +71,12 @@ export const typeIcon = (type) => TYPE_ICONS[normalize(type)] || FALLBACK_ICON;
 
 /** Icon for a note: that of its first type, or of the default type when it has none. */
 export const noteTypeIcon = (types) => typeIcon((types || []).find((t) => normalize(t)) ?? DEFAULT_TYPE);
+
+/** CSS colour of one type's icon, or '' (the muted default) for a type without one. */
+export const typeColor = (type) => (TYPE_COLORS[normalize(type)] ? `var(--color-${TYPE_COLORS[normalize(type)]})` : '');
+
+/** Icon colour for a note: that of its first type, or of the default type when it has none. */
+export const noteTypeColor = (types) => typeColor((types || []).find((t) => normalize(t)) ?? DEFAULT_TYPE);
 
 /** `meeting_minutes` -> `Meeting Minutes`: how a type is shown; the stored value stays as typed. */
 export const typeLabel = (type) => String(type).trim().split(/[\s_-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');

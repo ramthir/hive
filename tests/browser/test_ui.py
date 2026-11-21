@@ -953,3 +953,17 @@ def test_table_page_fills_the_width_beside_the_sidebar(page, server, notes_dir):
     # the card runs from the sidebar to the window's right edge, less the page padding on each side
     assert box["x"] + box["width"] >= 1400 - 40
     assert box["x"] - (sidebar["x"] + sidebar["width"]) <= 40
+
+
+def test_search_icons_are_coloured_by_note_type(page, server, notes_dir):
+    (notes_dir / "job.md").write_text("---\ntitle: Job\ntype: task\nupdated: 2026-04-04\n---\n\n# Job\n")
+    (notes_dir / "mystery.md").write_text("---\ntitle: Mystery\ntype: zzz\nupdated: 2026-04-03\n---\n\n# Mystery\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "types")
+    page.goto(f"{server}/notes/alpha")
+    page.keyboard.press("Control+k")
+    icon = lambda title: page.locator("note-spotlight .spotlight-item", has_text=title).locator(".spotlight-item-icon")
+    expect(icon("Job")).to_have_attribute("style", "color: var(--color-orange)")
+    expect(icon("Alpha")).to_have_attribute("style", "color: var(--color-purple)")  # no type: the default, note
+    expect(icon("Mystery")).to_have_attribute("style", "")  # an unknown type keeps the muted default
+    assert page.errors == []

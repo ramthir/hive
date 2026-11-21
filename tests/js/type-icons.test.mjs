@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { TYPE_ICONS, FALLBACK_ICON, DEFAULT_TYPE, typeIcon, noteTypeIcon } from '../../static/type-icons.js';
+import { TYPE_ICONS, TYPE_COLORS, FALLBACK_ICON, DEFAULT_TYPE, typeIcon, noteTypeIcon, typeColor, noteTypeColor } from '../../static/type-icons.js';
 
 // Every type used in the notes vault (`type:` frontmatter) must have its own, deliberate icon.
 const VAULT_TYPES = ['note', 'contact', 'task', 'clipping', 'project', 'holiday', 'prompt', 'spec', 'product',
@@ -63,4 +63,25 @@ test('a type is shown in title case while its value is kept', () => {
   assert.equal(typeLabel(' task '), 'Task');
   const option = typeOptions([], ['meeting_minutes']).find((o) => o.value === 'meeting_minutes');
   assert.equal(option.label, 'Meeting Minutes');
+});
+
+test('every icon colour names a palette colour, and every coloured type has an icon', () => {
+  const tokens = readFileSync(new URL('../../static/tokens.css', import.meta.url), 'utf8');
+  for (const [type, color] of Object.entries(TYPE_COLORS)) {
+    assert.ok(tokens.includes(`--color-${color}:`), `--color-${color} (for "${type}") is not in tokens.css`);
+    assert.ok(TYPE_ICONS[type], `"${type}" has a colour but no icon`);
+  }
+});
+
+test('every type used in the vault has a colour', () => {
+  for (const type of VAULT_TYPES) assert.ok(TYPE_COLORS[type], `no colour for "${type}"`);
+});
+
+test('a note takes the colour of its first type like its icon; an unknown type has none', () => {
+  assert.equal(typeColor('Task'), 'var(--color-orange)');
+  assert.equal(typeColor('Meeting Minutes'), 'var(--color-yellow)');
+  assert.equal(typeColor('zzz'), '');
+  assert.equal(noteTypeColor(['', 'contact']), 'var(--color-green)');
+  assert.equal(noteTypeColor([]), typeColor(DEFAULT_TYPE));
+  assert.equal(noteTypeColor(['zzz']), '');
 });
