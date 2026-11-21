@@ -29,7 +29,10 @@ class TablesApp extends HTMLElement {
         updateUpdatedStamp(this, saved);
       },
     });
-    this._spotlight = (event) => window.location.assign(notePath(event.detail.slug));
+    this._spotlight = (event) => {
+      event.preventDefault();
+      window.location.assign(notePath(event.detail.slug));
+    };
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.load();
   }

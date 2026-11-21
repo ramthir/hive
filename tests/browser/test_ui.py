@@ -2054,3 +2054,13 @@ def test_an_outside_change_keeps_the_caret_and_scroll_of_a_clean_editor(page, se
     now = page.evaluate("() => { const v = document.querySelector('notes-app').cmEditor; return [v.state.selection.main.head, v.scrollDOM.scrollTop]; }")
     assert now[0] == head and abs(now[1] - scroll) < 5
     assert page.errors == []
+
+
+def test_spotlight_on_a_non_notes_page_opens_the_picked_note(page, server):
+    page.goto(f"{server}/dashboard")
+    page.keyboard.press("Control+k")
+    page.fill("note-spotlight .spotlight-input", "beta body")
+    expect(page.locator("note-spotlight .spotlight-item")).to_have_count(1)
+    page.keyboard.press("Enter")
+    page.wait_for_url("**/notes/beta")
+    assert page.errors == []

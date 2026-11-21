@@ -110,7 +110,10 @@ class NotesApp extends HTMLElement {
       this.go(url.pathname === '/notes' ? '/notes' : url.pathname + url.search);
     };
     this._shellRoot?.addEventListener('click', this._sidebarClick, true);
-    this._spotlightHandler = (event) => this.go(`/notes/${encodeURIComponent(event.detail.slug)}`);
+    this._spotlightHandler = (event) => {
+      event.preventDefault();
+      this.go(`/notes/${encodeURIComponent(event.detail.slug)}`);
+    };
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._keydownHandler = (event) => this.handleGlobalKeydown(event);
     window.addEventListener('keydown', this._keydownHandler);

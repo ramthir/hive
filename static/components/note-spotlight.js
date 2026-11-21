@@ -116,7 +116,11 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
     _navigateTo(note) {
       if (!note?.slug) return;
       this.close();
-      window.dispatchEvent(new CustomEvent(SPOTLIGHT_SELECT_EVENT, { detail: { slug: note.slug } }));
+      // A page that handles the selection itself (in-place navigation) calls preventDefault();
+      // on every other page we go to the note.
+      const event = new CustomEvent(SPOTLIGHT_SELECT_EVENT, { detail: { slug: note.slug }, cancelable: true });
+      window.dispatchEvent(event);
+      if (!event.defaultPrevented) window.location.assign(`/notes/${encodeURIComponent(note.slug)}`);
     }
 
     _moveSelection(delta) {

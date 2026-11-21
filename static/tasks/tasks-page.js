@@ -37,7 +37,10 @@ class TasksApp extends HTMLElement {
       onDrop: (task, status, previous) => this.move(task, status, previous),
     });
     this.board.addEventListener('board-error', (event) => showToast(event.detail.error.message, 'error'));
-    this._spotlight = (event) => window.location.assign(`/notes/${encodeURIComponent(event.detail.slug)}`);
+    this._spotlight = (event) => {
+      event.preventDefault();
+      window.location.assign(`/notes/${encodeURIComponent(event.detail.slug)}`);
+    };
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlight);
     this.load();
     // Task notes changed in another tab or outside Hive (an editor, git pull): ask the server again. Not while a card is mid-move.
