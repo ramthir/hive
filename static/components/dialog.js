@@ -176,6 +176,7 @@ export function confirmDialog({
   danger = false,
   icon = 'fa-triangle-exclamation',
   details = [],
+  alternateText = '', // an optional third choice between Cancel and Confirm; the promise then resolves to 'alternate'
 } = {}) {
   return new Promise((resolve) => {
     const dialog = document.createElement('app-dialog');
@@ -199,7 +200,8 @@ export function confirmDialog({
         </div>
         <div class="modal-footer">
           <button type="button" class="crud-drawer-btn" data-action="cancel">${esc(cancelText)}</button>
-          <button type="button" class="crud-drawer-btn${danger ? ' danger' : ' primary'}" data-action="confirm">${esc(confirmText)}</button>
+          ${alternateText ? `<button type="button" class="crud-drawer-btn primary" data-action="alternate">${esc(alternateText)}</button>` : ''}
+          <button type="button" class="crud-drawer-btn${danger ? ' danger' : alternateText ? '' : ' primary'}" data-action="confirm">${esc(confirmText)}</button>
         </div>
       </div>
     `;
@@ -219,6 +221,7 @@ export function confirmDialog({
       resolve(confirmed);
     };
     dialog.querySelector('[data-action="confirm"]')?.addEventListener('click', () => finish(true));
+    dialog.querySelector('[data-action="alternate"]')?.addEventListener('click', () => finish('alternate'));
     dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', () => finish(false));
     dialog.querySelector('[data-dialog-close]')?.addEventListener('click', () => finish(false));
     controller.open({

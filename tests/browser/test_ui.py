@@ -328,8 +328,7 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     page.goto(f"{server}/notes/alpha")
     assert page.locator(".notes-meta-bar").count() == 0  # no extra bar above the note
     tags = page.locator(".notes-action-bar #note-tags")
-    expect(tags).to_have_value("one")
-    expect(tags).to_have_attribute("readonly", "")  # read-only until the note is being edited
+    expect(tags.locator(".notes-tag-chip")).to_have_text(["#one"])  # chips in read mode; the editor makes them editable
     page.click("#edit-note-btn")
     page.wait_for_selector(".cm-content")
     field = page.locator("#note-tags")  # now chips with a type-to-add field
@@ -353,7 +352,7 @@ def test_tags_live_in_the_action_bar_and_save_to_frontmatter(page, server, notes
     expect(page.locator("[data-action=confirm]")).to_be_visible()
     page.click("[data-action=confirm]")  # Save and close
     page.wait_for_url("**/notes/alpha")  # no ?mode=edit: the editor is closed
-    expect(page.locator("#note-tags")).to_have_value("one, two, three")  # tags stay visible, read-only
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#one", "#two", "#three"])  # tags stay visible
     wait_for_commits(notes_dir, 3)
     assert "tags: [one, two, three]\n" in (notes_dir / "alpha.md").read_text()
     assert page.errors == []
@@ -447,7 +446,8 @@ def test_editing_the_note_type_is_a_combobox_that_saves_and_clears_the_type(page
     expect(kind.locator(".combobox-input")).to_have_attribute("placeholder", "Note")
     kind.locator(".combobox-input").click()
     kind.locator(".combobox-option", has_text="Task").first.click()
-    expect(kind.locator(".combobox-input")).to_have_value("Task")  # shown in title case, saved as `task`
+    expect(kind.locator(".combobox-chip")).to_have_text(["Task"])  # a chip in title case, saved as `task`
+    expect(kind.locator(".combobox-chip > i")).to_have_count(1)  # with the type's icon
     expect(page.locator("#save-note-btn")).to_be_enabled()
     page.keyboard.press("Control+s")
     wait_for_commits(notes_dir, 2)
@@ -470,7 +470,7 @@ def test_saving_a_note_does_not_rewrite_its_existing_type_formatting(page, serve
     git(notes_dir, "commit", "-qm", "flow")
     page.goto(f"{server}/notes/flow?mode=edit")
     page.wait_for_selector(".cm-content")
-    expect(page.locator("#note-type")).to_have_value("contact, interview")
+    expect(page.locator("#note-type .combobox-chip-label")).to_have_text(["Contact", "Interview"])  # several types are chips too
     page.click(".cm-content")
     page.keyboard.press("Control+End")
     page.keyboard.type(" more")
@@ -890,7 +890,7 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     assert "project: Acme" in text and "assignee: Bo" in text and "status: IN_PROGRESS" in text
     assert "tags: [todo, must]" in text
     assert len(git(property_notes, "rev-list", "HEAD").split()) == before + 1
-    expect(page.locator("#note-tags")).to_have_value("todo, must")
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#todo", "#must"])
     page.click("#note-properties-btn")  # reopened: shows what was saved
     expect(page.locator('.notes-properties-drawer [data-key="project"] .combobox-input')).to_have_value("Acme")
     assert page.errors == []
@@ -1265,3 +1265,120 @@ def test_history_filter_finds_versions_older_than_the_first_page(page, server, n
     rows.first.click()  # a filtered version opens like any other
     expect(page.locator("#version-detail")).to_be_visible()
     assert page.errors == []
+
+
+def test_a_second_type_is_added_as_a_chip_and_saved_as_a_list(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha?mode=edit")
+    page.wait_for_selector(".cm-content")
+    kind = page.locator("#note-type")
+    for label in ("Task", "Meeting"):
+        kind.locator(".combobox-input").click()
+        kind.locator(".combobox-option", has_text=label).first.click()
+    expect(kind.locator(".combobox-chip-label")).to_have_text(["Task", "Meeting"])
+    kind.locator(".combobox-input").fill("Idea Pad")  # a type nobody has used yet can be typed
+    kind.locator(".combobox-input").press("Enter")
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 2)
+    assert "\ntype: [task, meeting, Idea Pad]\n" in (notes_dir / "alpha.md").read_text()
+    kind.locator(".combobox-chip", has_text="Meeting").locator(".combobox-chip-remove").click()
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 3)
+    assert "\ntype: [task, Idea Pad]\n" in (notes_dir / "alpha.md").read_text()
+    assert page.errors == []
+
+
+def test_a_tag_chip_searches_for_the_tag(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha")
+    page.click('#note-tags [data-tag="one"]')
+    expect(page.locator("note-spotlight .spotlight-input")).to_have_value("one")
+    expect(page.locator("note-spotlight .spotlight-item").first).to_contain_text("Alpha")  # the note carrying the tag
+    assert page.errors == []
+
+
+def test_a_tag_added_by_the_properties_drawer_shows_on_an_untagged_note(page, server, notes_dir):
+    (notes_dir / "bare.md").write_text("---\ntitle: Bare\ntype: task\nupdated: 2026-11-21\n---\n\n# Bare\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "bare")
+    page.goto(f"{server}/notes/bare")
+    expect(page.locator("#note-tags")).to_be_hidden()  # nothing to show
+    page.click("#note-properties-btn")
+    pick_field(page.locator(".notes-properties-drawer"), "priority", "Must")
+    page.locator('.notes-properties-drawer [data-action="save"]').click()
+    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["#must"])
+    assert page.errors == []
+
+
+def test_deleting_a_note_that_others_link_to_names_them(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta")  # alpha links to [[beta]]
+    page.click("#delete-note-btn")
+    expect(page.locator(".confirm-dialog-details")).to_contain_text("1 note links to it")
+    expect(page.locator(".confirm-dialog-details")).to_contain_text("Alpha")
+    page.click(".confirm-dialog-host [data-action=cancel]")
+    assert (notes_dir / "beta.md").exists()
+
+    page.goto(f"{server}/notes/alpha")  # nobody links to alpha: no warning
+    page.click("#delete-note-btn")
+    expect(page.locator(".confirm-dialog-host .modal-title")).to_have_text("Delete Note?")
+    expect(page.locator(".confirm-dialog-details")).to_have_count(0)
+    assert page.errors == []
+
+
+def test_unsaved_changes_dialog_can_save_and_leave(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" kept words")
+    page.keyboard.press("Control+k")
+    page.fill("note-spotlight .spotlight-input", "alpha")
+    expect(page.locator("note-spotlight .spotlight-item")).to_have_count(1)
+    page.keyboard.press("Enter")
+    page.click("[data-action=alternate]")  # Save and leave
+    page.wait_for_url("**/notes/alpha")
+    assert "kept words" in (notes_dir / "beta.md").read_text()
+
+    # Back asks the same question and the same button works there.
+    page.go_back()
+    page.wait_for_url("**/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" more words")
+    page.go_forward()
+    page.click("[data-action=alternate]")
+    page.wait_for_url("**/notes/alpha")
+    assert "more words" in (notes_dir / "beta.md").read_text()
+    assert page.errors == []
+
+
+def test_a_failed_load_stays_on_the_note_and_retries(page, server, notes_dir):
+    failing = {"on": True}
+
+    def handle(route):
+        if failing["on"]:
+            route.fulfill(status=500, content_type="application/json", body='{"detail": "disk on fire"}')
+        else:
+            route.continue_()
+
+    page.route("**/api/notes/beta", handle)
+    page.goto(f"{server}/notes/beta")
+    expect(page.locator(".notes-load-error")).to_contain_text("disk on fire")
+    assert page.url.endswith("/notes/beta")  # not sent to another note
+    failing["on"] = False
+    page.click("#retry-load-btn")
+    expect(page.locator("#notes-md")).to_contain_text("Beta body text")
+    assert page.url.endswith("/notes/beta")
+
+
+def test_saving_shows_no_toast_and_a_missing_note_says_so(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("x")
+    page.keyboard.press("Control+s")
+    wait_for_commits(notes_dir, 2)
+    expect(page.locator("#save-note-btn")).to_be_disabled()  # the button is the confirmation
+    assert page.locator(".toast, [class*=toast]").filter(has_text="Saved").count() == 0
+    page.goto(f"{server}/notes/nope")
+    page.wait_for_url("**/notes/beta")  # the note edited last
+    expect(page.get_by_text("does not exist")).to_be_visible()

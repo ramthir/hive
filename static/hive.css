@@ -7,11 +7,17 @@
   color: var(--color-text); font: 500 .8rem var(--font-family); padding: .25rem .5rem;
   text-transform: capitalize; /* display only: the stored tag text is untouched */ }
 .notes-tags-input:not([readonly]) { background: var(--color-dark2); border-color: var(--color-dimmed5); }
+.notes-types-combobox { flex: 0 1 16rem; width: auto; min-width: 9rem; max-width: 40vw; }
 .notes-tags-combobox { flex: 1; width: auto; min-width: 12rem; max-width: 100%; }
 /* One line high like the rest of the footer: the chips scroll sideways instead of wrapping. */
-.notes-tags-combobox .combobox-control--multiple { min-height: 1.9rem; padding-top: 0; padding-bottom: 0; }
-.notes-tags-combobox .combobox-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.notes-tags-combobox .combobox-chip { flex: none; text-transform: capitalize; /* display only */ }
+.notes-types-combobox .combobox-control--multiple, .notes-tags-combobox .combobox-control--multiple { min-height: 1.9rem; padding-top: 0; padding-bottom: 0; }
+.notes-types-combobox .combobox-chips, .notes-tags-combobox .combobox-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.notes-types-combobox .combobox-chip { gap: .3rem; }
+.notes-types-combobox .combobox-chip, .notes-tags-combobox .combobox-chip { flex: none; text-transform: capitalize; /* display only */ }
+.notes-tags-chips { display: flex; align-items: center; gap: .35rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.notes-tag-chip { flex: none; font: inherit; font-size: .8rem; color: var(--color-dimmed2); background: transparent; border: 1px solid var(--color-dimmed5); border-radius: 999px;
+  padding: .1rem .55rem; cursor: pointer; text-transform: capitalize; /* display only */ }
+.notes-tag-chip:hover, .notes-tag-chip:focus-visible { color: var(--color-text); border-color: var(--color-accent, #78dce8); outline: none; }
 .notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
 
 /* Backlinks reuse the preview's own h2 / list styling so they read like a note's "Related" section. */
@@ -97,9 +103,6 @@
 .notes-type-chip { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
 .notes-type-chip + .notes-type-chip { margin-left: .5rem; }
 .notes-type-name { text-transform: capitalize; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.notes-type-input { width: 8.5rem; min-width: 4rem; background: var(--color-dark2); border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md);
-  color: var(--color-text); font: 600 .8rem var(--font-family); padding: .25rem .5rem; }
-.notes-type-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
 .notes-footer-actions { flex: 0 0 auto; }
 @media (max-width: 900px) {
   .notes-footer-stats, .notes-footer-status, .notes-footer-left .notes-footer-divider:not(.notes-footer-tags-divider) { display: none; }

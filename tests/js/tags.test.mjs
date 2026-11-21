@@ -21,3 +21,12 @@ test("a note's own new tag is offered without a count", () => {
 test('no tags known is fine', () => {
   assert.deepEqual(tagOptions(), []);
 });
+
+import { tagChips } from '../../static/notes/tags.js';
+
+test('read mode shows each tag as a button that carries the tag, escaped', () => {
+  const html = tagChips(['one', 'a "b" <c>']);
+  assert.match(html, /data-tag="one"[^>]*>#one</);
+  assert.match(html, /data-tag="a &quot;b&quot; &lt;c&gt;"/);
+  assert.equal(tagChips([]), '');
+});

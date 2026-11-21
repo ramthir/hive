@@ -42,7 +42,8 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
       this._controller?.abort();
     }
 
-    open() {
+    /** `query` pre-fills the search (a tag chip opens it with the tag). */
+    open(query = '') {
       if (this._open) return;
       this._previousFocus = document.activeElement;
       this._open = true;
@@ -50,15 +51,15 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
       const input = this.shadowRoot.querySelector('.spotlight-input');
       const clearBtn = this.shadowRoot.querySelector('.spotlight-clear-btn');
       if (backdrop) backdrop.hidden = false;
-      if (clearBtn) clearBtn.hidden = true;
+      if (clearBtn) clearBtn.hidden = !query;
       if (input) {
-        input.value = '';
+        input.value = query;
         queueMicrotask(() => {
           input.focus();
           input.select();
         });
       }
-      this._fetchNotes('');
+      this._fetchNotes(query);
     }
 
     close() {

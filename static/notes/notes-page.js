@@ -7,7 +7,7 @@ import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
-import { DEFAULT_TYPE, typeIcon, noteTypeIcon, typeLabel, typeOptions } from '/static/type-icons.js';
+import { DEFAULT_TYPE, typeIcon, typeLabel, typeOptions } from '/static/type-icons.js';
 import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
 import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
@@ -15,7 +15,7 @@ import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
-import { tagOptions } from '/static/notes/tags.js';
+import { tagChips, tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
 import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
@@ -133,22 +133,31 @@ class NotesApp extends HTMLElement {
 
   // Every in-app navigation goes through here so unsaved edits are never dropped silently.
   async go(path, options) {
-    if (this.currentView === 'editor' && this.saveStatus === 'dirty') {
-      const confirmed = await confirmDiscard({
-        title: 'Unsaved changes',
-        message: 'Leave this note without saving?',
-        confirmText: 'Discard',
-        cancelText: 'Cancel',
-      });
-      if (!confirmed) return;
-      this.saveStatus = 'saved';
-    }
+    if (this.currentView === 'editor' && this.saveStatus === 'dirty' && !(await this.confirmLeave())) return;
     // Other pages of the app (the task board) are separate documents, not routes of the notes router.
     if (path !== '/notes' && !path.startsWith('/notes/') && !path.startsWith('/notes?')) {
       window.location.assign(path);
       return;
     }
     notesRouter.navigate(path, options);
+  }
+
+  // Leaving a note with unsaved edits: save them and leave, discard them and leave, or stay. True when it is fine to go.
+  async confirmLeave() {
+    const answer = await confirmDiscard({
+      title: 'Unsaved changes',
+      message: 'Leave this note without saving?',
+      confirmText: 'Discard',
+      cancelText: 'Cancel',
+      alternateText: 'Save and leave',
+    });
+    if (answer === 'alternate') {
+      await this.saveCurrentNote();
+      return this.saveStatus === 'saved'; // a refused or failed save keeps the reader here, with the reason shown
+    }
+    if (!answer) return false;
+    this.saveStatus = 'saved';
+    return true;
   }
 
   // Back/Forward and links the router handles itself (backlinks) do not go through go(). If one of them would leave a note
@@ -159,12 +168,9 @@ class NotesApp extends HTMLElement {
     if (stays) return false;
     const target = window.location.pathname + window.location.search;
     history.pushState(null, '', this._shownUrl);
-    confirmDiscard({ title: 'Unsaved changes', message: 'Leave this note without saving?', confirmText: 'Discard', cancelText: 'Cancel' })
-      .then((confirmed) => {
-        if (!confirmed) return;
-        this.saveStatus = 'saved';
-        notesRouter.navigate(target);
-      });
+    this.confirmLeave().then((leave) => {
+      if (leave) notesRouter.navigate(target);
+    });
     return true;
   }
 
@@ -256,9 +262,33 @@ class NotesApp extends HTMLElement {
     } catch (error) {
       console.error('Failed to load note:', error);
       if (this.selectedSlug !== slug) return;
-      if (error.status !== 404) showToast(error.message || 'Could not load note.', 'error');
-      notesRouter.navigate('/notes', { replace: true });
+      if (error.status === 404) {
+        showToast('That note does not exist (any more).', 'error');
+        notesRouter.navigate('/notes', { replace: true });
+      } else {
+        this.renderLoadError(slug, error.message); // stay on this note's address: Retry loads it again
+      }
     }
+  }
+
+  renderLoadError(slug, message) {
+    this.renderRouteLoading();
+    const section = this.querySelector('.notes-editor-page');
+    section.removeAttribute('aria-busy');
+    section.classList.remove('notes-editor--skeleton');
+    const pane = this.querySelector('.notes-preview-pane');
+    pane.classList.remove('notes-preview-pane--skeleton');
+    pane.removeAttribute('aria-hidden');
+    pane.innerHTML = `
+      <div class="notes-load-error" role="alert">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <p>Could not load this note: ${esc(message || 'something went wrong')}.</p>
+        <button type="button" class="crud-drawer-btn primary" id="retry-load-btn">Try again</button>
+      </div>`;
+    this.querySelector('#retry-load-btn').addEventListener('click', () => {
+      this.renderRouteLoading();
+      this.loadEditorNote(slug, { startInEdit: new URLSearchParams(window.location.search).get('mode') === 'edit' });
+    });
   }
 
   createNewNote() {
@@ -321,7 +351,6 @@ class NotesApp extends HTMLElement {
         this.updateDocumentTitle();
         this.refreshBacklinks();
       }
-      showToast(`Saved · ${saved.title}`, 'success');
     } catch (error) {
       console.error('Save failed:', error);
       this.saveStatus = 'dirty';
@@ -354,9 +383,13 @@ class NotesApp extends HTMLElement {
   async confirmDeleteCurrentNote() {
     const note = this.selectedNote;
     if (!note?.slug) return;
+    // Notes that link here keep their [[links]]; say which ones will point at nothing.
+    const linking = await api(`/notes/${encodeURIComponent(note.slug)}/backlinks`).then((data) => data.backlinks, () => []);
+    const names = linking.slice(0, 5).map((other) => other.title).join(', ') + (linking.length > 5 ? `, and ${linking.length - 5} more` : '');
     const confirmed = await confirmDialog({
       title: 'Delete Note?',
       message: `Delete "${note.title}"? The file is removed and the deletion is committed; you can recover it from git history.`,
+      ...(linking.length ? { details: [`${linking.length === 1 ? '1 note links' : `${linking.length} notes link`} to it and will show a broken link: ${names}.`] } : {}),
       confirmText: 'Delete',
       cancelText: 'Cancel',
       danger: true,
@@ -413,7 +446,7 @@ class NotesApp extends HTMLElement {
     if (!note) return;
     note.content = this.currentContent();
     const tags = this.querySelector('#note-tags');
-    if (tags) note.tags = parseTags(tags.value);
+    if (tags && 'value' in tags) note.tags = parseTags(tags.value); // the chips of read mode hold no text to read back
     const type = this.querySelector('#note-type');
     if (type) note.types = parseTags(type.value);
   }
@@ -459,7 +492,6 @@ class NotesApp extends HTMLElement {
       return;
     }
     const { words, chars, readingMinutes } = noteStats(note.content);
-    const ro = editing ? '' : ' readonly';
     const hideTags = !editing && !(note.tags || []).length; // nothing to show or edit
 
     this.innerHTML = `
@@ -479,12 +511,10 @@ class NotesApp extends HTMLElement {
 
         <app-action-bar fixed class="notes-action-bar" aria-label="Note status and actions">
           <div class="action-bar-left notes-footer-left">
-            ${editing && (note.types || []).length <= 1
-              ? `<app-combobox id="note-type" class="action-bar-combobox" value="${esc((note.types || [])[0] || '')}" placeholder="${typeLabel(DEFAULT_TYPE)}" aria-label="Note type" title="Note type"></app-combobox>`
+            ${editing
+              ? `<app-combobox id="note-type" class="action-bar-combobox notes-types-combobox" multiple creatable value="${esc((note.types || []).join(','))}" placeholder="${typeLabel(DEFAULT_TYPE)}" aria-label="Note type" title="Note type"></app-combobox>`
               : `<span class="notes-type-label" title="${esc(note.slug ? `${note.slug}.md` : 'New note')}">
-              ${editing
-                ? `<i class="fa-solid fa-${noteTypeIcon(note.types)}" id="note-type-icon" aria-hidden="true"></i><input id="note-type" class="notes-type-input" placeholder="${DEFAULT_TYPE}" title="Note type; separate several with commas" aria-label="Note type" value="${esc((note.types || []).join(', '))}" spellcheck="false" />`
-                : (note.types?.length ? note.types : [DEFAULT_TYPE]).map((type) => `<span class="notes-type-chip"><i class="fa-solid fa-${typeIcon(type)}" aria-hidden="true"></i><span class="notes-type-name">${esc(type)}</span></span>`).join('')}
+              ${(note.types?.length ? note.types : [DEFAULT_TYPE]).map((type) => `<span class="notes-type-chip"><i class="fa-solid fa-${typeIcon(type)}" aria-hidden="true"></i><span class="notes-type-name">${esc(type)}</span></span>`).join('')}
             </span>`}
             <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
             <div class="notes-footer-stats" title="${chars.toLocaleString()} characters">
@@ -506,7 +536,7 @@ class NotesApp extends HTMLElement {
               <i class="fa-solid fa-tags" aria-hidden="true"></i>
               ${editing
                 ? `<app-combobox id="note-tags" class="action-bar-combobox notes-tags-combobox" multiple creatable value="${esc((note.tags || []).join(','))}" placeholder="Add tags" aria-label="Tags"></app-combobox>`
-                : `<input id="note-tags" class="notes-tags-input" aria-label="Tags" value="${esc((note.tags || []).join(', '))}"${ro} />`}
+                : `<span id="note-tags" class="notes-tags-chips" role="group" aria-label="Tags">${tagChips(note.tags)}</span>`}
             </label>
           </div>
           <div class="action-bar-right notes-footer-actions">
@@ -537,17 +567,12 @@ class NotesApp extends HTMLElement {
     this.bindHeader();
     const tagField = this.querySelector('#note-tags');
     if (tagField?.localName === 'app-combobox') this.setupTagCombobox(tagField);
-    else tagField?.addEventListener('input', () => this.markDirty());
+    else tagField?.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-tag]');
+      if (chip) document.querySelector('note-spotlight')?.open(chip.dataset.tag);
+    });
     const typeField = this.querySelector('#note-type');
-    if (typeField?.localName === 'app-combobox') {
-      this.setupTypeCombobox(typeField);
-    } else {
-      // A note with several types keeps the plain text field: a comma separated list.
-      typeField?.addEventListener('input', (event) => {
-        this.querySelector('#note-type-icon').className = `fa-solid fa-${noteTypeIcon(parseTags(event.target.value))}`;
-        this.markDirty();
-      });
-    }
+    if (typeField) this.setupTypeCombobox(typeField);
 
     if (kept) {
       this.querySelector('#notes-cm-editor').appendChild(kept.dom);
@@ -574,7 +599,17 @@ class NotesApp extends HTMLElement {
     }).catch(() => {});
   }
 
-  // The type combobox offers the known types (icons) and those in use in the vault; picking or clearing one marks the note dirty.
+  // The footer's tag field after the tags changed outside it (the properties drawer sets the priority tag).
+  showTags(tags) {
+    const field = this.querySelector('#note-tags');
+    if (!field) return;
+    if (field.localName === 'app-combobox') field.value = tags.join(',');
+    else field.innerHTML = tagChips(tags);
+    for (const el of this.querySelectorAll('.notes-footer-tags, .notes-footer-tags-divider')) el.hidden = !tags.length && !this.isNoteEditing;
+  }
+
+  // Types are chips like tags: the known types (with icons) and those in use in the vault are suggested, and what is typed can be
+  // added as a new one. Picking or removing one marks the note dirty.
   setupTypeCombobox(combobox) {
     const options = () => typeOptions(this._vaultTypes, this.selectedNote?.types);
     combobox.optionsList = options();
@@ -584,8 +619,10 @@ class NotesApp extends HTMLElement {
         this._vaultTypes = Object.keys(counts);
         if (!combobox.isConnected) return;
         combobox.optionsList = options();
-        combobox.render();
+        if (combobox.opened) combobox.drawOptions();
       }).catch(() => {});
+    } else {
+      combobox.optionsList = options();
     }
   }
 
@@ -869,8 +906,7 @@ class NotesApp extends HTMLElement {
         onSaved: (saved) => {
           if (this.selectedNote?.slug !== note.slug) return;
           this.selectedNote = saved;
-          const tags = this.querySelector('#note-tags');
-          if (tags) tags.value = tags.localName === 'app-combobox' ? saved.tags.join(',') : saved.tags.join(', ');
+          this.showTags(saved.tags);
           updateUpdatedStamp(this, saved);
           showToast(`Properties saved · ${saved.title}`, 'success');
         },

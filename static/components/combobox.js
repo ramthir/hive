@@ -178,7 +178,8 @@ class AppCombobox extends HTMLElement {
         .map((val) => {
           const opt = this.optionsList.find((o) => String(o.value) === String(val));
           const chipLabel = opt?.label || val;
-          return `<span class="combobox-chip" data-value="${esc(val)}"><span class="combobox-chip-label" title="${esc(chipLabel)}">${esc(chipLabel)}</span><button type="button" class="combobox-chip-remove" aria-label="Remove ${esc(chipLabel)}" data-value="${esc(val)}"${disabled ? ' disabled' : ''}><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></span>`;
+          const chipIcon = opt?.icon ? `<i class="${esc(opt.icon)}" aria-hidden="true"></i>` : '';
+          return `<span class="combobox-chip" data-value="${esc(val)}">${chipIcon}<span class="combobox-chip-label" title="${esc(chipLabel)}">${esc(chipLabel)}</span><button type="button" class="combobox-chip-remove" aria-label="Remove ${esc(chipLabel)}" data-value="${esc(val)}"${disabled ? ' disabled' : ''}><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></span>`;
         })
         .join('');
       const placeholder = this.selectedValues.size ? '' : esc(this.getAttribute('placeholder') || 'Select options');
