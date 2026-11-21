@@ -832,3 +832,40 @@ def test_sidebar_title_is_note_hive(page, server):
     page.goto(f"{server}/notes/alpha")
     expect(page.locator("app-sidebar .logo-text")).to_have_text("Note Hive")
     assert page.errors == []
+
+
+def test_time_entries_hint_move_and_orphan_rows(page, server, notes_dir):
+    today = date.today().isoformat()
+    for slug, title, kind, days in [("fix-login", "Fix login", "task", f"{{{today}: 60}}"),
+                                    ("write-docs", "Write docs", "task", None),
+                                    ("old-idea", "Old idea", "idea", f"{{{today}: 15}}")]:
+        time_line = f"time: {days}\n" if days else ""
+        (notes_dir / f"{slug}.md").write_text(f"---\ntitle: {title}\ntype: {kind}\n{time_line}---\n\n# {title}\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "time seed")
+    page.request.post(f"{server}/api/reindex")
+    commits = len(git(notes_dir, "rev-list", "HEAD").split())
+
+    page.goto(f"{server}/time-entries")
+    rows = page.locator("app-table tbody tr")
+    expect(rows).to_have_count(2)
+    expect(rows.filter(has_text="Old idea").locator(".fa-triangle-exclamation")).to_have_count(1)
+
+    # choosing a note whose day already holds time says that saving adds to it
+    page.get_by_role("button", name="Add time").click()
+    drawer = page.locator(".time-drawer-host")
+    drawer.locator('[name="slug"] .combobox-input').click()
+    drawer.locator(".combobox-option").filter(has_text="Fix login").click()
+    expect(drawer.locator(".log-time-hint")).to_contain_text("1h already logged")
+    drawer.locator('[data-dialog-close]').first.click()
+    page.click("[data-action=confirm]")  # Discard the unsaved choice
+
+    # moving a row to another note is a single commit
+    rows.filter(has_text="Fix login").click()
+    drawer.locator('[name="slug"] .combobox-input').click()
+    drawer.locator(".combobox-option").filter(has_text="Write docs").click()
+    drawer.locator("[data-save]").click()
+    expect(rows.filter(has_text="Write docs")).to_have_count(1)
+    expect(rows.filter(has_text="Fix login")).to_have_count(0)
+    assert len(git(notes_dir, "rev-list", "HEAD").split()) == commits + 1
+    assert page.errors == []
