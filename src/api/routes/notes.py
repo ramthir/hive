@@ -193,21 +193,10 @@ def get_version(request: Request, slug: str, sha: str):
 def version_diff(request: Request, slug: str, sha: str, against: str = Query("previous", pattern="^(previous|current)$")):
     """This version vs. its previous version, or vs. the current note: the text as a unified diff, the frontmatter keys
     that changed (tags, status, time...) as `properties`, and where the version sits in the history."""
-    s = svc(request)
-    history = s.versions(slug)
-    v = _find(s, slug, sha)
-    i = history.index(v)
-    version = new = s.get_version(slug, v.sha)
-    current = s.get(slug)
-    if against == "current":
-        old, new, label_a, label_b = new, current, v.sha[:7], "current"
-    else:
-        older = history[i + 1] if i + 1 < len(history) else None
-        old = s.get_version(slug, older.sha) if older else None
-        label_a, label_b = (older.sha[:7] if older else "empty"), v.sha[:7]
-    diff = "".join(difflib.unified_diff((old.content if old else "").splitlines(True), new.content.splitlines(True), label_a, label_b))
-    return DiffOut(sha=v.sha, against=against, diff=diff, properties=[PropertyChangeOut(**vars(c)) for c in property_changes(old, new)],
-                   index=i + 1, total=len(history), version_title=version.title, current_title=current.title)
+    c = svc(request).compare_version(slug, sha, against)
+    diff = "".join(difflib.unified_diff((c.old.content if c.old else "").splitlines(True), c.new.content.splitlines(True), c.label_a, c.label_b))
+    return DiffOut(sha=c.sha, against=against, diff=diff, properties=[PropertyChangeOut(**vars(p)) for p in property_changes(c.old, c.new)],
+                   index=c.index, total=c.total, version_title=c.version_title, current_title=c.current_title)
 
 
 @router.post("/notes/{slug}/versions/{sha}/restore", response_model=NoteDetail)

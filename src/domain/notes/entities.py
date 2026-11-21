@@ -26,6 +26,21 @@ class Note:
 
 
 @dataclass(frozen=True)
+class Comparison:
+    """One version set against another note state: what the version diff shows."""
+
+    sha: str
+    index: int  # 1-based position of the version, newest first
+    total: int
+    old: "Note | None"  # None: the first version, nothing before it
+    new: Note
+    version_title: str
+    current_title: str
+    label_a: str
+    label_b: str
+
+
+@dataclass(frozen=True)
 class NoteVersion:
     """One commit that touched a note."""
 
@@ -40,3 +55,4 @@ class NoteVersion:
     kinds: tuple[str, ...] = ()
     summary: str = ""
     detail: str = ""
+    deleted: bool = False  # this commit removed the note: there is nothing to open or restore

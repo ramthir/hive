@@ -236,3 +236,30 @@ def test_version_changes_describe_each_commit_even_across_page_edges(repo):
     assert everything[0].detail == "Plan"
     pages = repo.version_changes("t", limit=2) + repo.version_changes("t", limit=2, offset=2)
     assert [(v.sha, v.kind) for v in pages] == [(v.sha, v.kind) for v in everything]
+
+
+def test_history_of_a_note_that_was_deleted_and_made_again(repo):
+    repo.create(Note(slug="d", title="D", content="# D\n\none\n"))
+    repo.delete("d")
+    repo.create(Note(slug="d", title="D", content="# D\n\ntwo\n"))
+    versions = repo.version_changes("d")
+    assert [(v.kind, v.summary, v.deleted) for v in versions] == [
+        ("created", "Created the note", False), ("deleted", "Deleted the note", True), ("created", "Created the note", False)]
+    deleted = versions[1]
+    with pytest.raises(NoteNotFound):
+        repo.compare("d", deleted.sha, "previous")
+    with pytest.raises(NoteNotFound):
+        repo.restore("d", deleted.sha)
+    again = repo.compare("d", versions[0].sha, "previous")
+    assert again.old is None and again.new.content.strip().endswith("two")  # the deletion is not "the version before"
+
+
+def test_compare_gives_the_position_and_follows_new_commits(repo):
+    repo.create(Note(slug="c", title="C", content="one"))
+    first = repo.compare("c", repo.versions("c")[0].sha, "previous")
+    assert (first.index, first.total, first.old) == (1, 1, None)
+    repo.update(Note(slug="c", title="C", content="two"))  # HEAD moves: the kept history must not be reused
+    newest, oldest = repo.versions("c")
+    assert repo.compare("c", newest.sha, "previous").total == 2
+    cur = repo.compare("c", oldest.sha, "current")
+    assert (cur.index, cur.old.content, cur.new.content) == (2, "one", "two")

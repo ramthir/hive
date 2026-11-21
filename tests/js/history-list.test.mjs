@@ -60,7 +60,7 @@ test('a row says what changed, with the git message as its tooltip', () => {
   assert.match(renderVersionRow({ sha: 'x', message: 'doc: add X', author: 'A', committed_at: at(2026, 10, 21, 9) }), />doc: add X</);
 });
 
-const { diffCounts, positionLabel, renderProperties, renderVersionDetail, restoreDetails } = await import('../../static/notes/history-detail.js');
+const { diffCounts, positionLabel, renderProperties, renderVersionDetail, renderVersionPending, restoreDetails } = await import('../../static/notes/history-detail.js');
 
 test('property changes show old to new chips and keep bookkeeping dim', () => {
   assert.equal(renderProperties([]), '');
@@ -97,4 +97,17 @@ test('the restore confirmation mentions a rename only when the title changes', (
 test('the filters become the tab bar\'s tabs, in order', () => {
   assert.deepEqual(Object.entries(filterTabs()).map(([id, tab]) => [id, tab.label]),
     [['all', 'All'], ['text', 'Text'], ['properties', 'Properties'], ['time', 'Time'], ['restores', 'Restores']]);
+});
+
+test('a version that deleted the note is a disabled row with a trash icon', () => {
+  const html = renderVersionRow({ sha: 'd1', kind: 'deleted', kinds: ['deleted'], summary: 'Deleted the note', deleted: true, message: 'docs: remove', author: 'A', committed_at: at(2026, 10, 21, 9) });
+  assert.match(html, /<button[^>]* disabled /);
+  assert.match(html, /fa-trash/);
+  assert.doesNotMatch(renderVersionRow({ sha: 'x', message: 'm', author: 'A', committed_at: at(2026, 10, 21, 9) }), /disabled/);
+});
+
+test('the pending version view shows the summary and a placeholder', () => {
+  const html = renderVersionPending({ sha: 'c0ffee1aa', kind: 'text', summary: 'Edited text', detail: 'Plan', message: 'doc: update', author: 'R', committed_at: at(2026, 10, 21, 9) });
+  assert.match(html, /Edited text/);
+  assert.match(html, /hive-vd-skeleton/);
 });

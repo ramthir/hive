@@ -5,7 +5,7 @@ import { api } from '/static/notes/api.js';
 import { openDialog } from '/static/notes/dialogs.js';
 import '/static/components/tab-bar.js';
 import { FILTERS, filterTabs, renderVersionList } from '/static/notes/history-list.js';
-import { COMPARE_TABS, positionLabel, renderVersionDetail, restoreDetails, restoreTitle } from '/static/notes/history-detail.js';
+import { COMPARE_TABS, positionLabel, renderVersionDetail, renderVersionPending, restoreDetails, restoreTitle } from '/static/notes/history-detail.js';
 
 /* The note's git history: a timeline of versions, each openable as a diff and restorable. */
 
@@ -69,7 +69,7 @@ export async function openVersionHistory(slug, { onRestored }) {
   list.after(more);
   more.after(filterNote);
 
-  const visibleRows = () => [...list.querySelectorAll('.hive-version-row:not([hidden])')];
+  const visibleRows = () => [...list.querySelectorAll('.hive-version-row:not([hidden]):not([disabled])')];
 
   /** Show only the rows of one kind (and the day headings that still have a row). Filters what is loaded so far. */
   const applyFilter = () => {
@@ -109,7 +109,7 @@ export async function openVersionHistory(slug, { onRestored }) {
   const loadPage = async () => {
     const page = await api(`${base}/versions?limit=${PAGE}&offset=${loaded.length}`);
     const html = renderVersionList(page, new Date(), loaded[loaded.length - 1]);
-    if (!loaded.length) list.innerHTML = html || '<p>No history yet.</p>';
+    if (!loaded.length) list.innerHTML = html || '<p>No history yet.</p>'; // also replaces the loading placeholder
     else list.insertAdjacentHTML('beforeend', html);
     loaded = loaded.concat(page);
     hasMore = page.length === PAGE;
@@ -127,9 +127,13 @@ export async function openVersionHistory(slug, { onRestored }) {
     }
   });
 
+  list.innerHTML = '<div class="hive-version-loading" aria-hidden="true">' + '<span class="hive-vd-skeleton-row"><i></i><b><i></i><i></i></b></span>'.repeat(4) + '</div>';
+  list.setAttribute('aria-busy', 'true');
   try {
     await loadPage();
+    list.removeAttribute('aria-busy');
   } catch (error) {
+    list.removeAttribute('aria-busy');
     list.innerHTML = `<p class="note-version-message error">${esc(error.message)}</p>`;
     return;
   }
@@ -142,6 +146,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     const count = Math.max(loaded.length, PAGE);
     const page = await api(`${base}/versions?limit=${count}`);
     loaded = page;
+    diffs.clear();
     list.innerHTML = renderVersionList(page) || '<p>No history yet.</p>';
     hasMore = page.length === count;
     applyFilter();
@@ -165,18 +170,46 @@ export async function openVersionHistory(slug, { onRestored }) {
 
   const openVersionData = () => loaded.find((version) => version.sha === open.sha);
 
+  // Diffs already fetched (or being fetched), by version and comparison: a version never changes, so opening one again,
+  // stepping to a neighbour or hovering a row before the click costs no round trip.
+  const diffs = new Map();
+  const fetchDiff = (sha, against) => {
+    const key = `${sha}|${against}`;
+    if (!diffs.has(key)) {
+      const request = api(`${base}/versions/${sha}/diff?against=${against}`);
+      diffs.set(key, request);
+      request.catch(() => diffs.delete(key));
+    }
+    return diffs.get(key);
+  };
+  let drawing = 0; // which draw is the latest: an older response that arrives late is dropped
+
   /** Draw the open version against its previous version, or against the note as it is now. */
   const showDiff = async (against) => {
-    info = await withFreshSha(() => api(`${base}/versions/${open.sha}/diff?against=${against}`));
+    const turn = ++drawing;
+    const result = await withFreshSha(() => fetchDiff(open.sha, against));
+    if (turn !== drawing) return; // another version was opened meanwhile
+    info = result;
     detail.innerHTML = renderVersionDetail(openVersionData(), against, info);
     const compare = detail.querySelector('.hive-vd-compare');
     compare.tabs = COMPARE_TABS;
     compare.active = against;
+    detail.removeAttribute('aria-busy');
     position.textContent = positionLabel(info);
+    updateStepButtons();
+    prefetchNeighbours();
+  };
+  const updateStepButtons = () => {
     const rows = visibleRows();
     const at = rows.indexOf(open.row);
     older.disabled = at < 0 || (at === rows.length - 1 && !hasMore);
     newer.disabled = at <= 0;
+  };
+  /** Fetch the diffs of the versions either side while the reader looks at this one. */
+  const prefetchNeighbours = () => {
+    const rows = visibleRows();
+    const at = rows.indexOf(open.row);
+    for (const row of [rows[at + 1], rows[at - 1]]) if (row) fetchDiff(row.dataset.sha, 'previous').catch(() => {});
   };
   detail.addEventListener('tab-switch', async (event) => {
     if (!open) return;
@@ -187,22 +220,43 @@ export async function openVersionHistory(slug, { onRestored }) {
     }
   });
 
-  /** Open the version in row `row`: properties and text against its previous version, with Restore and the toggle. */
+  // Hovering a row for a moment fetches its diff, so the click that follows has it already.
+  let hoverTimer = 0;
+  list.addEventListener('pointerover', (event) => {
+    const row = event.target.closest('.hive-version-row:not([disabled])');
+    clearTimeout(hoverTimer);
+    if (row) hoverTimer = setTimeout(() => fetchDiff(row.dataset.sha, 'previous').catch(() => {}), 120);
+  });
+  list.addEventListener('pointerleave', () => clearTimeout(hoverTimer));
+
+  /** Open the version in row `row` at once, with its summary and a placeholder, and fill in the changes as they arrive. */
   const openVersion = async (row) => {
+    const sha = row.dataset.sha;
+    const version = loaded.find((candidate) => candidate.sha === sha);
+    open = { sha, row, label: row.querySelector('.msg').textContent, committedAt: version?.committed_at };
+    info = null;
+    list.hidden = true;
+    filters.hidden = true;
+    filterNote.hidden = true;
+    more.hidden = true;
+    detail.hidden = false;
+    for (const el of [back, position, older, newer, footer]) el.hidden = false;
+    position.textContent = '';
+    older.disabled = true;
+    newer.disabled = true;
+    restore.disabled = true;
+    message.textContent = '';
+    if (!diffs.has(`${sha}|previous`)) { // not fetched yet: show the summary and a placeholder while it loads
+      detail.innerHTML = renderVersionPending(version);
+      detail.setAttribute('aria-busy', 'true');
+    }
+    detail.tabIndex = -1;
+    detail.focus({ preventScroll: true }); // the clicked row is hidden now; keep keys inside the dialog
     try {
-      const sha = row.dataset.sha;
-      open = { sha, row, label: row.querySelector('.msg').textContent, committedAt: loaded.find((version) => version.sha === sha)?.committed_at };
       await showDiff('previous');
-      list.hidden = true;
-      filters.hidden = true;
-      filterNote.hidden = true;
-      more.hidden = true;
-      detail.hidden = false;
-      for (const el of [back, position, older, newer, footer]) el.hidden = false;
-      message.textContent = '';
-      detail.tabIndex = -1;
-      detail.focus({ preventScroll: true }); // the clicked row is hidden now; keep keys inside the dialog
+      restore.disabled = false;
     } catch (error) {
+      showList();
       showError(error, 'Could not open version.');
     }
   };
@@ -240,6 +294,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     try {
       // The restored title can differ from the current one, in which case the file gets its old name back.
       const restored = await withFreshSha(() => api(`${base}/versions/${open.sha}/restore`, { method: 'POST' }));
+      diffs.clear();
       close();
       showToast('Version restored', 'success');
       onRestored(restored);

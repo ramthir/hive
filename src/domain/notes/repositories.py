@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.entities import Comparison, Note, NoteVersion
 
 
 class NoteRepository(ABC):
@@ -39,6 +39,10 @@ class NoteRepository(ABC):
     @abstractmethod
     def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
         """Like `versions`, with each version's kind and summary filled in."""
+
+    @abstractmethod
+    def compare(self, slug: str, sha: str, against: str) -> Comparison:
+        """A version against its previous version (`previous`) or the current note (`current`)."""
 
     @abstractmethod
     def restore(self, slug: str, sha: str) -> Note: ...

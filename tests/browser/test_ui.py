@@ -195,6 +195,31 @@ def test_history_survives_a_commit_whose_sha_changed_while_it_was_open(page, ser
     assert all("404" in error for error in page.errors)  # only the browser's note of the one stale request
 
 
+def test_a_version_opens_from_what_hovering_fetched_and_a_deleted_one_cannot_be_opened(page, server):
+    api = f"{server}/api/notes"
+    page.request.post(api, data={"content": "# Gone\n\none\n"})
+    page.request.delete(f"{api}/gone")
+    page.request.post(api, data={"content": "# Gone\n\ntwo\n"})
+    diffs = []
+    page.on("request", lambda request: diffs.append(request.url) if "/diff" in request.url else None)
+    page.goto(f"{server}/notes/gone")
+    page.click("#note-versions-btn")
+    rows = page.locator(".hive-version-row")
+    expect(rows).to_have_count(3)  # created again, deleted, created
+    expect(rows.nth(1)).to_be_disabled()
+    expect(rows.nth(1)).to_contain_text("Deleted the note")
+    rows.first.hover()
+    page.wait_for_timeout(500)  # the row is fetched while the pointer rests on it
+    assert len(diffs) >= 1
+    fetched = len(diffs)
+    rows.first.click()
+    expect(page.locator(".hive-diff")).to_be_visible()
+    assert len([u for u in diffs[fetched:] if "against=previous" in u and rows.first.get_attribute("data-sha") in u]) == 0
+    page.click("#version-older")  # steps over the deleted version to the first one
+    expect(page.locator("#version-position")).to_have_text("3 of 3")
+    expect(page.locator("#version-older")).to_be_disabled()
+
+
 def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     page.goto(f"{server}/notes/new")
     page.wait_for_selector(".cm-content")

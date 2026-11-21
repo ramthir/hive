@@ -47,7 +47,7 @@ export function matchesFilter(version, filterId) {
 
 const KIND_ICONS = {
   text: 'fa-pen', properties: 'fa-sliders', time: 'fa-clock', restore: 'fa-rotate-left',
-  rename: 'fa-arrow-right', created: 'fa-plus', saved: 'fa-floppy-disk',
+  rename: 'fa-arrow-right', created: 'fa-plus', saved: 'fa-floppy-disk', deleted: 'fa-trash',
 };
 export const kindIcon = (kind) => KIND_ICONS[kind] || 'fa-circle';
 
@@ -78,7 +78,7 @@ export function renderVersionRow(version) {
   const restored = kind === 'restore' && version.detail ? `<span class="detail"> · ${esc(version.detail)}</span>` : '';
   const full = parseUtcDate(version.committed_at)?.toLocaleString() || '';
   return `
-      <button type="button" class="hive-version-row" data-sha="${esc(version.sha)}" data-kinds="${esc(kinds.join(' '))}">
+      <button type="button" class="hive-version-row" data-sha="${esc(version.sha)}" data-kinds="${esc(kinds.join(' '))}"${version.deleted ? ' disabled title="The note was deleted here: there is nothing to open"' : ''}>
         <span class="hive-version-icon kind-${esc(kind)}"><i class="fa-solid ${kindIcon(kind)}" aria-hidden="true"></i></span>
         <span class="hive-version-main">
           <span class="msg" title="${esc(version.message)}">${esc(version.summary || version.message)}${detail}${restored}</span>

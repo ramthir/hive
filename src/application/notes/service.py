@@ -12,7 +12,7 @@ from dataclasses import replace
 
 from src.application.notes import properties as properties_view, time_entries
 from src.application.notes.index import NoteIndex, SearchHit
-from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.entities import Comparison, Note, NoteVersion
 from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteNotFound
 from src.domain.notes.properties import apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
@@ -148,6 +148,9 @@ class NoteService:
 
     def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
         return self.repo.version_changes(slug, limit, offset)
+
+    def compare_version(self, slug: str, sha: str, against: str) -> Comparison:
+        return self.repo.compare(slug, sha, against)
 
     # -- helpers ---------------------------------------------------------
     def _unique_slug(self, title: str, keep: str | None = None) -> str:

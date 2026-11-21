@@ -8,13 +8,13 @@ from typing import Any
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from src.domain.notes.changes import describe
-from src.domain.notes.entities import Note, NoteVersion
+from src.domain.notes.entities import Comparison, Note, NoteVersion
 from src.domain.notes.errors import NoteExists, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import validate_slug
 from src.domain.notes.time import parse_day, parse_time, valid_minutes
 from src.infrastructure.fs_notes import frontmatter
-from src.infrastructure.git.client import GitClient
+from src.infrastructure.git.client import Commit, GitClient
 
 MANAGED = ("title", "tags", "created", "updated", "type", "status", "week", "time")
 
@@ -94,6 +94,7 @@ class FileNoteRepository(NoteRepository):
         # slug -> ((mtime_ns, size), parsed note): `list()` only re-parses files whose stat changed.
         self._parsed: dict[str, tuple[tuple[int, int], Note]] = {}
         self._version_cache: dict[tuple[str, str, str], Note] = {}
+        self._history_cache: dict[str, tuple[str, list[Commit]]] = {}  # rel path -> (HEAD sha, its history)
 
     # -- helpers ---------------------------------------------------------
     def _rel(self, slug: str) -> str:
@@ -233,28 +234,66 @@ class FileNoteRepository(NoteRepository):
             self._commit([self._rel(slug)], f"doc: delete {title}")
 
     # -- history ---------------------------------------------------------
+    def _history(self, slug: str) -> list[Commit]:
+        """Every commit that touched the note. `git log --follow` walks the whole repository (a third of a second on a
+        big vault), so the result is kept until HEAD moves; opening one version after another then costs nothing."""
+        rel = self._rel(slug)
+        head = self.git.run("rev-parse", "HEAD", check=False).stdout.strip()
+        hit = self._history_cache.get(rel)
+        if hit and hit[0] == head:
+            return hit[1]
+        commits = self.git.log(rel)
+        if len(self._history_cache) >= 64:
+            self._history_cache.pop(next(iter(self._history_cache)))
+        self._history_cache[rel] = (head, commits)
+        return commits
+
+    def _commits(self, slug: str, limit: int | None, offset: int) -> list[Commit]:
+        """One page of the history. `--max-count` does not make `git log --follow` cheaper (it is the walk that costs),
+        so the whole history is read once and kept, and the page is cut from it."""
+        history = self._history(slug)
+        return history[offset:offset + limit] if limit else history[offset:]
+
     def versions(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
-        self._rel(slug)
-        return [
-            NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed)
-            for c in self.git.log(self._rel(slug), limit, offset)
-        ]
+        commits = self._commits(slug, limit, offset)
+        return [NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed, deleted=c.deleted) for c in commits]
 
     def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
         """`versions`, each described in words (kind and summary), by comparing the note with the commit before it."""
-        commits = self.git.log(self._rel(slug), limit + 1 if limit else None, offset)
+        commits = self._commits(slug, limit + 1 if limit else None, offset)  # one more: the page's oldest needs its parent
         shown = commits[:limit] if limit else commits
-
-        def note_at(c) -> Note:
-            return self._cached_version(slug, c.sha, c.path)
-
         out = []
         for i, c in enumerate(shown):
+            if c.deleted:
+                out.append(NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed,
+                                       "deleted", ("deleted",), "Deleted the note", "", deleted=True))
+                continue
             older = commits[i + 1] if i + 1 < len(commits) else None
-            change = describe(note_at(older) if older else None, note_at(c), c.message, older.path if older else "", c.path)
+            before = self._cached_version(slug, older.sha, older.path) if older and not older.deleted else None
+            change = describe(before, self._cached_version(slug, c.sha, c.path), c.message, older.path if before else "", c.path)
             out.append(NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed,
                                    change.kind, change.kinds, change.summary, change.detail))
         return out
+
+    def compare(self, slug: str, sha: str, against: str) -> Comparison:
+        """One version against its previous version (`previous`) or against the note as it is now (`current`), with its
+        place in the history: one cached log and at most three parsed notes."""
+        history = self._history(slug)
+        match = next((c for c in history if c.sha == sha or c.sha.startswith(sha)), None)
+        if match is None or match.deleted:
+            raise NoteNotFound(f"{slug}@{sha}")
+        i = history.index(match)
+        version = self._cached_version(slug, match.sha, match.path)
+        current = self.get(slug) if self._path(slug).is_file() else None  # a deleted note still has a history
+        if against == "current":
+            if current is None:
+                raise NoteNotFound(slug)
+            old, new, label_a, label_b = version, current, match.sha[:7], "current"
+        else:
+            older = history[i + 1] if i + 1 < len(history) and not history[i + 1].deleted else None
+            old = self._cached_version(slug, older.sha, older.path) if older else None
+            new, label_a, label_b = version, older.sha[:7] if older else "empty", match.sha[:7]
+        return Comparison(match.sha, i + 1, len(history), old, new, version.title, current.title if current else "", label_a, label_b)
 
     def _cached_version(self, slug: str, sha: str, path: str) -> Note:
         # A commit never changes, so its parsed note is kept (bounded) and the next page of the list reuses it.
@@ -269,7 +308,7 @@ class FileNoteRepository(NoteRepository):
 
     def _version_text(self, slug: str, sha: str) -> str:
         match = next((v for v in self.versions(slug) if v.sha == sha or v.sha.startswith(sha)), None)
-        if match is None:
+        if match is None or match.deleted:
             raise NoteNotFound(f"{slug}@{sha}")
         return self.git.show(match.sha, match.path)
 

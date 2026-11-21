@@ -57,6 +57,11 @@ export function renderVersionDetail(version, against, info) {
     <section class="hive-vd-section" aria-labelledby="vd-text"><h3 id="vd-text">Text</h3><div class="hive-diff">${renderDiff(info.diff)}</div></section>`;
 }
 
+/** The version view before its diff has arrived: the summary is already known from the list, the rest is placeholders. */
+export function renderVersionPending(version) {
+  return `${renderSummary(version)}<div class="hive-vd-skeleton" aria-hidden="true"><i style="width:38%"></i><i style="width:82%"></i><i style="width:64%"></i><i style="width:90%"></i></div><p class="hive-vd-sr" role="status">Loading the changes\u2026</p>`;
+}
+
 /** What the restore confirmation promises, as lines (the title line only when the title would change). */
 export function restoreDetails(info) {
   const lines = ['The note goes back to this version as one new version. Nothing is deleted: newer versions stay in the history.'];

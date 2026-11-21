@@ -24,6 +24,7 @@ class Commit:
     path: str  # path of the file as of this commit (differs from today's after renames)
     added: int = 0  # lines added to / removed from the file by this commit
     removed: int = 0
+    deleted: bool = False  # the commit removed the file (it is not in that commit's tree)
 
 
 class GitClient:
@@ -99,38 +100,31 @@ class GitClient:
             return self.run("update-ref", "-m", "reword: better message", "HEAD", proc.stdout.strip(), sha, check=False).returncode == 0
 
     def log(self, path: str, limit: int | None = None, skip: int = 0) -> list[Commit]:
-        """Commits that touched ``path``, newest first; ``skip`` and ``limit`` pick one page of them."""
-        page = self._page(limit, skip)
+        """Commits that touched ``path``, newest first, with lines added and removed and whether the commit deleted the
+        file; ``skip`` and ``limit`` pick one page of them. One git call (``--raw`` gives the path and status,
+        ``--numstat`` the counts)."""
+        page = ([f"--skip={skip}"] if skip else []) + ([f"--max-count={limit}"] if limit else [])
         out = self.run(
-            "log", "--follow", "--name-only", *page,
+            "-c", "core.quotePath=false", "log", "--follow", "--raw", "--numstat", *page,
             f"--format={_REC}%H{_SEP}%an{_SEP}%aI{_SEP}%s", "--", path,
         ).stdout
-        stats = self._line_stats(path, page)
         commits = []
         for rec in out.split(_REC):
             if not rec.strip():
                 continue
-            head, _, files = rec.partition("\n")
+            head, _, body = rec.partition("\n")
             sha, author, date, subject = head.split(_SEP, 3)
-            name = next((f for f in files.splitlines() if f.strip()), path)
-            commits.append(Commit(sha, author, datetime.fromisoformat(date), subject, name, *stats.get(sha, (0, 0))))
+            name, added, removed, deleted = path, 0, 0, False
+            for line in body.splitlines():
+                if line.startswith(":"):  # ":100644 100644 <sha> <sha> M\t<path>" (a rename has both paths)
+                    meta, *paths = line.split("\t")
+                    deleted = meta.split()[-1].startswith("D")
+                    name = paths[-1]
+                elif "\t" in line and not added and not removed:  # "<added>\t<removed>\t<path>"; "-" for binary
+                    counts = line.split("\t")
+                    added, removed = (int(n) if n.isdigit() else 0 for n in counts[:2])
+            commits.append(Commit(sha, author, datetime.fromisoformat(date), subject, name, added, removed, deleted))
         return commits
-
-    @staticmethod
-    def _page(limit: int | None, skip: int) -> list[str]:
-        return ([f"--skip={skip}"] if skip else []) + ([f"--max-count={limit}"] if limit else [])
-
-    def _line_stats(self, path: str, page: list[str]) -> dict[str, tuple[int, int]]:
-        """Lines added and removed in each commit that touched ``path`` (binary files count as 0)."""
-        out = self.run("log", "--follow", "--numstat", *page, f"--format={_REC}%H", "--", path).stdout
-        stats: dict[str, tuple[int, int]] = {}
-        for rec in out.split(_REC):
-            head, _, rows = rec.partition("\n")
-            if not head.strip():
-                continue
-            row = next((r.split("\t") for r in rows.splitlines() if r.strip()), ["0", "0"])
-            stats[head.strip()] = tuple(int(n) if n.isdigit() else 0 for n in row[:2])  # type: ignore[assignment]
-        return stats
 
     def show(self, sha: str, path: str) -> str:
         return self.run("show", f"{sha}:{path}").stdout

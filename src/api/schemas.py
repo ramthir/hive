@@ -189,11 +189,12 @@ class VersionOut(BaseModel):
     kinds: list[str] = []
     summary: str = ""
     detail: str = ""
+    deleted: bool = False
 
     @classmethod
     def of(cls, v: NoteVersion) -> "VersionOut":
         return cls(sha=v.sha, message=v.message, author=v.author, committed_at=v.committed_at, added=v.added, removed=v.removed,
-                   kind=v.kind, kinds=list(v.kinds), summary=v.summary, detail=v.detail)
+                   kind=v.kind, kinds=list(v.kinds), summary=v.summary, detail=v.detail, deleted=v.deleted)
 
 
 class VersionDetail(VersionOut):
