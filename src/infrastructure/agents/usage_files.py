@@ -86,10 +86,14 @@ class CcusageCollector:
 
 
 class ReportStore:
-    """The report file. It is parsed again only when its size or modification time changed; a write replaces it atomically."""
+    """A report file (the usage report, or the quota snapshot). It is parsed again only when its size or modification
+    time changed; a write replaces it atomically."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, parse=parse_envelope, errors=(ReportError,), label: str = "usage report"):
         self.path = Path(path)
+        self._parse = parse
+        self._errors = tuple(errors)
+        self._label = label
         self._lock = threading.Lock()
         self._signature = None
         self._envelope = None
@@ -103,21 +107,21 @@ class ReportStore:
                 stat = self.path.stat()
             except FileNotFoundError:
                 self._signature = self._envelope = None
-                return None, "No usage report has been generated yet."
+                return None, f"No {self._label} has been generated yet."
             except OSError as exc:
                 self._signature = self._envelope = None
-                return None, f"The usage report cannot be read: {exc.strerror or exc}."
+                return None, f"The {self._label} cannot be read: {exc.strerror or exc}."
             signature = (stat.st_mtime_ns, stat.st_size)
             if signature != self._signature:
                 self.parses += 1
                 self._signature = signature
                 self._envelope = self._error = None
                 try:
-                    self._envelope = parse_envelope(json.loads(self.path.read_text()))
+                    self._envelope = self._parse(json.loads(self.path.read_text()))
                 except (OSError, json.JSONDecodeError) as exc:
-                    self._error = f"The usage report cannot be read: {exc}."
-                except ReportError as exc:
-                    self._error = f"The usage report is invalid: {exc}"
+                    self._error = f"The {self._label} cannot be read: {exc}."
+                except self._errors as exc:
+                    self._error = f"The {self._label} is invalid: {exc}"
             return self._envelope, self._error
 
     def save(self, raw: dict) -> None:
