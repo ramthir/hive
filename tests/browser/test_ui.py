@@ -1875,6 +1875,8 @@ def test_chat_answers_with_steps_links_and_follow_ups_that_remember_the_conversa
     expect(page.locator(".chat-empty")).to_be_visible()
     page.locator(".chat-suggestion").first.click()  # a suggestion sends it at once
     expect(page.locator(".chat-message.user .chat-user-text")).to_have_text("What are my open tasks, most urgent first?")
+    expect(page.locator(".chat-message.user .chat-avatar")).to_have_text("RT")  # the sidebar's avatar, not a generic icon
+    expect(page.locator(".chat-message.user .chat-avatar")).to_have_css("background-color", page.locator("app-sidebar .sidebar-profile-avatar").evaluate("e => getComputedStyle(e).backgroundColor"))
     answer = page.locator(".chat-message.assistant .chat-answer")
     expect(answer).to_contain_text("Alpha links to")
     expect(answer.locator("strong")).to_have_text("code")

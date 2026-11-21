@@ -7,7 +7,7 @@
  */
 
 // The signed-in user, hardcoded until Hive has authentication.
-const CURRENT_USER = Object.freeze({ name: 'Ramesh Thiruchelvam' });
+export const CURRENT_USER = Object.freeze({ name: 'Ramesh Thiruchelvam' });
 
 const NAVIGATION_ITEMS = Object.freeze([
   { href: '/dashboard', label: 'Dashboard', icon: 'fa-solid fa-gauge-high', activePaths: ['/dashboard'] },
@@ -22,7 +22,7 @@ const COLLAPSED_KEY = 'hive:sidebar-collapsed';
 const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
-const initialsOf = (name = '') =>
+export const initialsOf = (name = '') =>
   name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || 'U';
 
 const isEditable = (event) => {

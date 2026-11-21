@@ -1,7 +1,8 @@
 /* The chat page: Pandora's chat look (round avatars, borderless messages, a composer bar) without its conversation list. */
 chat-app { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; width: 100%; margin-top: calc(-1 * var(--space-5, 1.25rem)); }
 chat-app .chat-page { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-chat-app .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 0 1.25rem; }
+chat-app .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.5rem 1.25rem; box-sizing: border-box;
+  width: calc(100% + 2 * var(--page-inline-padding, 1.5rem)); margin-inline: calc(-1 * var(--page-inline-padding, 1.5rem)); }
 chat-app .chat-column { width: 100%; display: flex; flex-direction: column; gap: 1.4rem; }
 
 chat-app .chat-empty { margin: 14vh auto 0; max-width: 34rem; text-align: center; color: var(--color-dimmed2); display: flex; flex-direction: column; align-items: center; gap: .75rem; }
@@ -19,7 +20,7 @@ chat-app .chat-notice[hidden] { display: none; }
 
 chat-app .chat-message { display: flex; gap: 1rem; font-size: .9rem; line-height: 1.6; }
 chat-app .chat-avatar { width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: .9rem; }
-chat-app .chat-message.user .chat-avatar { background: rgba(255, 97, 174, .1); color: var(--color-accent1); }
+chat-app .chat-message.user .chat-avatar { background: var(--color-accent1); color: var(--color-dark1); font-size: .75rem; font-weight: 700; } /* the sidebar's avatar */
 chat-app .chat-message.assistant .chat-avatar { background: rgba(120, 220, 232, .1); color: var(--color-accent5); }
 chat-app .chat-body { flex: 1; min-width: 0; }
 chat-app .chat-sender { font-weight: 600; font-size: .85rem; margin-bottom: .2rem; color: var(--color-text); }
@@ -54,3 +55,6 @@ chat-app .chat-send { width: 1.85rem; height: 1.85rem; border-radius: 6px; borde
 chat-app .chat-send:hover:not(:disabled) { filter: brightness(1.1); }
 chat-app .chat-send:disabled { opacity: .4; cursor: not-allowed; }
 chat-app .chat-send.stop { background: var(--color-accent1); color: var(--color-text); }
+
+/* The header bleeds over the page padding to the window's edges, like the bar below it (Pandora's chat header does the same). */
+chat-app app-header { width: calc(100% + 2 * var(--page-inline-padding, 1.5rem)); margin-inline: calc(-1 * var(--page-inline-padding, 1.5rem)); box-sizing: border-box; }

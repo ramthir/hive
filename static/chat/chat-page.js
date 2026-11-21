@@ -3,6 +3,7 @@ import '/static/components/action-bar.js';
 import { api } from '/static/notes/api.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { showToast } from '/static/toast.js';
+import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
 import { applyEvent, finishTurn, historyFor, newTurn, parseSse, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
 
 /* Chat with the notes. The answers come from Codex (server side) using only the notes tools. Nothing is saved: the turns
@@ -153,7 +154,7 @@ class ChatApp extends HTMLElement {
 
   messageHtml(turn, index) {
     if (turn.role === 'user') {
-      return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar"><i class="fa-solid fa-user"></i></div>
+      return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar" title="${esc(CURRENT_USER.name)}">${esc(initialsOf(CURRENT_USER.name))}</div>
         <div class="chat-body"><div class="chat-sender">You</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
     }
     const steps = [...turn.narration.map((text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`),
