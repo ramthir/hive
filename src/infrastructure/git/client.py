@@ -68,6 +68,34 @@ class GitClient:
             self.run("reset", "-q", "HEAD", "--", *paths, check=False)
             return self.run("rev-parse", "HEAD").stdout.strip()
 
+    def subject(self, sha: str) -> str:
+        return self.run("log", "-1", "--format=%s", sha).stdout.strip()
+
+    def diff_of(self, sha: str, paths: list[str]) -> str:
+        """What the commit changed in `paths`, as a patch with little context."""
+        return self.run("show", "--format=", "--no-color", "-U2", sha, "--", *paths).stdout
+
+    def reword(self, sha: str, message: str) -> bool:
+        """Replace the message of the newest commit `sha` and nothing else. False (and no change) when `sha` is no longer
+        the tip, has other than one parent, or is already on a remote branch. The tree, author and author date are kept,
+        and the index and working tree are not touched, so a staged or dirty file is safe."""
+        with self._lock:
+            if self.run("rev-parse", "HEAD", check=False).stdout.strip() != sha:
+                return False
+            parents = self.run("rev-list", "--parents", "-n", "1", sha).stdout.split()[1:]
+            if len(parents) != 1 or self.run("branch", "-r", "--contains", sha).stdout.strip():
+                return False
+            name, email, when = self.run("log", "-1", "--format=%an%x1f%ae%x1f%aI", sha).stdout.strip().split(_SEP)
+            env = {"GIT_AUTHOR_NAME": name, "GIT_AUTHOR_EMAIL": email, "GIT_AUTHOR_DATE": when}
+            proc = subprocess.run(
+                ["git", "-C", str(self.root), "commit-tree", f"{sha}^{{tree}}", "-p", parents[0], "-F", "-"],
+                input=message + "\n", capture_output=True, text=True, encoding="utf-8", env={**os.environ, **env},
+            )
+            if proc.returncode != 0:
+                raise GitError(f"git commit-tree failed: {proc.stderr.strip()}")
+            # update-ref only moves HEAD if it still points at `sha`
+            return self.run("update-ref", "-m", "reword: better message", "HEAD", proc.stdout.strip(), sha, check=False).returncode == 0
+
     def log(self, path: str) -> list[Commit]:
         out = self.run(
             "log", "--follow", "--name-only",

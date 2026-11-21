@@ -84,10 +84,12 @@ def _as_date(value: str | None) -> Any:
 
 
 class FileNoteRepository(NoteRepository):
-    def __init__(self, root: Path, git: GitClient | None = None, today=date.today):
+    def __init__(self, root: Path, git: GitClient | None = None, today=date.today, after_commit=None):
         self.root = Path(root).expanduser().resolve()
         self.git = git or GitClient(self.root)
         self._today = today
+        # called as after_commit(sha, title, paths) after a note was added or edited, e.g. to improve the message
+        self._after_commit = after_commit
         # slug -> ((mtime_ns, size), parsed note): `list()` only re-parses files whose stat changed.
         self._parsed: dict[str, tuple[tuple[int, int], Note]] = {}
 
@@ -147,8 +149,10 @@ class FileNoteRepository(NoteRepository):
                 meta[k] = v
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
 
-    def _commit(self, paths: list[str], message: str) -> None:
-        self.git.commit_paths(paths, message)
+    def _commit(self, paths: list[str], message: str, title: str | None = None) -> None:
+        sha = self.git.commit_paths(paths, message)
+        if sha and title and self._after_commit:
+            self._after_commit(sha, title, paths)
 
     # -- queries ---------------------------------------------------------
     def list(self) -> list[Note]:
@@ -184,7 +188,7 @@ class FileNoteRepository(NoteRepository):
             if self._path(note.slug).exists():
                 raise NoteExists(note.slug)
             self._write(note, None)
-            self._commit([self._rel(note.slug)], f"doc: add {note.title}")
+            self._commit([self._rel(note.slug)], f"doc: add {note.title}", note.title)
             return self.get(note.slug)
 
     def update(self, note: Note) -> Note:
@@ -193,7 +197,7 @@ class FileNoteRepository(NoteRepository):
             if not path.is_file():
                 raise NoteNotFound(note.slug)
             self._write(note, path.read_text(encoding="utf-8"))
-            self._commit([self._rel(note.slug)], f"doc: update {note.title}")
+            self._commit([self._rel(note.slug)], f"doc: update {note.title}", note.title)
             return self.get(note.slug)
 
     def update_many(self, notes: list[Note], message: str) -> list[Note]:

@@ -1,6 +1,7 @@
 """FastAPI app factory."""
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from contextlib import asynccontextmanager
@@ -16,9 +17,23 @@ from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
+from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.git.client import GitClient
+from src.infrastructure.git.rewording import CommitRewriter
 from src.infrastructure.metrics import Metrics
 from src.infrastructure.watcher import NotesWatcher
+
+
+def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
+    """HIVE_COMMIT_MESSAGES=codex: after each save, Codex reads the diff and replaces "doc: update Title" with a message
+    about the change. Off by default because the diff of the note is sent to the model."""
+    if os.environ.get("HIVE_COMMIT_MESSAGES", "").strip().lower() != "codex":
+        return None
+    program = codex_program(os.environ.get("HIVE_CODEX"))
+    if not program:
+        logging.getLogger("hive.commit_messages").warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
+        return None
+    return CommitRewriter(git, CodexCommitMessages(program, os.environ.get("HIVE_CODEX_MODEL") or None), metrics)
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
@@ -30,7 +45,8 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     if not root.is_dir() or not git.is_repo():
         raise RuntimeError(f"NOTES_DIR {root} must be an existing git working tree")
 
-    service = NoteService(FileNoteRepository(root, git), metrics)
+    rewriter = commit_rewriter(git, metrics)
+    service = NoteService(FileNoteRepository(root, git, after_commit=rewriter.submit if rewriter else None), metrics)
     if watch is None:
         watch = os.environ.get("HIVE_WATCH", "1") != "0"
 
