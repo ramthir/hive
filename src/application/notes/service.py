@@ -108,6 +108,10 @@ class NoteService:
         time logged this week. This week's come first, most recently edited first; the rest follow by title."""
         return time_entries.order_time_notes(self.index.notes.values(), self.current_week())
 
+    def today(self) -> date:
+        """The service's clock (tests and the app share it with the week and time logic)."""
+        return self._today()
+
     def time_rows(self, *, query: str = "", start: str | None = None, end: str | None = None,
                   slug: str | None = None) -> list[time_entries.TimeRow]:
         """Logged time, one row per note and day, newest day first. See `time_entries.select` for the search."""

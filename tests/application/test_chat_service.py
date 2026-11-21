@@ -62,6 +62,13 @@ def test_the_vault_instructions_reach_codex(root):
     assert "Log meetings as type: meeting." in runner.prompt
 
 
+def test_the_prompt_knows_today_and_the_time_tools(root):
+    from datetime import date
+    prompt = build_prompt([{"role": "user", "content": "log 1h on tax"}], "", date(2026, 11, 21))
+    assert "Today is Saturday 2026-11-21." in prompt and "log_time" in prompt and "list_time" in prompt
+    assert "Today is" not in build_prompt([{"role": "user", "content": "x"}])
+
+
 def test_a_question_that_changes_nothing_reports_nothing_changed(root):
     service, _, _ = make(root)
     events = list(service.stream([{"role": "user", "content": "what is alpha?"}]))

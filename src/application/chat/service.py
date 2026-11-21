@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol
@@ -18,7 +19,7 @@ INSTRUCTION_FILES = ("AGENTS.md", "agents.md", "AGENT.md", "agent.md")
 
 SYSTEM = """You are the assistant of a personal notes vault (markdown notes, one per file, linked with [[wiki links]]).
 You can only use the notes tools you were given: search_notes, read_note, list_notes, backlinks, create_note, edit_note,
-append_to_note, rewrite_note, set_note_properties. You have no shell, no internet and no other files.
+append_to_note, rewrite_note, set_note_properties, list_time, log_time, remove_time. You have no shell, no internet and no other files.
 
 Rules:
 - Answer from the notes. Search and read before answering anything about the user's own information, and cite the notes you used
@@ -26,6 +27,7 @@ Rules:
 - Change notes only when the user asks you to (add, update, move to done, tidy, create). Make the smallest edit that does it
   (edit_note or append_to_note rather than rewrite_note), keep the existing style, and never delete content that was not asked for.
 - A note's title is its first `# heading` and its file name follows from it: do not change a heading unless asked to rename the note.
+- Time is logged only on notes of type task or meeting, in the `time` of the note (minutes per day). To log time use log_time (it adds to the day unless asked to set it); read it back with list_time or read_note. Work out dates such as "yesterday" or "last week" from today's date.
 - After a change, say in one line which note you changed and what you did.
 - Be concise. Use markdown."""
 
@@ -47,11 +49,11 @@ def instructions(root: Path) -> str:
     return ""
 
 
-def build_prompt(messages: list[dict], vault_instructions: str = "") -> str:
+def build_prompt(messages: list[dict], vault_instructions: str = "", today: date | None = None) -> str:
     """System rules, the vault's instructions and the last turns; the final message is the question to answer."""
     turns = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:MAX_MESSAGE_CHARS]}
              for m in messages if str(m.get("content") or "").strip()][-MAX_TURNS:]
-    parts = [SYSTEM]
+    parts = [SYSTEM + (f"\n\nToday is {today:%A} {today.isoformat()}." if today else "")]
     if vault_instructions:
         parts.append(f"Instructions written by the owner of this vault (they apply to every task):\n<vault_instructions>\n{vault_instructions}\n</vault_instructions>")
     if len(turns) > 1:
@@ -97,7 +99,7 @@ class ChatService:
         before = self._head()
         changed: list[dict] = []
         try:
-            yield from self.runner.run(build_prompt(messages, instructions(self.root)))
+            yield from self.runner.run(build_prompt(messages, instructions(self.root), self.notes.today()))
         finally:
             self.notes.invalidate()  # the tools saved from another process: re-read what changed on the next request
             try:

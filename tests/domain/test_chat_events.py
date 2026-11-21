@@ -34,8 +34,16 @@ def test_log_lines_and_other_events_are_ignored():
         assert parse_line(text) is None
 
 
+def test_time_tools_are_writes_except_listing():
+    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="log_time", arguments={"slug": "x", "minutes": 5}, status="completed"))["write"] is True
+    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="remove_time", arguments={"slug": "x"}, status="completed"))["write"] is True
+    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="list_time", arguments={}, status="completed"))["write"] is False
+
+
 def test_labels():
     assert tool_label("search_notes", {"query": "wifi"}) == "Searching notes: wifi"
     assert tool_label("create_note", {"title": "Plan"}) == "Creating Plan"
     assert tool_label("list_notes", None) == "Listing notes"
+    assert tool_label("log_time", {"slug": "tax-return"}) == "Logging time on tax-return"
+    assert tool_label("list_time", {}) == "Listing time"
     assert tool_label("something_new", {}) == "Something new"

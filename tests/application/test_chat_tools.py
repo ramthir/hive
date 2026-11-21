@@ -103,3 +103,56 @@ def test_bad_calls_are_explained_to_the_model(tools):
         tools.call("set_note_properties", {"slug": "gardening", "status": "MAYBE"})
     with pytest.raises(ToolError, match="priority must be"):
         tools.call("set_note_properties", {"slug": "gardening", "priority": "urgent"})
+
+
+@pytest.fixture
+def work(notes):
+    notes.create("Tax return", "file it", types=("task",))
+    notes.create("Standup", "daily", types=("meeting",))
+    return notes
+
+
+def test_log_time_adds_to_the_day_in_one_commit_and_defaults_to_today(tools, work, root):
+    before = int(git(root, "rev-list", "--count", "HEAD"))
+    today = work.today().isoformat()
+    assert f"Tax return now has 1h 30m on {today}" in tools.call("log_time", {"slug": "tax-return", "minutes": 90})
+    assert "2h 15m" in tools.call("log_time", {"slug": "tax-return", "minutes": 45})
+    assert work.get("tax-return").time == {today: 135} and tools.changed == ["tax-return"]
+    assert int(git(root, "rev-list", "--count", "HEAD")) == before + 2
+
+
+def test_log_time_can_set_a_day_and_log_a_past_one(tools, work):
+    tools.call("log_time", {"slug": "standup", "minutes": 30, "day": "2026-11-20"})
+    tools.call("log_time", {"slug": "standup", "minutes": 15, "day": "2026-11-20", "mode": "set"})
+    assert work.get("standup").time == {"2026-11-20": 15}
+
+
+def test_log_time_refusals_are_explained(tools, work):
+    with pytest.raises(ToolError, match="task or meeting"):
+        tools.call("log_time", {"slug": "gardening", "minutes": 10})
+    with pytest.raises(ToolError, match="not a date"):
+        tools.call("log_time", {"slug": "standup", "minutes": 10, "day": "yesterday"})
+    with pytest.raises(ToolError, match="1 to 1440"):
+        tools.call("log_time", {"slug": "standup", "minutes": 2000})
+    with pytest.raises(ToolError, match="mode must be"):
+        tools.call("log_time", {"slug": "standup", "minutes": 5, "mode": "sub"})
+    assert tools.changed == []
+
+
+def test_remove_time_and_list_time(tools, work):
+    tools.call("log_time", {"slug": "tax-return", "minutes": 60, "day": "2026-11-19"})
+    tools.call("log_time", {"slug": "standup", "minutes": 15, "day": "2026-11-20"})
+    out = tools.call("list_time", {})
+    assert out.index("2026-11-20") < out.index("2026-11-19") and "Total: 1h 15m in 2 entries." in out
+    assert "tax-return" not in tools.call("list_time", {"slug": "standup"}) and "Total: 15m in 1 entries." in tools.call("list_time", {"slug": "standup"})
+    assert "Total: 1h in 1 entries." in tools.call("list_time", {"start": "2026-11-19", "end": "2026-11-19"})
+    assert "No time logged" in tools.call("list_time", {"query": "zzz"})
+    assert "Removed" in tools.call("remove_time", {"slug": "tax-return", "day": "2026-11-19"})
+    assert work.get("tax-return").time == {}
+    with pytest.raises(ToolError, match="no time logged"):
+        tools.call("remove_time", {"slug": "tax-return", "day": "2026-11-19"})
+
+
+def test_read_note_shows_the_time_logged(tools, work):
+    tools.call("log_time", {"slug": "standup", "minutes": 90, "day": "2026-11-20"})
+    assert "time: 2026-11-20 1h 30m (total 1h 30m)" in tools.call("read_note", {"slug": "standup"})

@@ -10,6 +10,7 @@ from src.domain.notes.errors import NoteError
 
 MAX_READ_CHARS = 30_000
 SEARCH_LIMIT = 10
+MAX_TIME_ROWS = 60
 
 _STR = {"type": "string"}
 
@@ -28,6 +29,8 @@ TOOLS: list[dict] = [
     _tool("list_notes", "List note slugs and titles, newest first, optionally only those with a tag or a type.",
           {"tag": _STR, "type": _STR, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}, []),
     _tool("backlinks", "List the notes that link to a note with [[wiki links]].", {"slug": _STR}, ["slug"]),
+    _tool("list_time", "List time logged on tasks and meetings, newest day first, with the total. Filter by note (slug), by first and last day (YYYY-MM-DD, inclusive) or by words in the title.",
+          {"slug": _STR, "start": _STR, "end": _STR, "query": _STR}, []),
     _tool("create_note", "Create a note. The title is the first `# heading` of the text (added when missing); the file name follows from it.",
           {"title": _STR, "content": _STR, "tags": {"type": "array", "items": _STR}, "types": {"type": "array", "items": _STR}}, ["title"]),
     _tool("edit_note", "Replace one exact passage of a note's text with new text. `old` must occur exactly once (add context to make "
@@ -36,6 +39,9 @@ TOOLS: list[dict] = [
     _tool("append_to_note", "Add text at the end of a note.", {"slug": _STR, "text": _STR}, ["slug", "text"]),
     _tool("rewrite_note", "Replace a note's whole text (read it first and keep what should stay). Use only when edit_note cannot do it.",
           {"slug": _STR, "content": _STR}, ["slug", "content"]),
+    _tool("log_time", "Log time spent on a task or meeting note (only those two types take time). `mode` add (the default) adds the minutes to what the day already has; set replaces the day's total. `day` is YYYY-MM-DD and defaults to today. A day holds 1 to 1440 minutes.",
+          {"slug": _STR, "minutes": {"type": "integer", "minimum": 1, "maximum": 1440}, "day": _STR, "mode": {"type": "string", "enum": ["add", "set"]}}, ["slug", "minutes"]),
+    _tool("remove_time", "Remove the time logged on a note for one day.", {"slug": _STR, "day": _STR}, ["slug", "day"]),
     _tool("set_note_properties", "Change tags, types, status (TODO, IN_PROGRESS, DONE) or priority (must, important, nice-to-have; \"\" removes) "
           "of a note. Leave out what should not change.",
           {"slug": _STR, "tags": {"type": "array", "items": _STR}, "types": {"type": "array", "items": _STR},
@@ -55,6 +61,12 @@ def _snippet(content: str, words: list[str], width: int = 160) -> str:
     return ("…" if start else "") + text[start:start + width] + ("…" if start + width < len(text) else "")
 
 
+def hours(minutes: int) -> str:
+    """90 -> 1h 30m."""
+    h, m = divmod(int(minutes), 60)
+    return " ".join(p for p in (f"{h}h" if h else "", f"{m}m" if m or not h else "") if p)
+
+
 def _head(note) -> str:
     bits = [f"slug: {note.slug}", f"title: {note.title}"]
     if note.tags:
@@ -65,6 +77,9 @@ def _head(note) -> str:
         bits.append(f"status: {note.status}")
     if note.priority:
         bits.append(f"priority: {note.priority}")
+    if note.time:
+        recent = sorted(note.time.items(), reverse=True)[:7]
+        bits.append("time: " + ", ".join(f"{d} {hours(m)}" for d, m in recent) + f" (total {hours(sum(note.time.values()))})")
     return " | ".join(bits)
 
 
@@ -87,8 +102,11 @@ class NotesTools:
         except NoteError as error:
             raise ToolError(str(error) or type(error).__name__) from error
 
+    def _mark(self, *slugs: str | None) -> None:
+        self.changed.extend(s for s in slugs if s and s not in self.changed)
+
     def _wrote(self, before: str | None, note) -> str:
-        self.changed.extend(s for s in (before, note.slug) if s and s not in self.changed)
+        self._mark(before, note.slug)
         return note.slug
 
     def _search_notes(self, query: str, tag: str | None = None, limit: int = SEARCH_LIMIT) -> str:
@@ -136,6 +154,26 @@ class NotesTools:
         saved = self.service.update(slug, content=content)
         renamed = f" (renamed to {saved.slug})" if saved.slug != slug else ""
         return f"Rewrote {self._wrote(slug, saved)}{renamed}."
+
+    def _list_time(self, slug: str | None = None, start: str | None = None, end: str | None = None, query: str = "") -> str:
+        rows = self.service.time_rows(query=query or "", start=start or None, end=end or None, slug=slug or None)
+        if not rows:
+            return "No time logged for that."
+        shown = "\n".join(f"- {r.day}  {hours(r.minutes)}  {r.slug}: {r.title}" for r in rows[:MAX_TIME_ROWS])
+        more = f"\n[{len(rows) - MAX_TIME_ROWS} older rows not shown]" if len(rows) > MAX_TIME_ROWS else ""
+        return f"{shown}{more}\nTotal: {hours(sum(r.minutes for r in rows))} in {len(rows)} entries."
+
+    def _log_time(self, slug: str, minutes: int, day: str | None = None, mode: str = "add") -> str:
+        if mode not in ("add", "set"):
+            raise ToolError("mode must be add or set.")
+        row = self.service.log_time(slug, day or self.service.today().isoformat(), int(minutes), add=mode == "add")
+        self._mark(slug)
+        return f"{row.title} now has {hours(row.minutes)} on {row.day}."
+
+    def _remove_time(self, slug: str, day: str) -> str:
+        self.service.remove_time(slug, day)
+        self._mark(slug)
+        return f"Removed the time on {day} from {slug}."
 
     def _set_note_properties(self, slug: str, tags: list[str] | None = None, types: list[str] | None = None,
                              status: str | None = None, priority: str | None = None) -> str:
