@@ -12,12 +12,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import diagrams, notes, system
+from src.api.routes import agents, diagrams, notes, system
+from src.application.agents.usage import AgentUsage
 from src.application.diagrams.service import DiagramError, DiagramService
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
+from src.infrastructure.agents.usage_files import CcusageCollector, ReportStore
 from src.infrastructure.git.client import GitClient
 from src.infrastructure.git.rewording import CommitRewriter
 from src.infrastructure.metrics import Metrics
@@ -38,7 +40,7 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
-               diagram_service: DiagramService | None = None) -> FastAPI:
+               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -74,6 +76,11 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.diagrams = diagram_service
     app.state.metrics = metrics
     app.state.system = ContainerMonitor(root)
+    if agent_usage is None:
+        state = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser()
+        agent_usage = AgentUsage(ReportStore(state / "agents" / "usage.json"), CcusageCollector(os.environ.get("HIVE_CCUSAGE") or None))
+    agent_usage.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
+    app.state.agents = agent_usage
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:
@@ -96,6 +103,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.include_router(notes.router, prefix="/api")
     app.include_router(diagrams.router, prefix="/api")
     app.include_router(system.router, prefix="/api")
+    app.include_router(agents.router, prefix="/api")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:
