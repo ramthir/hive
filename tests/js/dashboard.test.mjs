@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { levelColor, processTitle, statTiles, statusColor, storageSubHtml } from '../../static/dashboard/format.js';
 
 const stats = {
@@ -60,4 +61,9 @@ test('a process state is green when running, yellow when it needs a look and qui
   assert.equal(statusColor('running'), 'var(--color-green)');
   for (const state of ['disk-sleep', 'zombie', 'stopped']) assert.equal(statusColor(state), 'var(--color-yellow)');
   for (const state of ['sleeping', 'idle', undefined]) assert.equal(statusColor(state), 'var(--color-dimmed2)');
+});
+
+test('the dashboard page is styled by one dashboard-app rule', async () => {
+  const css = await readFile(new URL('../../static/dashboard/dashboard.css', import.meta.url), 'utf8');
+  assert.equal(css.match(/^dashboard-app \{/gm).length, 1);
 });
