@@ -289,7 +289,7 @@ notes-app {
 .note-versions-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--drawer-header-gap, 0.75rem);
 }
 
 .note-version-message {

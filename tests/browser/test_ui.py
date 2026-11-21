@@ -244,6 +244,16 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     rows = page.locator(".hive-version-row")
     expect(rows).to_have_count(3)  # added, renamed, updated
     expect(page.locator(".hive-version-day").first).to_have_text("Today")
+    # The rail joins the first circle to the last: it does not stick out above or below them.
+    rail = page.evaluate("""() => {
+      const list = document.querySelector('#version-list');
+      const icons = [...list.querySelectorAll('.hive-version-icon')].map((i) => i.getBoundingClientRect());
+      const top = list.getBoundingClientRect().top - list.scrollTop;
+      const style = getComputedStyle(list);
+      return { top: parseFloat(style.getPropertyValue('--rail-top')), height: parseFloat(style.getPropertyValue('--rail-height')),
+               first: icons[0].top + icons[0].height / 2 - top, last: icons.at(-1).top + icons.at(-1).height / 2 - top };
+    }""")
+    assert abs(rail["top"] - rail["first"]) < 1.5 and abs(rail["top"] + rail["height"] - rail["last"]) < 1.5
     expect(page.locator(".hive-version-stat").first).to_be_visible()
     expect(rows.first).to_contain_text("Edited text")
     expect(rows.last).to_contain_text("Created the note")

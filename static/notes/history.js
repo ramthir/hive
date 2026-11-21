@@ -19,8 +19,8 @@ export async function openVersionHistory(slug, { onRestored }) {
       <div class="note-versions-header-actions">
         <button type="button" class="crud-drawer-btn" id="version-back" hidden><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <span>All versions</span></button>
         <span class="hive-version-position" id="version-position" aria-live="polite" hidden></span>
-        <button type="button" class="hive-version-step" id="version-older" aria-label="Older version" hidden><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-        <button type="button" class="hive-version-step" id="version-newer" aria-label="Newer version" hidden><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+        <button type="button" class="modal-icon-btn" id="version-older" aria-label="Older version" hidden><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+        <button type="button" class="modal-icon-btn" id="version-newer" aria-label="Newer version" hidden><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
         <button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
@@ -71,6 +71,20 @@ export async function openVersionHistory(slug, { onRestored }) {
 
   const visibleRows = () => [...list.querySelectorAll('.hive-version-row:not([hidden]):not([disabled])')];
 
+  /** Draw the rail between the centres of the first and the last circle: not above the first nor below the last. */
+  const updateRail = () => {
+    const icons = [...list.querySelectorAll('.hive-version-row:not([hidden]) .hive-version-icon')];
+    if (icons.length < 2 || list.hidden) {
+      list.style.setProperty('--rail-height', '0px');
+      return;
+    }
+    const top = list.getBoundingClientRect().top - list.scrollTop;
+    const centre = (icon) => { const rect = icon.getBoundingClientRect(); return rect.top - top + rect.height / 2; };
+    list.style.setProperty('--rail-top', `${centre(icons[0])}px`);
+    list.style.setProperty('--rail-height', `${centre(icons[icons.length - 1]) - centre(icons[0])}px`);
+  };
+  new ResizeObserver(updateRail).observe(list); // rows wrap differently when the drawer is resized
+
   /** Show only the rows of one kind (and the day headings that still have a row). Filters what is loaded so far. */
   const applyFilter = () => {
     let heading = null;
@@ -88,6 +102,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     if (heading) heading.hidden = !shown;
     const visible = visibleRows().length;
     filterNote.hidden = filter === 'all';
+    updateRail();
     filterNote.textContent = `${visible ? `${visible} shown` : 'Nothing matches'} among the ${loaded.length} loaded versions${hasMore ? '. Load older versions to search further.' : '.'}`;
   };
   filters.addEventListener('tab-switch', (event) => {
@@ -101,6 +116,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     detail.hidden = true;
     for (const el of [back, position, older, newer, footer]) el.hidden = true;
     list.hidden = false;
+    updateRail();
     more.hidden = !hasMore;
     message.textContent = '';
   };
