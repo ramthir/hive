@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import NoteError
+from src.domain.notes.time import parse_day
 
 MAX_READ_CHARS = 30_000
 SEARCH_LIMIT = 10
@@ -41,6 +42,8 @@ TOOLS: list[dict] = [
           {"slug": _STR, "content": _STR}, ["slug", "content"]),
     _tool("log_time", "Log time spent on a task or meeting note (only those two types take time). `mode` add (the default) adds the minutes to what the day already has; set replaces the day's total. `day` is YYYY-MM-DD and defaults to today. A day holds 1 to 1440 minutes.",
           {"slug": _STR, "minutes": {"type": "integer", "minimum": 1, "maximum": 1440}, "day": _STR, "mode": {"type": "string", "enum": ["add", "set"]}}, ["slug", "minutes"]),
+    _tool("move_time", "Move the whole time entry of one day to another note and/or another day, in one save. Minutes already on the target day are added to. Give `to_slug`, `to_day` or both; what you leave out stays as it is.",
+          {"slug": _STR, "day": _STR, "to_slug": _STR, "to_day": _STR}, ["slug", "day"]),
     _tool("remove_time", "Remove the time logged on a note for one day.", {"slug": _STR, "day": _STR}, ["slug", "day"]),
     _tool("set_note_properties", "Change tags, types, status (TODO, IN_PROGRESS, DONE) or priority (must, important, nice-to-have; \"\" removes) "
           "of a note. Leave out what should not change.",
@@ -169,6 +172,18 @@ class NotesTools:
         row = self.service.log_time(slug, day or self.service.today().isoformat(), int(minutes), add=mode == "add")
         self._mark(slug)
         return f"{row.title} now has {hours(row.minutes)} on {row.day}."
+
+    def _move_time(self, slug: str, day: str, to_slug: str | None = None, to_day: str | None = None) -> str:
+        to_slug, to_day = to_slug or slug, to_day or day
+        if (to_slug, to_day) == (slug, day):
+            raise ToolError("Give a different note (to_slug) or day (to_day) to move the time to.")
+        source = self.service.get(slug)
+        minutes = source.time.get(parse_day(day) or "")
+        if not minutes:
+            raise ToolError(f"{slug} has no time logged on {day}.")
+        row = self.service.move_time(slug, day, to_slug, to_day, minutes)
+        self._mark(slug, to_slug)
+        return f"Moved {hours(minutes)} from {slug} {day} to {row.slug} {row.day}, which now has {hours(row.minutes)}."
 
     def _remove_time(self, slug: str, day: str) -> str:
         self.service.remove_time(slug, day)

@@ -156,3 +156,36 @@ def test_remove_time_and_list_time(tools, work):
 def test_read_note_shows_the_time_logged(tools, work):
     tools.call("log_time", {"slug": "standup", "minutes": 90, "day": "2026-11-20"})
     assert "time: 2026-11-20 1h 30m (total 1h 30m)" in tools.call("read_note", {"slug": "standup"})
+
+
+def test_move_time_to_another_note_merges_into_its_day_in_one_commit(tools, work, root):
+    tools.call("log_time", {"slug": "tax-return", "minutes": 60, "day": "2026-11-19"})
+    tools.call("log_time", {"slug": "standup", "minutes": 15, "day": "2026-11-20"})
+    tools.changed.clear()
+    before = int(git(root, "rev-list", "--count", "HEAD"))
+    out = tools.call("move_time", {"slug": "tax-return", "day": "2026-11-19", "to_slug": "standup", "to_day": "2026-11-20"})
+    assert "Moved 1h from tax-return 2026-11-19 to standup 2026-11-20, which now has 1h 15m" in out
+    assert work.get("tax-return").time == {} and work.get("standup").time == {"2026-11-20": 75}
+    assert tools.changed == ["tax-return", "standup"]
+    assert int(git(root, "rev-list", "--count", "HEAD")) == before + 1
+    assert git(root, "log", "-1", "--format=%s").strip() == "doc: move time from Tax return to Standup"
+
+
+def test_move_time_to_another_day_of_the_same_note(tools, work):
+    tools.call("log_time", {"slug": "standup", "minutes": 30, "day": "2026-11-18"})
+    tools.call("move_time", {"slug": "standup", "day": "2026-11-18", "to_day": "2026-11-19"})
+    assert work.get("standup").time == {"2026-11-19": 30}
+
+
+def test_move_time_refusals_are_explained_and_change_nothing(tools, work):
+    tools.call("log_time", {"slug": "standup", "minutes": 30, "day": "2026-11-18"})
+    tools.changed.clear()
+    with pytest.raises(ToolError, match="different note"):
+        tools.call("move_time", {"slug": "standup", "day": "2026-11-18"})
+    with pytest.raises(ToolError, match="no time logged"):
+        tools.call("move_time", {"slug": "standup", "day": "2026-01-01", "to_day": "2026-01-02"})
+    with pytest.raises(ToolError, match="task or meeting"):
+        tools.call("move_time", {"slug": "standup", "day": "2026-11-18", "to_slug": "gardening"})
+    with pytest.raises(ToolError, match="not a date"):
+        tools.call("move_time", {"slug": "standup", "day": "2026-11-18", "to_day": "tomorrow"})
+    assert work.get("standup").time == {"2026-11-18": 30} and tools.changed == []

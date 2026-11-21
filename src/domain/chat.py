@@ -4,12 +4,12 @@ from __future__ import annotations
 import json
 
 # The notes tools that change a note; everything else only reads.
-WRITE_TOOLS = frozenset({"create_note", "edit_note", "append_to_note", "rewrite_note", "set_note_properties", "log_time", "remove_time"})
+WRITE_TOOLS = frozenset({"create_note", "edit_note", "append_to_note", "rewrite_note", "set_note_properties", "log_time", "remove_time", "move_time"})
 TOOL_LABELS = {
     "search_notes": "Searching notes", "read_note": "Reading", "list_notes": "Listing notes", "backlinks": "Finding links to",
     "create_note": "Creating", "edit_note": "Editing", "append_to_note": "Adding to", "rewrite_note": "Rewriting",
     "set_note_properties": "Updating properties of",
-    "list_time": "Listing time", "log_time": "Logging time on", "remove_time": "Removing time from",
+    "list_time": "Listing time", "log_time": "Logging time on", "remove_time": "Removing time from", "move_time": "Moving time from",
 }
 
 
