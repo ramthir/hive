@@ -2077,6 +2077,7 @@ def test_timeline_note_opens_as_phases_and_the_pencil_returns_to_the_editor(page
     page.goto(f"{server}/notes/roadmap")
     page.wait_for_url("**/timelines/roadmap")  # a timeline note is read on its own page
     expect(page.locator("app-header")).to_have_attribute("heading", "Roadmap")
+    expect(page.locator("app-header #search-notes-btn")).to_be_visible()  # the same search as the note page's header
     cards = page.locator(".timeline-phase")
     expect(cards).to_have_count(2)
     expect(cards.nth(0).locator(".timeline-tasks li")).to_have_count(2)  # every list is shown

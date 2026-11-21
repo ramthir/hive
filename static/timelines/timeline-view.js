@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
+import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { parseTimeline, phaseMarkdown } from '/static/timelines/timeline-note.js';
 
 /** The read view of a timeline note: one card per phase on a rail. */
@@ -20,6 +21,9 @@ export class TimelineView {
     host.innerHTML = `
       <section class="notes-page timeline-page">
         <app-header heading="${esc(note.title)}" variant="flush" attached>
+          <div slot="actions" class="notes-header-actions app-header-action-group">
+            ${renderSearchTrigger()}
+          </div>
         </app-header>
         <div class="timeline-workspace">
           ${body}
@@ -46,6 +50,7 @@ export class TimelineView {
           </div>
         </app-action-bar>
       </section>`;
+    wireSearchTrigger(host);
     for (const [id, run] of Object.entries({
       'delete-note-btn': 'delete', 'copy-note-btn': 'copy', 'note-properties-btn': 'properties',
       'note-versions-btn': 'versions', 'edit-note-btn': 'edit',
