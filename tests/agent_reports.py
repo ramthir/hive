@@ -23,3 +23,21 @@ def report(days=None, sessions=None):
 
 def envelope(now: datetime, since="2026-11-01", tz="UTC", body=None):
     return {"schema_version": 1, "generated_at": now.isoformat(), "since": since, "timezone": tz, "report": body or report()}
+
+
+def quota_window(used, resets, collected, status="ok", **extra):
+    return {"status": status, "used_pct": used, "resets_at": resets.isoformat() if resets else None, "collected_at": collected.isoformat(), **extra}
+
+
+def quota_snapshot(now, ok=("claude", "codex", "antigravity"), five=40.0, week=29.0):
+    """A quota snapshot as the collector writes it, with the providers in `ok` readable."""
+    from datetime import timedelta
+
+    def provider(name):
+        if name not in ok:
+            return {"status": "unavailable", "reason": f"{name} /usage printed no quota windows.", "windows": {}}
+        windows = {"5h": quota_window(five, now + timedelta(hours=2), now), "7d": quota_window(week, now + timedelta(days=4), now)}
+        if name == "antigravity":
+            windows["argon-7d"] = quota_window(0.0, now + timedelta(days=4), now, pool="Gemini 4 Argon")
+        return {"status": "ok", "reason": None, "windows": windows}
+    return {"schema_version": 1, "generated_at": now.isoformat(), "providers": {name: provider(name) for name in ("claude", "codex", "antigravity")}}
