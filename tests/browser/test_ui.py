@@ -1667,6 +1667,18 @@ def test_colab_tab_says_why_there_is_no_data_when_the_kernel_is_busy_before_the_
     assert page.errors == []
 
 
+def test_colab_tab_offers_a_reconnect_when_the_live_stream_cannot_open_and_recovers(page, colab_server):
+    page.route("**/api/colab/stream*", lambda route: route.fulfill(status=409, content_type="application/json", body='{"detail": "colab sessions timed out"}'))
+    page.goto(f"{colab_server.url}/dashboard/colab")
+    expect(page.locator(".colab-picker-name")).to_have_text("sentinel-run")
+    expect(page.locator(".colab-live")).to_be_visible()  # the browser gave up on the stream: a way back, not a silent wait
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).not_to_have_attribute("value", "12.5%")
+    page.unroute("**/api/colab/stream*")
+    page.locator(".colab-reconnect").click()
+    expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).to_have_attribute("value", "12.5%", timeout=15000)
+    expect(page.locator(".colab-live")).to_be_hidden()
+
+
 def test_leaving_the_colab_tab_stops_the_probing(page, colab_server):
     page.goto(f"{colab_server.url}/dashboard/colab")
     expect(page.locator('colab-tab stat-card[data-metric="cpu"]')).to_have_attribute("value", "12.5%", timeout=15000)

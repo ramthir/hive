@@ -48,6 +48,10 @@ class ColabTab extends HTMLElement {
           <p>Start a runtime with <code>colab new</code> or <code>colab ssh</code> to view live VM metrics.</p>
         </div>
         <div class="colab-session" hidden>
+          <div class="colab-live" role="status" hidden>
+            <span>Live updates are not running.</span>
+            <button type="button" class="colab-reconnect"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Reconnect</button>
+          </div>
           <section class="colab-grid" data-grid="machine" aria-label="Runtime statistics"></section>
           <div class="table-card"><app-table aria-label="Runtime processes"></app-table></div>
           <app-pagination hidden></app-pagination>
@@ -56,6 +60,7 @@ class ColabTab extends HTMLElement {
     this.usageGrid = this.querySelector('[data-grid="usage"]');
     this.machineGrid = this.querySelector('[data-grid="machine"]');
     this.idle = this.querySelector('.colab-idle');
+    this.live = this.querySelector('.colab-live');
     this.sessionPane = this.querySelector('.colab-session');
     this.picker = this.querySelector('.colab-picker');
     this.table = this.querySelector('app-table');
@@ -67,6 +72,10 @@ class ColabTab extends HTMLElement {
     this.table.setLoading(true);
     this.drawMachine();
 
+    this.querySelector('.colab-reconnect').addEventListener('click', () => {
+      this.closeStream();
+      this.openStream();
+    });
     this.picker.addEventListener('dropdown-select', ({ detail }) => {
       const name = detail.item?.dataset?.session;
       if (!name || name === this.session) return;
@@ -106,6 +115,11 @@ class ColabTab extends HTMLElement {
 
   say(text, error = false) {
     this.dispatchEvent(new CustomEvent('tab-status', { bubbles: true, detail: { text, error } }));
+  }
+
+  // A stream that is down offers a way back now, instead of leaving the person to wait for the next poll.
+  showLive(down) {
+    if (this.live) this.live.hidden = !down;
   }
 
   // The header's line is composed from the stream and the polled reads, so neither hides the other.
@@ -231,6 +245,7 @@ class ColabTab extends HTMLElement {
     this.streamed = null;
     this.stream = {};
     this.feed = null;
+    this.showLive(false);
   }
 
   openStream() {
@@ -252,6 +267,7 @@ class ColabTab extends HTMLElement {
     });
     source.onerror = () => {
       if (this.source !== source) return;
+      this.showLive(true);
       const closed = source.readyState === EventSource.CLOSED; // closed for good: the next poll opens a new stream
       this.stream = { notice: closed ? 'Live updates stopped; trying again shortly. Showing the last collected data.' : 'Live updates disconnected; reconnecting. Showing the last collected data.' };
       this.refreshStatus();
@@ -261,6 +277,7 @@ class ColabTab extends HTMLElement {
   apply(data) {
     if (data.session?.name !== this.session) return;
     this.feed = data;
+    this.showLive(false);
     if (data.status === 'loading') {
       this.stream = {};
       this.refreshStatus();
