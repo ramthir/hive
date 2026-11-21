@@ -23,15 +23,6 @@ overlay 102400M 10240M 92160M 10% /
 _PROCESS_OUTPUT = 'PID %CPU %MEM RSS ELAPSED COMMAND COMMAND\n123 25.0 2.0 1024 01:00 python python train.py\n'
 
 
-@pytest.fixture(autouse=True)
-def clear_exec_snapshots():
-    colab_cli._snapshots.clear()
-    colab_cli._snapshot_tasks.clear()
-    yield
-    colab_cli._snapshots.clear()
-    colab_cli._snapshot_tasks.clear()
-
-
 def test_resolve_colab_bin_falls_back_to_local_bin(monkeypatch, tmp_path):
     monkeypatch.delenv("COLAB_CLI_BIN", raising=False)
     monkeypatch.setattr(colab_cli.shutil, "which", lambda _name: None)
@@ -139,8 +130,8 @@ async def test_stats_and_processes_use_stdin_exec_never_ssh(monkeypatch, gpu):
         return out.getvalue()
 
     monkeypatch.setattr(colab_cli, 'run_colab_command', run)
-    stats = await colab_cli.get_colab_stats('sentinel-run')
-    processes = await colab_cli.get_colab_processes('sentinel-run')
+    snapshot = await colab_cli.collect_colab_snapshot('sentinel-run')
+    stats, processes = snapshot['stats'], snapshot['processes']
     assert stats['cpu_count'] == 2
     assert stats['memory']['percent'] == 25.0
     assert bool(stats['gpu']) == bool(gpu)
@@ -151,44 +142,23 @@ async def test_stats_and_processes_use_stdin_exec_never_ssh(monkeypatch, gpu):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('probe', [colab_cli.get_colab_stats, colab_cli.get_colab_processes])
 @pytest.mark.parametrize('output', ['Traceback: kernel error', '===HIVE_PROBE_START===\npartial', _framed('nonsense\n'), _framed('PID %CPU %MEM RSS ELAPSED COMMAND COMMAND\ninvalid row\n')])
-async def test_invalid_exec_results_are_errors(monkeypatch, probe, output):
+async def test_invalid_exec_results_are_errors(monkeypatch, output):
     async def run(*args, **kwargs):
         return output
     monkeypatch.setattr(colab_cli, 'run_colab_command', run)
     with pytest.raises(ColabCliError, match='Colab exec'):
-        await probe('sentinel-run')
+        await colab_cli.collect_colab_snapshot('sentinel-run')
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('probe', [colab_cli.get_colab_stats, colab_cli.get_colab_processes])
-async def test_invalid_session_does_not_invoke_exec(monkeypatch, probe):
+async def test_invalid_session_does_not_invoke_exec(monkeypatch):
     from unittest.mock import AsyncMock
     run = AsyncMock()
     monkeypatch.setattr(colab_cli, 'run_colab_command', run)
     with pytest.raises(ValueError):
-        await probe('bad;session')
+        await colab_cli.collect_colab_snapshot('bad;session')
     run.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_snapshot_cache_expires_and_refreshes(monkeypatch):
-    calls = []
-    now = [100.0]
-
-    async def run(args, **kwargs):
-        calls.append(args)
-        return _framed(_STATS_OUTPUT + '===PROCESSES===\n' + _PROCESS_OUTPUT)
-
-    monkeypatch.setattr(colab_cli, 'run_colab_command', run)
-    monkeypatch.setattr(colab_cli.time, 'monotonic', lambda: now[0])
-    await colab_cli.get_colab_stats('cache-test')
-    await colab_cli.get_colab_processes('cache-test')
-    assert len(calls) == 1
-    now[0] += colab_cli._SNAPSHOT_TTL + 1
-    await colab_cli.get_colab_processes('cache-test')
-    assert len(calls) == 2
 
 
 @pytest.mark.asyncio
@@ -242,79 +212,34 @@ async def test_exec_subprocess_stdin_cleanup_and_errors(monkeypatch, mode):
 
 
 @pytest.mark.asyncio
-async def test_concurrent_dashboard_endpoints_share_one_exec_probe(monkeypatch):
-    import asyncio
-    from unittest.mock import AsyncMock
-    started, release = asyncio.Event(), asyncio.Event()
-    calls = []
-
-    async def run(args, **kwargs):
-        calls.append(args)
-        started.set()
-        await release.wait()
-        return _framed(_STATS_OUTPUT + '===PROCESSES===\n' + _PROCESS_OUTPUT)
-
-    monkeypatch.setattr(colab_cli, 'run_colab_command', run)
-    stats_request = asyncio.create_task(colab_cli.get_colab_stats('shared-test'))
-    await started.wait()
-    process_request = asyncio.create_task(colab_cli.get_colab_processes('shared-test'))
-    await asyncio.sleep(0)
-    release.set()
-    stats, processes = await asyncio.gather(stats_request, process_request)
-    assert stats['cpu_count'] == 2
-    assert processes[0]['pid'] == 123
-    assert len(calls) == 1
-
-
-@pytest.mark.asyncio
-async def test_shared_probe_failure_is_not_cached_and_can_retry(monkeypatch):
-    from unittest.mock import AsyncMock
-    run = AsyncMock(side_effect=[ColabCliError('kernel failed'), _framed(_STATS_OUTPUT + '===PROCESSES===\n' + _PROCESS_OUTPUT)])
-    monkeypatch.setattr(colab_cli, 'run_colab_command', run)
-    with pytest.raises(ColabCliError, match='kernel failed'):
-        await colab_cli.get_colab_stats('retry-test')
-    assert 'retry-test' not in colab_cli._snapshots
-    processes = await colab_cli.get_colab_processes('retry-test')
-    assert processes[0]['pid'] == 123
-    assert run.await_count == 2
-
-
-@pytest.mark.asyncio
-async def test_cancelled_waiter_does_not_cancel_other_snapshot_requests(monkeypatch):
-    import asyncio
-    started, release = asyncio.Event(), asyncio.Event()
-    calls = []
-
-    async def run(args, **kwargs):
-        calls.append(args)
-        started.set()
-        await release.wait()
-        return _framed(_STATS_OUTPUT + '===PROCESSES===\n' + _PROCESS_OUTPUT)
-
-    monkeypatch.setattr(colab_cli, 'run_colab_command', run)
-    first = asyncio.create_task(colab_cli.get_colab_stats('cancel-test'))
-    await started.wait()
-    second = asyncio.create_task(colab_cli.get_colab_processes('cancel-test'))
-    await asyncio.sleep(0)
-    first.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await first
-    release.set()
-    assert (await second)[0]['pid'] == 123
-    assert len(calls) == 1
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize('output', [
     'broken stats\n===PROCESSES===\n' + _PROCESS_OUTPUT,
     _STATS_OUTPUT + '===PROCESSES===\nbroken processes\n',
 ])
-async def test_invalid_shared_snapshot_is_not_cached(monkeypatch, output):
+async def test_an_invalid_snapshot_is_an_error(monkeypatch, output):
     from unittest.mock import AsyncMock
     monkeypatch.setattr(colab_cli, 'run_colab_command', AsyncMock(return_value=_framed(output)))
     with pytest.raises(ColabCliError):
-        await colab_cli.get_colab_stats('malformed-test')
-    assert 'malformed-test' not in colab_cli._snapshots
+        await colab_cli.collect_colab_snapshot('malformed-test')
+
+
+@pytest.mark.asyncio
+async def test_a_second_probe_of_the_same_runtime_is_refused_while_one_is_running(monkeypatch):
+    import asyncio
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def run(args, **kwargs):
+        started.set()
+        await release.wait()
+        return _framed(_STATS_OUTPUT + '===PROCESSES===\n' + _PROCESS_OUTPUT)
+
+    monkeypatch.setattr(colab_cli, 'run_colab_command', run)
+    first = asyncio.create_task(colab_cli.collect_colab_snapshot('busy-test'))
+    await started.wait()
+    with pytest.raises(ColabBusyError):
+        await colab_cli.collect_colab_snapshot('busy-test')
+    release.set()
+    assert (await first)['stats']['cpu_count'] == 2
 
 
 @pytest.mark.asyncio

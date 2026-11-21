@@ -220,11 +220,6 @@ async def _run_exec_probe(session: str, command: str) -> str:
     return "\n".join(lines[start + 1:end])
 
 
-_SNAPSHOT_TTL = 5.0
-_snapshots: dict[str, tuple[float, dict[str, Any]]] = {}
-_snapshot_tasks: dict[str, asyncio.Task] = {}
-
-
 async def _collect_snapshot(session: str) -> dict[str, Any]:
     command = _REMOTE_STATS_CMD + '; echo "===PROCESSES==="; ' + _REMOTE_PROCESSES_CMD
     output = await _run_exec_probe(session, command)
@@ -233,31 +228,7 @@ async def _collect_snapshot(session: str) -> dict[str, Any]:
         raise ColabCliError("Colab exec returned an incomplete status snapshot.")
     stats = _parse_stats(stats_output)
     processes = _parse_processes(processes_output)
-    snapshot = {"stats": stats, "processes": processes}
-    _snapshots[session] = (time.monotonic(), snapshot)
-    return snapshot
-
-
-async def _get_snapshot(session: str) -> dict[str, Any]:
-    validate_session_name(session)
-    cached = _snapshots.get(session)
-    if cached and time.monotonic() - cached[0] < _SNAPSHOT_TTL:
-        return cached[1]
-    task = _snapshot_tasks.get(session)
-    if task is None:
-        task = asyncio.create_task(_collect_snapshot(session))
-        _snapshot_tasks[session] = task
-
-        def finished(completed):
-            if _snapshot_tasks.get(session) is completed:
-                _snapshot_tasks.pop(session)
-            # Observe errors even if all waiting HTTP requests were cancelled.
-            if not completed.cancelled():
-                completed.exception()
-
-        task.add_done_callback(finished)
-    # One browser closing must not cancel another caller's shared probe.
-    return await asyncio.shield(task)
+    return {"stats": stats, "processes": processes}
 
 
 def _parse_stats(output: str) -> dict[str, Any]:
@@ -278,16 +249,6 @@ def _parse_processes(output: str) -> list[dict[str, Any]]:
     if any(line.strip() for line in lines[1:]) and not processes:
         raise ColabCliError("Colab exec returned an invalid process list.")
     return processes
-
-
-async def get_colab_stats(session: str) -> dict[str, Any]:
-    """Return resource stats from the session's shared exec snapshot."""
-    return (await _get_snapshot(session))["stats"]
-
-
-async def get_colab_processes(session: str) -> list[dict[str, Any]]:
-    """Return processes from the same snapshot used for resource stats."""
-    return (await _get_snapshot(session))["processes"]
 
 
 async def get_colab_kernel_state(session: str, runtime_id: str) -> str:
