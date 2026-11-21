@@ -8,8 +8,8 @@ const stats = (extra = {}) => ({ cpu_count: 2, cpu_percent: 42.26, load_average:
   memory: { used_gb: 1.2, total_gb: 12.7, percent: 9.4 }, disk: { used_gb: 30, total_gb: 100, percent: 30 }, gpu: [], ...extra });
 const gpu = { name: 'Tesla T4', utilization_percent: 91, memory_used_mb: 4096, memory_total_mb: 15360, memory_percent: 26.7 };
 
-test('gauge colours turn from green to yellow at 60 and red at 85', () => {
-  assert.deepEqual([10, 59, 60, 84, 85, 99].map(usageColor), ['var(--color-green)', 'var(--color-green)', 'var(--color-yellow)', 'var(--color-yellow)', 'var(--color-red)', 'var(--color-red)']);
+test('gauge colours turn from green to yellow at 60 and red at 80, like the Debian tab', () => {
+  assert.deepEqual([10, 59, 60, 79, 80, 99].map(usageColor), ['var(--color-green)', 'var(--color-green)', 'var(--color-yellow)', 'var(--color-yellow)', 'var(--color-red)', 'var(--color-red)']);
 });
 
 test('the usage cards show the balance, the burn rate and the assignments', () => {

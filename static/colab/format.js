@@ -4,8 +4,8 @@ import { levelColor } from '../dashboard/format.js';
 export const PAGE_SIZE = 10;
 export const SORTS = { cpu_percent: 'cpu_percent', mem: 'mem_percent' }; // table column key -> process field
 
-/** Green below 60%, yellow below 85%, red above. */
-export const usageColor = (percent) => levelColor(percent, 60, 85);
+/** The same gauge colours as the Debian tab: green below 60%, yellow below 80%, red above. */
+export const usageColor = (percent) => levelColor(percent);
 
 const clamp = (n) => Math.min(100, Math.max(0, Number(n) || 0));
 const has = (value) => value !== null && value !== undefined;
