@@ -15,7 +15,7 @@ from src.domain.notes.time import accepts_time, time_type
 class TimeRow:
     slug: str
     title: str
-    type: str  # "task" or "meeting"
+    type: str  # "task" or "meeting"; "other" for time on a note that is no longer either
     project: str  # the note's optional `project:` frontmatter, else ""
     day: str  # ISO day
     minutes: int
@@ -26,9 +26,7 @@ class TimeRow:
 
 
 def rows_of(note: Note) -> list[TimeRow]:
-    kind = time_type(note)
-    if kind is None:
-        return []
+    kind = time_type(note) or "other"  # time left on a note that was retyped stays visible (and removable)
     project = str(note.extra.get("project") or "").strip()
     return [TimeRow(note.slug, note.title, kind, project, day, minutes) for day, minutes in note.time.items()]
 

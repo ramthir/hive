@@ -56,7 +56,7 @@ class TimeEntryOut(BaseModel):
     id: str
     slug: str
     title: str
-    type: TimeKind
+    type: TimeKind | Literal["other"]  # "other": time left on a note that is no longer a task or meeting
     project: str
     day: str
     minutes: int

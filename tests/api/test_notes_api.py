@@ -378,12 +378,15 @@ def test_time_entries_filters_and_pages(client):
     assert client.get("/api/time-entries", params={"start": "2026-02-01", "end": "2026-01-01"}).status_code == 400
 
 
-def test_time_entries_ignore_notes_that_are_not_tasks_or_meetings(client, root):
+def test_time_on_a_note_that_is_not_a_task_or_meeting_stays_visible_as_other(client, root):
     (root / "idea.md").write_text("---\ntitle: Idea\ntype: idea\ntime: {2026-01-01: 30}\n---\n\n# Idea\n")
     git(root, "add", "-A")
     git(root, "commit", "-qm", "seed")
     client.post("/api/reindex")
-    assert client.get("/api/time-entries").json()["items"] == []
+    items = client.get("/api/time-entries").json()["items"]
+    assert [(i["slug"], i["type"]) for i in items] == [("idea", "other")]
+    assert client.get("/api/time-notes").json() == []  # but it cannot be picked for new time
+    assert client.delete("/api/notes/idea/time/2026-01-01").status_code == 204
 
 
 def test_time_notes_lists_tasks_and_meetings_this_weeks_first(client, root):

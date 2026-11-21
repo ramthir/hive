@@ -147,3 +147,8 @@ test('the sparkline has a value per day of the server\'s month and tooltip rows 
   assert.equal(monthSparkline({}), null);
   assert.equal(summaryTiles({ month: '2026-02', days: meta.days })[0].sparkline.values[2], 105);
 });
+
+test('time left on a retyped note shows a warning icon', () => {
+  const [, title] = tableColumns((x) => x);
+  assert.match(title.render('Old', { type: 'other', slug: 'old' }), /fa-triangle-exclamation/);
+});

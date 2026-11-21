@@ -27,7 +27,9 @@ def titles(rows):
 def test_rows_of_a_note_carry_its_type_and_project_and_skip_other_notes():
     n = Note(slug="a", title="A", content="", types=("meeting",), time={"2026-11-20": 30}, extra={"project": " Acme "})
     assert rows_of(n) == [TimeRow("a", "A", "meeting", "Acme", "2026-11-20", 30)]
-    assert rows_of(Note(slug="b", title="B", content="", types=("idea",), time={"2026-11-20": 30})) == []
+    assert rows_of(Note(slug="b", title="B", content="", types=("idea",))) == []
+    # time left on a retyped note stays visible (and removable) as "other"
+    assert rows_of(Note(slug="b", title="B", content="", types=("idea",), time={"2026-11-20": 30}))[0].type == "other"
     assert rows_of(n)[0].id == "a:2026-11-20"
 
 

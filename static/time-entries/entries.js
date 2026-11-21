@@ -9,6 +9,10 @@ export const SEARCH_HELP =
  * The notes minutes can be logged on, as combobox options in the order the server sent (this week's first). Each
  * carries its type's icon and, once this week's notes are followed by others, a heading above each group.
  */
+const TYPE_ICONS = { meeting: 'fa-calendar-check', other: 'fa-triangle-exclamation' };
+const typeIcon = (type) => TYPE_ICONS[type] || 'fa-list-check';
+const TYPE_TITLES = { other: 'No longer a task or meeting' };
+
 export function timeNoteOptions(notes) {
   const list = notes || [];
   const split = list.some((n) => n.this_week) && list.some((n) => !n.this_week);
@@ -72,7 +76,7 @@ export function tableColumns(esc) {
     {
       key: 'title',
       label: 'Task or meeting',
-      render: (title, row) => `<i class="fa-solid ${row.type === 'meeting' ? 'fa-calendar-check' : 'fa-list-check'} time-type" title="${esc(row.type)}" aria-hidden="true"></i><span class="time-title">${esc(title)}</span> <a class="time-note-link" href="/notes/${encodeURIComponent(row.slug)}" title="Open note" aria-label="Open note: ${esc(title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`,
+      render: (title, row) => `<i class="fa-solid ${typeIcon(row.type)} time-type" title="${esc(TYPE_TITLES[row.type] || row.type)}" aria-hidden="true"></i><span class="time-title">${esc(title)}</span> <a class="time-note-link" href="/notes/${encodeURIComponent(row.slug)}" title="Open note" aria-label="Open note: ${esc(title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`,
     },
     { key: 'project', label: 'Project', render: (project) => (project ? esc(project) : '<span class="time-none">—</span>') },
     { key: 'minutes', label: 'Duration', width: '8rem', className: 'time-duration', render: (minutes) => esc(formatDuration(minutes)) },
