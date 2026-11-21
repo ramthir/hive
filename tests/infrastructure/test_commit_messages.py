@@ -66,8 +66,9 @@ def test_codex_runs_one_shot_read_only_with_the_diff_on_stdin(tmp_path):
     message = CodexCommitMessages(program, model="m1", effort="medium").describe("Home network", "doc: update Home network", "+Storage: NAS\n")
     assert message == "doc: add storage options"
     args = (tmp_path / "args.txt").read_text()
-    for flag in ("exec", "--sandbox read-only", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--model m1", 'model_reasoning_effort="medium"'):
+    for flag in ("exec", "--sandbox read-only", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--model m1", 'model_reasoning_effort="medium"'):
         assert flag in args
+    assert "--ephemeral" not in args  # Codex keeps the session, so ccusage counts the tokens
     assert args.rstrip().endswith("-")  # the prompt comes on standard input
     prompt = (tmp_path / "stdin.txt").read_text()
     assert "+Storage: NAS" in prompt and "Home network" in prompt and "doc: update Home network" in prompt

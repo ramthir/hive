@@ -64,7 +64,7 @@ class CodexCommitMessages:
         scratch = tempfile.mkdtemp(prefix="hive-codex-")  # Codex runs here, never in the notes
         try:
             answer = Path(scratch) / "answer.txt"
-            args = [self.program, "exec", "--sandbox", "read-only", "--ephemeral", "--skip-git-repo-check",
+            args = [self.program, "exec", "--sandbox", "read-only", "--skip-git-repo-check",
                     "--ignore-user-config", "--ignore-rules", "-C", scratch, "-o", str(answer),
                     *(["--model", self.model] if self.model else []),
                     *(["-c", f'model_reasoning_effort="{self.effort}"'] if self.effort else []), "-"]
