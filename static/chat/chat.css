@@ -35,13 +35,18 @@ chat-app .chat-steps li.failed { color: var(--color-red, #ff6188); }
 chat-app .chat-steps li.narration { font-style: italic; color: var(--color-dimmed3); }
 chat-app .chat-thinking { color: var(--color-dimmed3); font-size: .8rem; }
 chat-app .chat-answer { min-width: 0; overflow-wrap: anywhere; }
+/* Notes cited in an answer look like the wiki-link chips of the preview. */
+chat-app .chat-answer a.notes-wikilink { color: var(--color-accent5); border: 1px solid color-mix(in srgb, var(--color-accent5) 35%, transparent); border-radius: 6px; padding: .02rem .4rem;
+  background: color-mix(in srgb, var(--color-accent5) 8%, transparent); font-weight: 500; }
+chat-app .chat-answer a.notes-wikilink:hover, chat-app .chat-answer a.notes-wikilink:focus-visible { background: color-mix(in srgb, var(--color-accent5) 18%, transparent); outline: none; }
+chat-app .chat-answer a.notes-wikilink.unresolved { color: var(--color-dimmed3, #908e90); border-style: dashed; background: transparent; font-weight: normal; }
 chat-app .chat-answer > :first-child { margin-top: 0; }
 chat-app .chat-answer > :last-child { margin-bottom: 0; }
 chat-app .chat-error { color: var(--color-red, #ff6188); font-size: .85rem; margin-top: .4rem; }
 chat-app .chat-stopped { color: var(--color-dimmed3); font-size: .8rem; margin-top: .4rem; }
 
 chat-app .chat-changed { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .7rem; font-size: .78rem; color: var(--color-dimmed2); }
-chat-app .chat-changed a { color: var(--color-text); text-decoration: none; border: 1px solid var(--color-dimmed5); border-radius: 999px; padding: .1rem .6rem; background: var(--color-dark2); }
+chat-app .chat-changed a { color: var(--color-text); text-decoration: none; border: 1px solid var(--color-dimmed5); border-radius: 6px; padding: .1rem .6rem; background: var(--color-dark2); }
 chat-app .chat-changed a:hover, chat-app .chat-changed a:focus-visible { border-color: var(--color-accent5); outline: none; }
 
 /* The bottom bar is the shared action bar, bleeding over the page padding to the window's edges like Pandora's chat bar. */
