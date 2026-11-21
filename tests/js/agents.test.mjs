@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { axisLabels, compact, niceMax, pagerState, renderTrend, renderUsage, sessionColumns, sessionRows, sessionsKey, sessionsQuery, shortSession } from '../../static/agents/usage-render.js';
-import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
+import { QUOTA_MAX_RETRIES, QUOTA_PENDING, quotaDonut, quotaLevel, resetText, shouldRetryQuota } from '../../static/agents/quota-donuts.js';
 import { sessionResumeCommand } from '../../static/agents/session-resume.js';
 import { TABS, tabBarTabs, tabForPath } from '../../static/dashboard/tabs.js';
 
@@ -195,4 +195,12 @@ test('the quota is asked for again soon only while the first run is under way, a
   assert.equal(shouldRetryQuota({ generated_at: null, reason: 'agy: not logged in' }, 0), false); // a real failure is not retried every 8 s
   assert.equal(shouldRetryQuota({ generated_at: '2026-11-21T08:00:00+00:00', reason: QUOTA_PENDING }, 0), false);
   assert.equal(shouldRetryQuota(null, 0), false);
+});
+
+test('a ring turns orange under a quarter left and red under a tenth', () => {
+  assert.deepEqual([100, 40, 26, 25, 11, 10, 1].map(quotaLevel), ['', '', '', 'warn', 'warn', 'low', 'low']);
+  const ring = (used) => quotaDonut('claude', { status: 'ok', windows: { '5h': win(used), '7d': win(0, 4 * 24 * 60) } }).match(/class="arc outer[^"]*"/)[0];
+  assert.equal(ring(40), 'class="arc outer"');
+  assert.equal(ring(80), 'class="arc outer warn"');
+  assert.equal(ring(95), 'class="arc outer low"');
 });

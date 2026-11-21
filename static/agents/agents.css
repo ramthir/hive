@@ -83,5 +83,7 @@ agents-tab .quota-donut .arc { fill: none; stroke-linecap: round; transform: rot
 agents-tab .quota-donut .arc.outer { stroke: var(--color-yellow); }
 agents-tab .quota-donut .arc.inner, agents-tab .quota-donut .arc.middle { stroke: var(--color-green); }
 agents-tab .quota-donut .arc.argon { stroke: var(--color-purple); }
+agents-tab .quota-donut .arc.warn { stroke: var(--color-orange); }
+agents-tab .quota-donut .arc.low { stroke: var(--color-red); }
 agents-tab .quota-donut:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); border-radius: var(--radius-full); }
 agents-tab .quota-skeleton { flex: none; width: 3.5rem; height: 3.5rem; border-radius: var(--radius-full); }

@@ -52,6 +52,9 @@ function detail(window, ring) {
   return { label: ring.label, note: reset ? `· resets ${reset}` : '', value: `${Math.round(shareLeft(used))}%` };
 }
 
+/** How worrying what is left is: under a tenth is critical, under a quarter a warning. */
+export const quotaLevel = (left) => (left <= 10 ? 'low' : left <= 25 ? 'warn' : '');
+
 /** One concentric ring: its track and the used arc. */
 function ring(window, spec) {
   const circumference = 2 * Math.PI * spec.radius;
@@ -64,7 +67,8 @@ function ring(window, spec) {
   // Zero left draws only the track, so round linecaps do not paint a colored dot on an exhausted ring.
   if (Math.round(left) <= 0) return track;
   const dash = (left / 100) * circumference;
-  return `${track}<circle class="arc ${spec.kind}" cx="60" cy="60" r="${spec.radius}" stroke-width="${spec.stroke}" stroke-dasharray="${dash} ${circumference}"></circle>`;
+  const level = quotaLevel(left);
+  return `${track}<circle class="arc ${spec.kind}${level ? ` ${level}` : ''}" cx="60" cy="60" r="${spec.radius}" stroke-width="${spec.stroke}" stroke-dasharray="${dash} ${circumference}"></circle>`;
 }
 
 /**
