@@ -234,6 +234,7 @@ def _bucket_sizes(home: Path, named: dict[str, Path]) -> dict[str, int]:
     roots = [(os.path.normpath(home), "home")]
     roots += [(path, name) for path, name in where.items() if not (path == roots[0][0] or path.startswith(roots[0][0] + os.sep))]
     stack = list(roots)
+    linked: set[tuple[int, int]] = set()  # (device, inode) of hardlinked files already counted
     while stack:
         directory, bucket = stack.pop()
         bucket = where.get(directory, bucket)
@@ -244,12 +245,24 @@ def _bucket_sizes(home: Path, named: dict[str, Path]) -> dict[str, int]:
                         if entry.is_dir(follow_symlinks=False):
                             stack.append((os.path.normpath(entry.path), bucket))
                         elif entry.is_file(follow_symlinks=False):
-                            sizes[bucket] += entry.stat(follow_symlinks=False).st_size
+                            sizes[bucket] += _disk_size(entry.stat(follow_symlinks=False), linked)
                     except OSError:
                         continue
         except OSError:
             continue
     return sizes
+
+
+def _disk_size(info: os.stat_result, linked: set[tuple[int, int]]) -> int:
+    """What a file costs on disk: its size, but never more than the blocks it holds (a sparse file is mostly holes), and a
+    hardlinked file only the first time it is met."""
+    if info.st_nlink > 1:
+        identity = (info.st_dev, info.st_ino)
+        if identity in linked:
+            return 0
+        linked.add(identity)
+    blocks = getattr(info, "st_blocks", None)
+    return min(info.st_size, blocks * 512) if blocks is not None else info.st_size
 
 
 def _count(fn) -> int | None:

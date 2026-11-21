@@ -100,3 +100,24 @@ def test_process_page_sorts_pages_and_includes_this_process(tmp_path):
 def test_process_page_rejects_bad_options(tmp_path):
     with pytest.raises(ValueError):
         ContainerMonitor(tmp_path).process_page(sort="name")
+
+
+def test_a_sparse_file_counts_what_it_holds_not_its_holes(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    with open(home / "disk.img", "wb") as f:
+        f.truncate(50 * 1024 * 1024)  # 50 MB of holes
+    (home / "a").write_bytes(b"x" * 10)
+    storage = ContainerMonitor(tmp_path / "none", tmp_path / "none2", home=home).measure_storage()
+    assert storage["used_bytes"] < 1024 * 1024
+
+
+def test_a_hardlinked_file_is_counted_once(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "one").write_bytes(b"x" * 100)
+    os.link(home / "one", home / "two")
+    (home / "other").write_bytes(b"x" * 40)
+    storage = ContainerMonitor(tmp_path / "none", tmp_path / "none2", home=home).measure_storage()
+    assert storage["used_bytes"] == 140
+
