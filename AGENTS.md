@@ -25,6 +25,8 @@ Hive is a desktop app: there is no mobile or narrow-screen layout (no `@media` w
 ## Running
 `NOTES_DIR=~/Workspace/notes uv run python main.py` serves on port 80 (needs `net.ipv4.ip_unprivileged_port_start` <= 80 or root). Binds 0.0.0.0 by default and there is no auth, so anyone who can reach the port can edit notes; `HOST=127.0.0.1` limits it to this machine. `PORT` overrides the port. `HIVE_WATCH=0` turns the file watcher off (edits made outside Hive are then only seen after `POST /api/reindex`). `GRAPHVIZ_DOT` points at Graphviz `dot` when it is not on PATH. Every save is a real git commit in `NOTES_DIR`.
 
+`scripts/service.sh start|stop|restart|status` runs it in the background without systemd (pid and log in `~/.local/state/hive/`; it also finds a `main.py` started by hand from this directory). It does not survive a reboot or a container restart: start it again.
+
 ## PlantUML previews
 Fenced ```plantuml / ```puml blocks render as images in the preview. `DiagramService` (`src/application/diagrams`) runs `java -jar plantuml.jar -pipe -tsvg` per diagram (~200 ms) under `PLANTUML_SECURITY_PROFILE=SANDBOX`, so the renderer itself reads no files and opens no URLs; `!include <file>.puml` is inlined by us, only from `NOTES_DIR` and never outside it, and `!include monokai-theme.puml` / `!theme monokai-pro` always use the bundled theme (as in Pandora). Results are cached by source hash. The SVG is shown through an `<img>` data URL, never inline, so a diagram cannot run script.
 Setup (no root needed): a JRE (`mise install java@temurin-21`) and `plantuml.jar` in `~/.local/share/hive/plantuml/` (verify the SHA-256 GitHub publishes for the release), then `PLANTUML_JAVA` / `PLANTUML_JAR` in `.env`. Without them the code block stays and a message says why.
