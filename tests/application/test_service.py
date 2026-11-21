@@ -26,7 +26,7 @@ def day():
 
 @pytest.fixture
 def svc(root, day):
-    return NoteService(FileNoteRepository(root, today=lambda: day["today"]))
+    return NoteService(FileNoteRepository(root, today=lambda: day["today"]), today=lambda: day["today"])
 
 
 def test_title_is_the_h1_and_the_file_name_is_its_kebab_case(svc, root):
