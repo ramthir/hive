@@ -47,6 +47,8 @@ class AgentsTab extends HTMLElement {
     this.usageSeq = 0;
     this.sessionsSeq = 0;
     this.quotaSeq = 0;
+    this.usageError = '';
+    this.sessionsError = '';
     this.table.setColumns(sessionColumns);
     this.table.setDefaultSort(this.sort, this.direction);
     this.table.setEmptyState({ icon: 'fa-comments', title: 'No sessions this month' });
@@ -158,21 +160,29 @@ class AgentsTab extends HTMLElement {
     return api(`/agents/usage/sessions?${sessionsQuery({ sort: this.sort, dir: this.direction, page: this.page, pageSize: SESSION_PAGE_SIZE, provider: this.providerFilter })}`);
   }
 
-  /** A new sort, filter or page: show the table loading, then the answer. */
-  async loadSessions() {
+  async loadSessions(interactive = true) {
     const seq = ++this.sessionsSeq;
-    this.table?.setLoading(true);
-    this.appliedKey = null;
+    if (interactive) {
+      this.table.setLoading(true);
+      this.appliedKey = null;
+    }
     try {
       const answer = await this.fetchSessions();
       if (seq !== this.sessionsSeq || !this.isConnected) return;
       this.sessions = answer;
       this.applySessions();
-    } catch (error) {
+      this.sessionsError = '';
+    } catch {
       if (seq !== this.sessionsSeq || !this.isConnected) return;
-      this.pager.hidden = true;
-      this.table?.setError('Hive could not load the sessions.');
+      if (this.appliedKey) {
+        this.sessionsError = 'Could not refresh the sessions; showing the last results.';
+      } else {
+        this.sessionsError = 'Hive could not load the sessions.';
+        this.pager.hidden = true;
+        this.table.setError(this.sessionsError);
+      }
     }
+    this.refreshStatus();
   }
 
   /** The quota rings. They come from their own request, so a slow CLI never holds the usage back. */
@@ -194,43 +204,32 @@ class AgentsTab extends HTMLElement {
     }
   }
 
-  say(text, error = false) {
+  refreshStatus() {
+    const text = [this.usageError, this.sessionsError].filter(Boolean).join(' · ');
+    const error = Boolean(text);
     this.dispatchEvent(new CustomEvent('tab-status', { bubbles: true, detail: { text, error } }));
   }
 
-  async load() {
+  load() {
     this.quotaTries = 0;
     this.loadQuota();
-    const usageSeq = ++this.usageSeq;
-    const sessionsSeq = ++this.sessionsSeq;
+    return Promise.all([this.loadUsage(), this.loadSessions(false)]);
+  }
+
+  async loadUsage() {
+    const seq = ++this.usageSeq;
     try {
-      const [view, sessions] = await Promise.all([api('/agents/usage'), this.fetchSessions()]);
-      if (!this.isConnected) return;
-      if (usageSeq === this.usageSeq) {
-        this.loaded = true;
-        this.say('');
-        this.draw(view);
-      }
-      if (sessionsSeq === this.sessionsSeq) {
-        this.sessions = sessions;
-        this.applySessions();
-      }
+      const view = await api('/agents/usage');
+      if (seq !== this.usageSeq || !this.isConnected) return;
+      this.loaded = true;
+      this.usageError = '';
+      this.draw(view);
     } catch {
-      if (usageSeq !== this.usageSeq || !this.isConnected) return;
-      if (this.loaded) { // a blip must not wipe a good report: keep it and say so
-        this.say('Could not refresh the usage; showing the last report.', true);
-        if (sessionsSeq === this.sessionsSeq && this.sessions) {
-          this.appliedKey = null;
-          this.applySessions();
-        }
-        return;
-      }
-      if (sessionsSeq === this.sessionsSeq) {
-        this.sessions = { items: [], total: 0, page: 0, page_size: SESSION_PAGE_SIZE };
-        this.applySessions();
-      }
-      this.draw({ status: 'unavailable', reason: MESSAGE, providers: {}, month: null, generated_at: null });
+      if (seq !== this.usageSeq || !this.isConnected) return;
+      this.usageError = this.loaded ? 'Could not refresh the usage; showing the last report.' : MESSAGE;
+      if (!this.loaded) this.draw({ status: 'unavailable', reason: MESSAGE, providers: {}, month: null, generated_at: null });
     }
+    this.refreshStatus();
   }
 }
 

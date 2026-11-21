@@ -1508,14 +1508,37 @@ def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_t
 def test_agents_tab_keeps_the_last_report_when_a_refresh_fails(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     expect(page.locator("agents-tab .card[data-provider]")).to_have_count(3)
-    page.route("**/api/agents/usage*", lambda route: route.abort())
+    page.route("**/api/agents/usage", lambda route: route.abort())
     page.evaluate("document.querySelector('agents-tab').load()")
     expect(page.locator("dashboard-app .dash-status")).to_have_text("Could not refresh the usage; showing the last report.")
     expect(page.locator("agents-tab .card[data-provider]")).to_have_count(3)
     expect(page.locator("agents-tab app-table tbody tr")).to_have_count(3)
-    page.unroute("**/api/agents/usage*")
+    page.unroute("**/api/agents/usage")
     page.evaluate("document.querySelector('agents-tab').load()")
     expect(page.locator("dashboard-app .dash-status")).to_have_text("")
+
+
+@pytest.mark.parametrize("failed_section", ["usage", "sessions"])
+def test_agents_tab_loads_each_section_when_the_other_fails(page, agents_server, failed_section):
+    endpoint = "**/api/agents/usage" if failed_section == "usage" else "**/api/agents/usage/sessions?*"
+    page.route(endpoint, lambda route: route.abort())
+    page.goto(f"{agents_server}/dashboard/agents")
+    cards = page.locator("agents-tab .card[data-provider]")
+    table = page.locator("agents-tab app-table")
+    status = page.locator("dashboard-app .dash-status")
+    if failed_section == "usage":
+        expect(status).to_have_text("Hive could not load the usage report.")
+        expect(table.locator("tbody tr")).to_have_count(3)
+    else:
+        expect(status).to_have_text("Hive could not load the sessions.")
+        expect(cards).to_have_count(3)
+        expect(table).to_contain_text("Hive could not load the sessions.")
+
+    page.unroute(endpoint)
+    page.locator("agents-tab").evaluate("(tab) => tab.load()")
+    expect(status).to_have_text("")
+    expect(cards).to_have_count(3)
+    expect(table.locator("tbody tr")).to_have_count(3)
 
 
 def test_debian_tab_filters_the_processes_on_the_server(page, server):
