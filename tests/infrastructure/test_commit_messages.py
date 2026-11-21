@@ -162,3 +162,23 @@ def test_the_app_only_rewrites_messages_when_asked(root, monkeypatch, tmp_path):
     rewriter = commit_rewriter(client, None)
     assert isinstance(rewriter, CommitRewriter)
     rewriter.stop()
+
+
+def test_commit_messages_and_chat_can_use_different_models(root, monkeypatch, tmp_path):
+    from src.api.main import chat_codex, commit_rewriter
+    monkeypatch.setenv("HIVE_COMMIT_MESSAGES", "codex")
+    monkeypatch.setenv("HIVE_CODEX", fake_codex(tmp_path, "true"))
+    for name in ("HIVE_CODEX_MODEL", "HIVE_CODEX_EFFORT", "HIVE_CODEX_COMMIT_MODEL", "HIVE_CODEX_COMMIT_EFFORT", "HIVE_CODEX_CHAT_MODEL", "HIVE_CODEX_CHAT_EFFORT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HIVE_CODEX_MODEL", "shared")
+    monkeypatch.setenv("HIVE_CODEX_EFFORT", "medium")
+    rewriter = commit_rewriter(GitClient(root), None)
+    assert (rewriter.writer.model, rewriter.writer.effort, chat_codex(root).model, chat_codex(root).effort) == ("shared", "medium", "shared", "medium")
+    rewriter.stop()
+    monkeypatch.setenv("HIVE_CODEX_COMMIT_MODEL", "luna")
+    monkeypatch.setenv("HIVE_CODEX_CHAT_MODEL", "sol")
+    monkeypatch.setenv("HIVE_CODEX_CHAT_EFFORT", "high")
+    rewriter = commit_rewriter(GitClient(root), None)
+    assert (rewriter.writer.model, rewriter.writer.effort) == ("luna", "medium")  # effort still the shared one
+    assert (chat_codex(root).model, chat_codex(root).effort) == ("sol", "high")
+    rewriter.stop()

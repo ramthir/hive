@@ -36,6 +36,11 @@ from src.infrastructure.system.monitor import ContainerMonitor
 from src.infrastructure.watcher import NotesWatcher
 
 
+def codex_setting(feature: str, name: str) -> str | None:
+    """HIVE_CODEX_<feature>_<name> (feature COMMIT or CHAT), else HIVE_CODEX_<name>, else None (Codex's own default)."""
+    return os.environ.get(f"HIVE_CODEX_{feature}_{name}") or os.environ.get(f"HIVE_CODEX_{name}") or None
+
+
 def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
     """HIVE_COMMIT_MESSAGES=codex: after each save, Codex reads the diff and replaces "doc: update Title" with a message
     about the change. Off by default because the diff of the note is sent to the model."""
@@ -45,14 +50,14 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
     if not program:
         logging.getLogger("hive.commit_messages").warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
         return None
-    return CommitRewriter(git, CodexCommitMessages(program, os.environ.get("HIVE_CODEX_MODEL") or None, effort=os.environ.get("HIVE_CODEX_EFFORT") or None), metrics)
+    return CommitRewriter(git, CodexCommitMessages(program, codex_setting("COMMIT", "MODEL"), effort=codex_setting("COMMIT", "EFFORT")), metrics)
 
 
 def chat_codex(root: Path) -> CodexChat | None:
     """The chat runs Codex (HIVE_CODEX, else the one on PATH); without it the chat page says so."""
     program = codex_program(os.environ.get("HIVE_CODEX"))
     scratch = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser() / "chat"
-    return CodexChat(program, root, os.environ.get("HIVE_CODEX_MODEL") or None, os.environ.get("HIVE_CODEX_EFFORT") or None, scratch=scratch) if program else None
+    return CodexChat(program, root, codex_setting("CHAT", "MODEL"), codex_setting("CHAT", "EFFORT"), scratch=scratch) if program else None
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
