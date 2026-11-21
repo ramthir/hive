@@ -2,7 +2,7 @@
 // The first block is Pandora's own set; the second covers the types used in the notes vault.
 export const TYPE_ICONS = {
   // Pandora's types
-  project: 'briefcase',
+  project: 'hammer',
   task: 'list-check',
   status: 'circle-check',
   priority: 'flag',

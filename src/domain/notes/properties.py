@@ -51,7 +51,7 @@ PROJECT_TYPES = ("project", "company")  # work is booked against a client compan
 
 
 def _project() -> Field:
-    return Field("project", "Project", "briefcase", "note", note_types=PROJECT_TYPES, placeholder="Select project...")
+    return Field("project", "Project", "hammer", "note", note_types=PROJECT_TYPES, placeholder="Select project...")
 
 
 BILLING = ("Billable", "Non Billable")
@@ -64,7 +64,7 @@ TASK = Form(
     "Task",
     groups={"context": "Project & Context", "execution": "Task Execution & Schedule", "tags": "Tags"},
     fields=(
-        Field("project", "Project", "briefcase", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
+        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
         Field("specification", "Specification", "certificate", "note", group="context", note_types=("spec", "specification"),
               placeholder="Select specification..."),
         Field("ticket", "Ticket ID", "ticket", group="context", placeholder="e.g. PROJ-123"),
@@ -83,7 +83,7 @@ CONTACT = Form(
     groups={"context": "Project & Team"},
     fields=(
         Field("role", "Role", "id-badge", placeholder="Role or job title"),
-        Field("project", "Project", "briefcase", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
+        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
         Field("team", "Team", "users", group="context", placeholder="Team name"),
         Field("billing", "Billing", "money-bill-wave", "select", group="context", choices=_choices(*BILLING, "Shadowed"),
               placeholder="Not set"),
