@@ -132,13 +132,16 @@ class DebianTab extends HTMLElement {
       this.refreshStatus();
     } catch (error) {
       if (seq !== this.seq || !this.isConnected) return;
+      if (!this.hasProcesses || this.table.hasAttribute('aria-busy')) {
+        this.matchCount = null;
+        this.renderMeta();
+        this.pagination.hidden = true;
+        this.table.setError(`Could not read processes: ${error.message}`);
+      }
       if (this.hasProcesses) {
         this.errors.processes = `Could not refresh processes: ${error.message}`;
         this.refreshStatus();
-        return;
       }
-      this.pagination.hidden = true;
-      this.table.setError(`Could not read processes: ${error.message}`);
     }
   }
 

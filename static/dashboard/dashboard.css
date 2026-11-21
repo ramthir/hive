@@ -23,5 +23,6 @@ dashboard-app {
 .proc-cmd { margin-left: 0.5rem; font-size: 0.75rem; color: var(--color-dimmed2); }
 .proc-cell { max-width: 0; width: 100%; }
 .proc-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+debian-tab app-pagination[hidden] { display: none; }
 .tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .muted { color: var(--color-dimmed2); }

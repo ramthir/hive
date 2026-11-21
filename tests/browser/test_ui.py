@@ -1556,6 +1556,38 @@ def test_debian_tab_filters_the_processes_on_the_server(page, server):
     assert page.errors == []
 
 
+def test_debian_process_table_recovers_after_a_failed_filter_request(page, server):
+    page.goto(f"{server}/dashboard")
+    tab = page.locator("debian-tab")
+    table = tab.locator("app-table")
+    rows = table.locator("tbody tr")
+    expect(table).not_to_have_attribute("aria-busy", "")
+    expect(rows.first).to_be_visible()
+    endpoint = "**/api/system/processes?*"
+    page.route(endpoint, lambda route: route.fulfill(status=503, json={"detail": "Process data unavailable"}))
+    status = page.locator("dashboard-app .dash-status")
+    previous_rows = rows.all_text_contents()
+    tab.evaluate("(tab) => tab.loadProcesses()")
+    expect(status).to_contain_text("Process data unavailable")
+    assert rows.all_text_contents() == previous_rows
+
+    query = "zz-" + uuid.uuid4().hex
+    tab.locator(".proc-filter").fill(query)
+    expect(table).to_contain_text("Could not read processes: Process data unavailable")
+    expect(table).not_to_have_attribute("aria-busy", "")
+    expect(tab.locator("app-pagination")).to_be_hidden()
+
+    page.unroute(endpoint)
+    tab.evaluate("(tab) => tab.loadProcesses()")
+    expect(status).to_have_text("")
+    expect(table).to_contain_text("No process matches the filter")
+    expect(tab.locator(".proc-filter")).to_have_value(query)
+    tab.locator(".proc-filter").fill("")
+    expect(table).not_to_contain_text("No process matches the filter")
+    expect(table).not_to_have_attribute("aria-busy", "")
+    expect(rows.first).to_be_visible()
+
+
 def test_debian_tab_shows_each_process_state_and_how_long_it_has_run(page, server):
     page.goto(f"{server}/dashboard")
     expect(page.locator("debian-tab app-table th", has_text="Status")).to_be_visible()
