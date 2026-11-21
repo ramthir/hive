@@ -183,10 +183,17 @@ class VersionOut(BaseModel):
     message: str
     author: str
     committed_at: datetime
+    added: int = 0
+    removed: int = 0
+    kind: str = ""
+    kinds: list[str] = []
+    summary: str = ""
+    detail: str = ""
 
     @classmethod
     def of(cls, v: NoteVersion) -> "VersionOut":
-        return cls(sha=v.sha, message=v.message, author=v.author, committed_at=v.committed_at)
+        return cls(sha=v.sha, message=v.message, author=v.author, committed_at=v.committed_at, added=v.added, removed=v.removed,
+                   kind=v.kind, kinds=list(v.kinds), summary=v.summary, detail=v.detail)
 
 
 class VersionDetail(VersionOut):
@@ -195,10 +202,22 @@ class VersionDetail(VersionOut):
     tags: list[str]
 
 
+class PropertyChangeOut(BaseModel):
+    key: str
+    old: str | None
+    new: str | None
+    minor: bool = False
+
+
 class DiffOut(BaseModel):
     sha: str
     against: str
-    diff: str
+    diff: str  # unified diff of the note text; the frontmatter changes are in `properties`
+    properties: list[PropertyChangeOut] = []
+    index: int = 0  # 1-based position of this version, newest first
+    total: int = 0
+    version_title: str = ""
+    current_title: str = ""
 
 
 class BacklinksOut(BaseModel):

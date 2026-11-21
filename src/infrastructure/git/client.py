@@ -22,6 +22,8 @@ class Commit:
     committed_at: datetime
     message: str
     path: str  # path of the file as of this commit (differs from today's after renames)
+    added: int = 0  # lines added to / removed from the file by this commit
+    removed: int = 0
 
 
 class GitClient:
@@ -96,11 +98,14 @@ class GitClient:
             # update-ref only moves HEAD if it still points at `sha`
             return self.run("update-ref", "-m", "reword: better message", "HEAD", proc.stdout.strip(), sha, check=False).returncode == 0
 
-    def log(self, path: str) -> list[Commit]:
+    def log(self, path: str, limit: int | None = None, skip: int = 0) -> list[Commit]:
+        """Commits that touched ``path``, newest first; ``skip`` and ``limit`` pick one page of them."""
+        page = self._page(limit, skip)
         out = self.run(
-            "log", "--follow", "--name-only",
+            "log", "--follow", "--name-only", *page,
             f"--format={_REC}%H{_SEP}%an{_SEP}%aI{_SEP}%s", "--", path,
         ).stdout
+        stats = self._line_stats(path, page)
         commits = []
         for rec in out.split(_REC):
             if not rec.strip():
@@ -108,8 +113,24 @@ class GitClient:
             head, _, files = rec.partition("\n")
             sha, author, date, subject = head.split(_SEP, 3)
             name = next((f for f in files.splitlines() if f.strip()), path)
-            commits.append(Commit(sha, author, datetime.fromisoformat(date), subject, name))
+            commits.append(Commit(sha, author, datetime.fromisoformat(date), subject, name, *stats.get(sha, (0, 0))))
         return commits
+
+    @staticmethod
+    def _page(limit: int | None, skip: int) -> list[str]:
+        return ([f"--skip={skip}"] if skip else []) + ([f"--max-count={limit}"] if limit else [])
+
+    def _line_stats(self, path: str, page: list[str]) -> dict[str, tuple[int, int]]:
+        """Lines added and removed in each commit that touched ``path`` (binary files count as 0)."""
+        out = self.run("log", "--follow", "--numstat", *page, f"--format={_REC}%H", "--", path).stdout
+        stats: dict[str, tuple[int, int]] = {}
+        for rec in out.split(_REC):
+            head, _, rows = rec.partition("\n")
+            if not head.strip():
+                continue
+            row = next((r.split("\t") for r in rows.splitlines() if r.strip()), ["0", "0"])
+            stats[head.strip()] = tuple(int(n) if n.isdigit() else 0 for n in row[:2])  # type: ignore[assignment]
+        return stats
 
     def show(self, sha: str, path: str) -> str:
         return self.run("show", f"{sha}:{path}").stdout

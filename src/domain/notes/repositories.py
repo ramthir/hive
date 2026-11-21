@@ -30,10 +30,15 @@ class NoteRepository(ABC):
     def delete(self, slug: str) -> None: ...
 
     @abstractmethod
-    def versions(self, slug: str) -> list[NoteVersion]: ...
+    def versions(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
+        """Newest first; `limit` and `offset` pick one page."""
 
     @abstractmethod
     def get_version(self, slug: str, sha: str) -> Note: ...
+
+    @abstractmethod
+    def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
+        """Like `versions`, with each version's kind and summary filled in."""
 
     @abstractmethod
     def restore(self, slug: str, sha: str) -> Note: ...

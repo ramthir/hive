@@ -34,3 +34,9 @@ class NoteVersion:
     author: str
     committed_at: datetime
     path: str = ""
+    added: int = 0
+    removed: int = 0
+    kind: str = ""  # what the commit did (src/domain/notes/changes.py); empty when not described
+    kinds: tuple[str, ...] = ()
+    summary: str = ""
+    detail: str = ""

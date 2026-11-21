@@ -120,6 +120,14 @@ def test_versions_get_and_restore(repo, root):
         repo.get_version("a", "deadbeef")
 
 
+def test_versions_count_lines_changed(repo):
+    repo.create(Note(slug="a", title="A", content="one\ntwo"))
+    repo.update(Note(slug="a", title="A", content="one\nthree\nfour"))
+    newest, oldest = repo.versions("a")
+    assert oldest.added > 0 and oldest.removed == 0
+    assert newest.added >= 2 and newest.removed >= 1
+
+
 def test_get_version_after_rename_uses_old_path(repo):
     repo.create(Note(slug="old", title="Old", content="one"))
     repo.rename("old", "new")
@@ -215,3 +223,16 @@ def test_list_reparses_only_files_that_changed(repo, root, monkeypatch):
     (root / "two.md").unlink()
     (root / "three.md").write_text("# Three\n")
     assert [n.slug for n in repo.list()] == ["one", "three"]  # deletions and additions are noticed
+
+
+def test_version_changes_describe_each_commit_even_across_page_edges(repo):
+    note = repo.create(Note(slug="t", title="T", content="# T\n\n## Plan\n\none\n", types=("task",), status="TODO"))
+    note = repo.update(replace(note, status="DONE"))
+    note = repo.update(replace(note, time={"2026-11-20": 90}))
+    note = repo.update(replace(note, content=note.content + "two\n"))
+    everything = repo.version_changes("t")
+    assert [(v.kind, v.summary) for v in everything] == [
+        ("text", "Edited text"), ("time", "Logged 1h 30m"), ("properties", "Moved to Done"), ("created", "Created the note")]
+    assert everything[0].detail == "Plan"
+    pages = repo.version_changes("t", limit=2) + repo.version_changes("t", limit=2, offset=2)
+    assert [(v.sha, v.kind) for v in pages] == [(v.sha, v.kind) for v in everything]

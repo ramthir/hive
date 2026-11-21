@@ -6,9 +6,10 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             PropertiesOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
+                             PropertiesOut, PropertyChangeOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
+from src.domain.notes.changes import property_changes
 from src.domain.notes.errors import NoteNotFound
 
 router = APIRouter()
@@ -168,8 +169,9 @@ def backlinks(request: Request, slug: str):
 
 
 @router.get("/notes/{slug}/versions", response_model=list[VersionOut])
-def versions(request: Request, slug: str):
-    return [VersionOut.of(v) for v in svc(request).versions(slug)]
+def versions(request: Request, slug: str, limit: int | None = Query(None, ge=1, le=200), offset: int = Query(0, ge=0)):
+    """Newest first. Without `limit` every version; a page that comes back with `limit` rows may have more."""
+    return [VersionOut.of(v) for v in svc(request).version_changes(slug, limit, offset)]
 
 
 def _find(s: NoteService, slug: str, sha: str):
@@ -189,20 +191,23 @@ def get_version(request: Request, slug: str, sha: str):
 
 @router.get("/notes/{slug}/versions/{sha}/diff", response_model=DiffOut)
 def version_diff(request: Request, slug: str, sha: str, against: str = Query("previous", pattern="^(previous|current)$")):
-    """Unified diff of the note body: this version vs. its previous version, or vs. the current note."""
+    """This version vs. its previous version, or vs. the current note: the text as a unified diff, the frontmatter keys
+    that changed (tags, status, time...) as `properties`, and where the version sits in the history."""
     s = svc(request)
     history = s.versions(slug)
     v = _find(s, slug, sha)
-    new = s.get_version(slug, v.sha).content
+    i = history.index(v)
+    version = new = s.get_version(slug, v.sha)
+    current = s.get(slug)
     if against == "current":
-        old, new = new, s.get(slug).content
-        label_a, label_b = v.sha[:7], "current"
+        old, new, label_a, label_b = new, current, v.sha[:7], "current"
     else:
-        i = history.index(v)
-        old = s.get_version(slug, history[i + 1].sha).content if i + 1 < len(history) else ""
-        label_a, label_b = (history[i + 1].sha[:7] if i + 1 < len(history) else "empty"), v.sha[:7]
-    diff = "".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), label_a, label_b))
-    return DiffOut(sha=v.sha, against=against, diff=diff)
+        older = history[i + 1] if i + 1 < len(history) else None
+        old = s.get_version(slug, older.sha) if older else None
+        label_a, label_b = (older.sha[:7] if older else "empty"), v.sha[:7]
+    diff = "".join(difflib.unified_diff((old.content if old else "").splitlines(True), new.content.splitlines(True), label_a, label_b))
+    return DiffOut(sha=v.sha, against=against, diff=diff, properties=[PropertyChangeOut(**vars(c)) for c in property_changes(old, new)],
+                   index=i + 1, total=len(history), version_title=version.title, current_title=current.title)
 
 
 @router.post("/notes/{slug}/versions/{sha}/restore", response_model=NoteDetail)

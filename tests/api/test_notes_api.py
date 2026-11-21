@@ -84,11 +84,27 @@ def test_backlinks_and_title_change_renames_the_file(client, root):
     assert client.get("/api/notes/linker").json()["content"].endswith("[[goal]] [[Goal]] [[nowhere]]")
 
 
+def test_versions_are_paged(client):
+    make(client, "P", content="0\n")
+    for i in range(1, 5):
+        client.put("/api/notes/p", json={"content": f"# P\n\n{i}\n"})
+    everything = client.get("/api/notes/p/versions").json()
+    assert len(everything) == 5
+    first = client.get("/api/notes/p/versions", params={"limit": 2}).json()
+    rest = client.get("/api/notes/p/versions", params={"limit": 2, "offset": 2}).json()
+    last = client.get("/api/notes/p/versions", params={"limit": 2, "offset": 4}).json()
+    assert [v["sha"] for v in first + rest + last] == [v["sha"] for v in everything]
+    assert len(last) == 1 and last[0]["added"] > 0 and all("added" in v for v in first)
+    assert client.get("/api/notes/p/versions", params={"limit": 0}).status_code == 422
+
+
 def test_versions_diff_restore(client):
     make(client, "V", content="one\n")
     client.put("/api/notes/v", json={"content": "# V\n\none\ntwo\n"})
     vs = client.get("/api/notes/v/versions").json()
     assert [v["message"] for v in vs] == ["doc: update V", "doc: add V"]
+    assert vs[0]["added"] >= 1 and vs[0]["removed"] >= 0 and vs[1]["added"] > 0
+    assert (vs[0]["kind"], vs[0]["summary"]) == ("text", "Edited text") and vs[1]["kind"] == "created"
     newest, oldest = vs[0]["sha"], vs[1]["sha"]
     d = client.get(f"/api/notes/v/versions/{newest[:8]}").json()
     assert d["content"] == "# V\n\none\ntwo\n" and d["title"] == "V"
@@ -97,9 +113,17 @@ def test_versions_diff_restore(client):
     cur = client.get(f"/api/notes/v/versions/{oldest}/diff", params={"against": "current"}).json()["diff"]
     assert "+two" in cur
     assert client.get(f"/api/notes/v/versions/{oldest}/diff", params={"against": "bad"}).status_code == 422
+    # A save that only touches the frontmatter still shows what changed.
+    client.put("/api/notes/v", json={"tags": ["fresh"]})
+    tagged = client.get("/api/notes/v/versions").json()[0]["sha"]
+    meta = client.get(f"/api/notes/v/versions/{tagged}/diff").json()
+    assert meta["diff"] == "" and {"key": "tags", "old": None, "new": "fresh", "minor": False} in meta["properties"]
+    assert (meta["index"], meta["total"]) == (1, 3) and meta["version_title"] == meta["current_title"] == "V"
+    since = client.get(f"/api/notes/v/versions/{oldest}/diff", params={"against": "current"}).json()
+    assert "+two" in since["diff"] and any(p["key"] == "tags" for p in since["properties"]) and since["index"] == 3
     r = client.post(f"/api/notes/v/versions/{oldest}/restore")
     assert r.json()["content"] == "# V\n\none\n"
-    assert len(client.get("/api/notes/v/versions").json()) == 3
+    assert len(client.get("/api/notes/v/versions").json()) == 4
 
 
 def test_external_edit_visible_after_reindex(client, root):

@@ -7,6 +7,7 @@ from typing import Any
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from src.domain.notes.changes import describe
 from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.errors import NoteExists, NoteNotFound
 from src.domain.notes.repositories import NoteRepository
@@ -92,6 +93,7 @@ class FileNoteRepository(NoteRepository):
         self._after_commit = after_commit
         # slug -> ((mtime_ns, size), parsed note): `list()` only re-parses files whose stat changed.
         self._parsed: dict[str, tuple[tuple[int, int], Note]] = {}
+        self._version_cache: dict[tuple[str, str, str], Note] = {}
 
     # -- helpers ---------------------------------------------------------
     def _rel(self, slug: str) -> str:
@@ -231,12 +233,39 @@ class FileNoteRepository(NoteRepository):
             self._commit([self._rel(slug)], f"doc: delete {title}")
 
     # -- history ---------------------------------------------------------
-    def versions(self, slug: str) -> list[NoteVersion]:
+    def versions(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
         self._rel(slug)
         return [
-            NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path)
-            for c in self.git.log(self._rel(slug))
+            NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed)
+            for c in self.git.log(self._rel(slug), limit, offset)
         ]
+
+    def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
+        """`versions`, each described in words (kind and summary), by comparing the note with the commit before it."""
+        commits = self.git.log(self._rel(slug), limit + 1 if limit else None, offset)
+        shown = commits[:limit] if limit else commits
+
+        def note_at(c) -> Note:
+            return self._cached_version(slug, c.sha, c.path)
+
+        out = []
+        for i, c in enumerate(shown):
+            older = commits[i + 1] if i + 1 < len(commits) else None
+            change = describe(note_at(older) if older else None, note_at(c), c.message, older.path if older else "", c.path)
+            out.append(NoteVersion(c.sha, c.message, c.author, c.committed_at, c.path, c.added, c.removed,
+                                   change.kind, change.kinds, change.summary, change.detail))
+        return out
+
+    def _cached_version(self, slug: str, sha: str, path: str) -> Note:
+        # A commit never changes, so its parsed note is kept (bounded) and the next page of the list reuses it.
+        key = (slug, sha, path)
+        note = self._version_cache.get(key)
+        if note is None:
+            note = self._parse(slug, self.git.show(sha, path))
+            if len(self._version_cache) >= 512:
+                self._version_cache.pop(next(iter(self._version_cache)))
+            self._version_cache[key] = note
+        return note
 
     def _version_text(self, slug: str, sha: str) -> str:
         match = next((v for v in self.versions(slug) if v.sha == sha or v.sha.startswith(sha)), None)

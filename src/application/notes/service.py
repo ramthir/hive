@@ -140,11 +140,14 @@ class NoteService:
     def types(self) -> dict[str, int]:
         return self.index.types()
 
-    def versions(self, slug: str) -> list[NoteVersion]:
-        return self.repo.versions(slug)
+    def versions(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
+        return self.repo.versions(slug, limit, offset)
 
     def get_version(self, slug: str, sha: str) -> Note:
         return self.repo.get_version(slug, sha)
+
+    def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
+        return self.repo.version_changes(slug, limit, offset)
 
     # -- helpers ---------------------------------------------------------
     def _unique_slug(self, title: str, keep: str | None = None) -> str:
