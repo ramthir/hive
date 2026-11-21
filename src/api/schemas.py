@@ -50,12 +50,13 @@ class NoteDetail(NoteSummary):
     time: dict[str, int] = {}  # ISO day -> minutes logged (task and meeting notes)
     takes_time: bool = False  # a task or meeting: time can be logged on it
     has_properties: bool = False  # the note's type has a properties drawer (GET /notes/{slug}/properties)
+    revision: str | None = None  # changes whenever the file's text does; send it back in PUT to detect edits made meanwhile
     extra: dict[str, Any]
 
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, revision=n.revision, extra=dict(n.extra))
 
 
 class TimeEntryOut(BaseModel):
@@ -144,6 +145,7 @@ class NoteUpdate(BaseModel):
     priority: TaskPriority | Literal[""] | None = None  # replaces the priority tag; "" removes it; omitted: tags as given
     week: str | None = Field(default=None, pattern=WEEK_PATTERN + "|^$")  # omitted: unchanged (set automatically with status); "" clears
     properties: dict[str, str] | None = None  # the type's own fields, e.g. {"project": "Acme"}; "" removes one; omitted: unchanged
+    revision: str | None = None  # the `revision` the edit is based on; if the note has changed since, 412 instead of overwriting
 
 
 class PropertyChoice(BaseModel):

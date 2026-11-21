@@ -1,6 +1,7 @@
 """NoteRepository over a git working tree of markdown files."""
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,7 @@ class FileNoteRepository(NoteRepository):
             time=parse_time(meta.get("time")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
+            revision=hashlib.sha1(text.encode("utf-8")).hexdigest()[:16],
         )
 
     def _write(self, note: Note, existing_text: str | None) -> None:

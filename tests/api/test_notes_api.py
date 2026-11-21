@@ -441,3 +441,29 @@ def test_role_is_returned_as_plain_text_for_the_search(client, root):
     assert roles == {"ann": "Senior Engineer", "bo": "Lead", "cy": "UserRole", "dee": None}
     assert client.get("/api/notes", params={"q": "Ann"}).json()[0]["role"] == "Senior Engineer"
     assert client.get("/api/notes/ann").json()["role"] == "Senior Engineer"
+
+
+def test_a_save_based_on_an_old_revision_is_refused_and_writes_nothing(client, root):
+    note = make(client, "Alpha", content="first")
+    revision = note["revision"]
+    assert revision and client.get("/api/notes/alpha").json()["revision"] == revision
+
+    # The file is changed outside Hive (or by another tab) after this page read it.
+    path = root / "alpha.md"
+    path.write_text(path.read_text().replace("first", "changed elsewhere"))
+    commits = git(root, "rev-list", "HEAD").split()
+    r = client.put("/api/notes/alpha", json={"content": "# Alpha\n\nmy text", "revision": revision})
+    assert r.status_code == 412 and "changed" in r.json()["detail"]
+    assert "changed elsewhere" in path.read_text() and git(root, "rev-list", "HEAD").split() == commits
+
+    # Reading again gives the new revision, and a save that names it goes through and returns the next one.
+    fresh = client.get("/api/notes/alpha").json()["revision"]
+    assert fresh != revision
+    r = client.put("/api/notes/alpha", json={"content": "# Alpha\n\nmy text", "revision": fresh})
+    assert r.status_code == 200 and r.json()["revision"] not in (revision, fresh)
+    assert client.put("/api/notes/alpha", json={"content": "# Alpha\n\nmore", "revision": r.json()["revision"]}).status_code == 200
+
+
+def test_a_save_without_a_revision_still_overwrites(client):
+    make(client, "Alpha")
+    assert client.put("/api/notes/alpha", json={"tags": ["x"]}).status_code == 200  # the task board and the drawers send none

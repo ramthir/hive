@@ -13,7 +13,7 @@ from dataclasses import replace
 from src.application.notes import properties as properties_view, time_entries
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Comparison, Note, NoteVersion
-from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteNotFound
+from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, NoteNotFound
 from src.domain.notes.properties import apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
@@ -178,13 +178,16 @@ class NoteService:
     def update(self, slug: str, *, title: str | None = None, content: str | None = None,
                tags: tuple[str, ...] | None = None, types: tuple[str, ...] | None = None,
                status: str | None = None, week: str | None = None, priority: str | None = None,
-               properties: dict[str, str] | None = None) -> Note:
-        """`types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
+               properties: dict[str, str] | None = None, revision: str | None = None) -> Note:
+        """`revision`, when given, is the revision the caller read: if the file has changed since, nothing is written
+        (NoteConflict) instead of overwriting the other edit. `types` None leaves them unchanged; an empty list clears them. `status` None leaves it unchanged.
         Moving a task to DONE records the week it was finished in `week` (unless `week` is given); moving it out
         of DONE clears it again. `week` None leaves it unchanged otherwise ("" clears it). `priority` (must / important /
         nice-to-have, "" for none) replaces the priority tag among the new `tags` (or the current ones); None leaves them
         as given. `properties` sets the frontmatter fields of the note's type ("" removes one; `domain.notes.properties`)."""
         current = self.repo.get(slug)
+        if revision is not None and current.revision != revision:
+            raise NoteConflict("This note changed since you opened it (edited elsewhere).")
         new_types = current.types if types is None else _clean(types)
         new_status = current.status if status is None else status
         new_week = current.week if week is None else (week or None)

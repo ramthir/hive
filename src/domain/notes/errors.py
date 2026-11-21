@@ -10,6 +10,10 @@ class NoteExists(NoteError):
     pass
 
 
+class NoteConflict(NoteError):
+    """The note changed (on disk, or in another tab) since the revision the caller based its edit on."""
+
+
 class InvalidSlug(NoteError):
     pass
 

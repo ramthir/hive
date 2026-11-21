@@ -139,7 +139,7 @@ def update_note(request: Request, slug: str, body: NoteUpdate):
         slug, title=body.title, content=body.content,
         tags=None if body.tags is None else tuple(body.tags),
         types=None if body.types is None else tuple(body.types), status=body.status, week=body.week, priority=body.priority,
-        properties=body.properties))
+        properties=body.properties, revision=body.revision))
 
 
 @router.get("/notes/{slug}/properties", response_model=PropertiesOut)

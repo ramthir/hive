@@ -23,6 +23,9 @@ class Note:
     # Frontmatter keys the app does not manage; preserved verbatim on save.
     extra: dict[str, Any] = field(default_factory=dict)
     modified: float | None = None  # file mtime; only used to order notes updated on the same day
+    # Hash of the file's text when it was read. A save that names it is refused if the file has changed since
+    # (NoteConflict); not part of the note's value, so two reads of equal notes compare equal.
+    revision: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)

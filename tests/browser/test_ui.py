@@ -1082,3 +1082,84 @@ def test_search_shows_a_contacts_role(page, server, notes_dir):
     row = page.locator("note-spotlight .spotlight-item", has_text="Ann Lee")
     expect(row.locator(".spotlight-role")).to_have_text("Senior Engineer")
     expect(page.locator("note-spotlight .spotlight-item", has_text="Alpha").locator(".spotlight-role")).to_have_count(0)
+
+
+SLOW_SAVES = """
+const realFetch = window.fetch;
+window.fetch = (url, options) => (options?.method === 'PUT' ? new Promise((resolve) => setTimeout(resolve, 700)).then(() => realFetch(url, options)) : realFetch(url, options));
+"""
+
+
+def test_text_typed_while_a_save_is_in_flight_stays_unsaved(page, server, notes_dir):
+    page.add_init_script(SLOW_SAVES)
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" first")
+    page.keyboard.press("Control+s")
+    expect(page.locator("#save-note-btn .fa-spinner")).to_be_visible()
+    page.keyboard.type(" second")  # not part of the request that is already out
+    wait_for_commits(notes_dir, 2)
+    expect(page.locator("#save-note-btn")).to_be_enabled()  # still unsaved
+    assert "second" not in (notes_dir / "beta.md").read_text()
+    page.keyboard.press("Control+s")
+    wait_until(lambda: "second" in (notes_dir / "beta.md").read_text())
+    expect(page.locator("#save-note-btn")).to_be_disabled()
+    assert page.errors == []
+
+
+def test_a_save_that_renames_the_file_keeps_the_editor_caret_and_undo_history(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+Home")
+    page.keyboard.type("# Gamma Note\n\n")  # beta has no heading yet: this one names the file
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" tail")
+    page.evaluate("window.__editor = document.querySelector('.cm-editor')")
+    page.keyboard.press("Control+s")
+    page.wait_for_url("**/notes/gamma-note?mode=edit")
+    expect(page.locator("#save-note-btn")).to_be_disabled()
+    assert page.evaluate("window.__editor === document.querySelector('.cm-editor')")  # the same editor, not a new one
+    page.keyboard.type("!")  # typed where the caret was: the end
+    assert page.locator(".cm-content").inner_text().rstrip().endswith("tail!")
+    page.keyboard.press("Control+z")  # the undo history survived the save: the last typing is undone, the heading stays
+    text = page.locator(".cm-content").inner_text()
+    assert "tail!" not in text and text.startswith("# Gamma Note")
+    assert page.errors == []
+
+
+def test_shortcuts_are_ignored_while_a_drawer_is_open(page, server, property_notes):
+    page.goto(f"{server}/notes/fix-it")
+    page.click("#note-properties-btn")
+    expect(page.locator(".notes-properties-drawer")).to_have_count(1)
+    page.keyboard.press("Control+Shift+P")  # would stack a second drawer
+    page.keyboard.press("Control+e")  # would switch to the editor behind the drawer
+    page.wait_for_timeout(300)
+    expect(page.locator(".notes-properties-drawer")).to_have_count(1)
+    expect(page.locator("#edit-note-btn")).to_have_attribute("aria-pressed", "false")
+    assert page.errors == []
+
+
+def test_saving_over_a_change_made_elsewhere_asks_before_overwriting(page, server, notes_dir):
+    page.goto(f"{server}/notes/beta?mode=edit")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" mine")
+    path = notes_dir / "beta.md"
+    path.write_text(path.read_text() + "\nadded in another editor\n")  # the file changes after the page loaded it
+    page.keyboard.press("Control+s")
+    expect(page.locator(".confirm-dialog-host .modal-title")).to_have_text("Note changed elsewhere")
+    assert "mine" not in path.read_text()  # nothing was written
+    page.click("[data-action=cancel]")  # keep editing: still unsaved, the other change is still there
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+    assert "added in another editor" in path.read_text()
+
+    page.keyboard.press("Control+s")
+    page.click("[data-action=confirm]")  # overwrite
+    wait_until(lambda: "mine" in path.read_text())
+    expect(page.locator("#save-note-btn")).to_be_disabled()
+    assert "added in another editor" not in path.read_text()  # replaced, as the dialog said
+    assert all("412" in e or "Save failed" in e or "Precondition" in e for e in page.errors)  # only the refusal we provoked

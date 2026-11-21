@@ -148,6 +148,8 @@ class NotesApp extends HTMLElement {
   }
 
   handleGlobalKeydown(event) {
+    // A drawer or dialog is open: its keys are its own (Ctrl+E would redraw the page under it, Ctrl+Shift+P stack a second drawer).
+    if (document.body.classList.contains('dialog-open')) return;
     const mod = event.metaKey || event.ctrlKey;
     if (mod && !event.shiftKey && event.key.toLowerCase() === 's') {
       event.preventDefault();
@@ -256,7 +258,8 @@ class NotesApp extends HTMLElement {
   }
 
   markDirty() {
-    if (this.saveStatus !== 'saving') this.saveStatus = 'dirty';
+    if (this.saveStatus === 'saving') this._editedWhileSaving = true; // the save in flight does not include this edit
+    else this.saveStatus = 'dirty';
     updateSaveIndicator(this, this.saveStatus);
   }
 
@@ -269,27 +272,30 @@ class NotesApp extends HTMLElement {
     const types = parseTags(this.querySelector('#note-type')?.value ?? (note.types || []).join(', '));
 
     this.saveStatus = 'saving';
+    this._editedWhileSaving = false;
     updateSaveIndicator(this, this.saveStatus);
     try {
       const saved = isNewDraft
         ? await api('/notes', { method: 'POST', body: { content, tags, types } })
-        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags, types } });
+        : await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body: { content, tags, types, revision: note.revision } });
       this.selectedNote = saved;
       // The server may normalise the text (e.g. a pre-commit formatter); keep the caret if nothing changed meanwhile.
       if (this.cmEditor && saved.content !== content && this.cmEditor.state.doc.toString() === content) {
         const head = Math.min(this.cmEditor.state.selection.main.head, saved.content.length);
         this.cmEditor.dispatch({ changes: { from: 0, to: content.length, insert: saved.content }, selection: { anchor: head } });
       }
-      this.saveStatus = 'saved';
+      // Anything typed while the request was out is not in the commit: the note is still unsaved.
+      this.saveStatus = this._editedWhileSaving ? 'dirty' : 'saved';
+      this._editedWhileSaving = false;
       updateSaveIndicator(this, this.saveStatus);
       if (isNewDraft || saved.slug !== note.slug) {
         // A new note, or a changed heading that renamed the file: move the URL to the new file name.
         this.selectedSlug = saved.slug;
         notesRouter.navigate(`/notes/${encodeURIComponent(saved.slug)}?mode=edit`, { replace: true });
-        this.renderEditorView();
+        this.renderEditorView({ keepEditor: true });
       } else {
         // A changed type can add or remove the properties button (and the log time one).
-        if (Boolean(saved.has_properties) !== Boolean(note.has_properties) || canLogTime(saved) !== canLogTime(note)) this.renderEditorView();
+        if (Boolean(saved.has_properties) !== Boolean(note.has_properties) || canLogTime(saved) !== canLogTime(note)) this.renderEditorView({ keepEditor: true });
         updateUpdatedStamp(this, this.selectedNote);
         this.updateDocumentTitle();
         this.refreshBacklinks();
@@ -299,8 +305,29 @@ class NotesApp extends HTMLElement {
       console.error('Save failed:', error);
       this.saveStatus = 'dirty';
       updateSaveIndicator(this, this.saveStatus);
+      if (error.status === 412) return this.resolveConflict(note);
       this.showAlert('Could Not Save Note', error.message);
     }
+  }
+
+  // The file changed (another tab, an editor, git) after this page loaded it. Saving anyway replaces that change with this
+  // page's text. It is only recoverable from the history if the other change was committed, so the dialog does not promise it.
+  async resolveConflict(note) {
+    const overwrite = await confirmDialog({
+      title: 'Note changed elsewhere',
+      message: 'This note was changed after you opened it. Saving now replaces that change with your text. Copy your text first if you want to merge by hand.',
+      confirmText: 'Overwrite',
+      cancelText: 'Keep editing',
+      danger: true,
+    });
+    if (!overwrite || this.selectedNote !== note) return;
+    try {
+      note.revision = (await api(`/notes/${encodeURIComponent(note.slug)}`)).revision;
+    } catch (error) {
+      this.showAlert('Could Not Save Note', error.message);
+      return;
+    }
+    return this.saveCurrentNote();
   }
 
   async confirmDeleteCurrentNote() {
@@ -396,10 +423,15 @@ class NotesApp extends HTMLElement {
 
   /* --- Editor view --------------------------------------------------- */
 
-  renderEditorView() {
+  // `keepEditor`: redraw the page around the CodeMirror that is already open (its caret, undo history and scroll stay),
+  // for a save that renamed the file or changed which buttons the note has.
+  renderEditorView({ keepEditor = false } = {}) {
     if (!this.selectedNote) return;
     const note = this.selectedNote;
     const editing = this.isNoteEditing;
+    const kept = keepEditor && editing && this.cmEditor
+      ? { dom: this.cmEditor.dom, scroll: this.cmEditor.scrollDOM.scrollTop, preview: this.querySelector('#notes-preview')?.scrollTop || 0 }
+      : null;
     // A table note is read on its own page (static/tables/); the pencil there comes back here in edit mode.
     if (!editing && note.slug && isTableNote(note)) {
       window.location.replace(`/tables/${encodeURIComponent(note.slug)}`);
@@ -418,7 +450,7 @@ class NotesApp extends HTMLElement {
         </app-header>
         <div class="notes-editor-workspace ${editing ? 'write' : 'preview'}">
           <div class="notes-preview-pane" id="notes-preview" tabindex="0">
-            <div id="notes-md">${this.renderMarkdownPreview(note.content)}</div>
+            <div id="notes-md">${this.renderMarkdownPreview(kept ? this.currentContent() : note.content)}</div>
             <div id="notes-backlinks"></div>
           </div>
           ${editing ? '<aside class="notes-editor-pane notes-markdown-drawer" aria-label="Markdown editor"><div class="notes-cm-wrapper" id="notes-cm-editor"></div></aside>' : ''}
@@ -496,7 +528,14 @@ class NotesApp extends HTMLElement {
       });
     }
 
-    if (editing) this.initCodeMirror();
+    if (kept) {
+      this.querySelector('#notes-cm-editor').appendChild(kept.dom);
+      this.cmEditor.scrollDOM.scrollTop = kept.scroll;
+      this.querySelector('#notes-preview').scrollTop = kept.preview;
+      this.cmEditor.focus();
+    } else if (editing) {
+      this.initCodeMirror();
+    }
     this.setupPreviewEvents();
     this.refreshBacklinks();
   }
@@ -780,7 +819,7 @@ class NotesApp extends HTMLElement {
     openLogTime(note, {
       onLogged: (fresh, minutes) => {
         if (this.selectedNote?.slug !== note.slug) return;
-        this.selectedNote = { ...this.selectedNote, time: fresh.time, updated: fresh.updated };
+        this.selectedNote = { ...this.selectedNote, time: fresh.time, updated: fresh.updated, revision: fresh.revision };
         updateUpdatedStamp(this, this.selectedNote);
         updateLogged(this, this.selectedNote);
         showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success');
