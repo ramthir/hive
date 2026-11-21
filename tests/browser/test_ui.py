@@ -1502,6 +1502,21 @@ def test_debian_tab_shows_each_process_state_and_how_long_it_has_run(page, serve
     expect(page.locator("debian-tab app-table tbody tr").first).not_to_contain_text("Up ")
 
 
+@pytest.mark.parametrize("path, api_prefix", [("/dashboard", "/api/system/"), ("/dashboard/agents", "/api/agents/")])
+def test_a_dashboard_tab_opened_in_a_hidden_page_polls_nothing_until_it_is_shown(page, agents_server, path, api_prefix):
+    page.add_init_script("Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden !== false })")
+    requests = []
+    page.on("request", lambda r: api_prefix in r.url and requests.append(r.url))
+    page.goto(f"{agents_server}{path}")
+    page.wait_for_timeout(1000)
+    assert requests == []
+    page.evaluate("window.__hidden = false; document.dispatchEvent(new Event('visibilitychange'))")
+    deadline = time.time() + 5
+    while time.time() < deadline and not requests:
+        time.sleep(0.05)
+    assert requests  # shown: it loads at once
+
+
 def test_agents_tab_draws_the_quota_rings_with_their_tooltip(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     donuts = page.locator("agents-tab .quota-donut")

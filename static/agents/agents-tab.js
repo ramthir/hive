@@ -46,7 +46,7 @@ class AgentsTab extends HTMLElement {
 
   // Polls while the tab is shown: an idle tab costs the server nothing.
   start() {
-    if (this.timer) return;
+    if (this.timer || document.hidden) return;
     this.load();
     this.timer = setInterval(() => this.load(), REFRESH_MS);
   }
