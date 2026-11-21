@@ -17,7 +17,7 @@ import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
 import { tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
-import { formatDuration } from '/static/time-entries/format.js';
+import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { isTableNote } from '/static/tables/table-note.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
@@ -837,13 +837,19 @@ class NotesApp extends HTMLElement {
   openLogTime() {
     const note = this.selectedNote;
     if (!note || !canLogTime(note)) return;
+    const applied = (fresh) => {
+      if (this.selectedNote?.slug !== note.slug) return false;
+      this.selectedNote = { ...this.selectedNote, time: fresh.time, updated: fresh.updated, revision: fresh.revision };
+      updateUpdatedStamp(this, this.selectedNote);
+      updateLogged(this, this.selectedNote);
+      return true;
+    };
     openLogTime(note, {
       onLogged: (fresh, minutes) => {
-        if (this.selectedNote?.slug !== note.slug) return;
-        this.selectedNote = { ...this.selectedNote, time: fresh.time, updated: fresh.updated, revision: fresh.revision };
-        updateUpdatedStamp(this, this.selectedNote);
-        updateLogged(this, this.selectedNote);
-        showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success');
+        if (applied(fresh)) showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success');
+      },
+      onRemoved: (fresh, day) => {
+        if (applied(fresh)) showToast(`Removed ${formatDay(day)} · ${note.title}`, 'success');
       },
     });
   }

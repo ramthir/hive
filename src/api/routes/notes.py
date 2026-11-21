@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
@@ -9,10 +10,11 @@ from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, Note
                              PropertiesOut, PropertyChangeOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
-from src.domain.notes.changes import property_changes
+from src.domain.notes.changes import KINDS, property_changes
 from src.domain.notes.errors import NoteNotFound
 
 router = APIRouter()
+VersionKind = Literal[(*KINDS, "deleted")]
 
 
 def svc(request: Request) -> NoteService:
@@ -169,9 +171,12 @@ def backlinks(request: Request, slug: str):
 
 
 @router.get("/notes/{slug}/versions", response_model=list[VersionOut])
-def versions(request: Request, slug: str, limit: int | None = Query(None, ge=1, le=200), offset: int = Query(0, ge=0)):
-    """Newest first. Without `limit` every version; a page that comes back with `limit` rows may have more."""
-    return [VersionOut.of(v) for v in svc(request).version_changes(slug, limit, offset)]
+def versions(request: Request, slug: str, limit: int | None = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
+             kind: VersionKind | None = Query(None)):
+    """Newest first. Without `limit` every version; a page that comes back with `limit` rows may have more. `kind`
+    (text, properties, time, restore, ...) keeps only the versions that include that kind of change; `limit` and `offset`
+    then count the versions that match."""
+    return [VersionOut.of(v) for v in svc(request).version_changes(slug, limit, offset, kind)]
 
 
 def _find(s: NoteService, slug: str, sha: str):

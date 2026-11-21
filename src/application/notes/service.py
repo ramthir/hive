@@ -146,8 +146,14 @@ class NoteService:
     def get_version(self, slug: str, sha: str) -> Note:
         return self.repo.get_version(slug, sha)
 
-    def version_changes(self, slug: str, limit: int | None = None, offset: int = 0) -> list[NoteVersion]:
-        return self.repo.version_changes(slug, limit, offset)
+    def version_changes(self, slug: str, limit: int | None = None, offset: int = 0, kind: str | None = None) -> list[NoteVersion]:
+        """The note's versions described in words. With `kind` only those that include that kind of change (a save can be
+        text and properties at once), paged after filtering. Describing a version is cached per commit, so only the first
+        filtered request on a long history pays for parsing it."""
+        if kind is None:
+            return self.repo.version_changes(slug, limit, offset)
+        matching = [v for v in self.repo.version_changes(slug) if kind in (v.kinds or (v.kind,))]
+        return matching[offset:offset + limit] if limit else matching[offset:]
 
     def compare_version(self, slug: str, sha: str, against: str) -> Comparison:
         return self.repo.compare(slug, sha, against)

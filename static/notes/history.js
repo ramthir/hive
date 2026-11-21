@@ -26,7 +26,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     </div>
     <div class="modal-body">
       <p class="note-version-message" role="status" aria-live="polite"></p>
-      <div class="hive-version-list" id="version-list" role="tabpanel" aria-live="polite"></div>
+      <div class="hive-version-list" id="version-list" role="tabpanel"></div>
       <div id="version-detail" hidden></div>
     </div>
     <div class="modal-footer hive-version-footer" id="version-footer" hidden>
@@ -45,9 +45,6 @@ export async function openVersionHistory(slug, { onRestored }) {
   const filters = dialog.querySelector('#version-tabs');
   filters.tabs = filterTabs();
   filters.active = 'all';
-  const filterNote = document.createElement('p');
-  filterNote.className = 'hive-version-filter-note';
-  filterNote.hidden = true;
 
   let open = null; // { sha, row, label, committedAt } of the version in the detail view
   let info = null; // the last diff response for it
@@ -67,7 +64,6 @@ export async function openVersionHistory(slug, { onRestored }) {
   more.textContent = 'Load older versions';
   more.hidden = true;
   list.after(more);
-  more.after(filterNote);
 
   const visibleRows = () => [...list.querySelectorAll('.hive-version-row:not([hidden]):not([disabled])')];
 
@@ -85,34 +81,34 @@ export async function openVersionHistory(slug, { onRestored }) {
   };
   new ResizeObserver(updateRail).observe(list); // rows wrap differently when the drawer is resized
 
-  /** Show only the rows of one kind (and the day headings that still have a row). Filters what is loaded so far. */
-  const applyFilter = () => {
-    let heading = null;
-    let shown = 0;
-    for (const el of list.children) {
-      if (el.matches('.hive-version-day')) {
-        if (heading) heading.hidden = !shown;
-        heading = el;
-        shown = 0;
-      } else if (el.matches('.hive-version-row')) {
-        el.hidden = filter !== 'all' && !(el.dataset.kinds || '').split(' ').includes(FILTERS.find((f) => f.id === filter).kind);
-        if (!el.hidden) shown += 1;
-      }
-    }
-    if (heading) heading.hidden = !shown;
-    const visible = visibleRows().length;
-    filterNote.hidden = filter === 'all';
-    updateRail();
-    filterNote.textContent = `${visible ? `${visible} shown` : 'Nothing matches'} among the ${loaded.length} loaded versions${hasMore ? '. Load older versions to search further.' : '.'}`;
+  // The server filters (a kind's versions can be far apart in a long history), so a filter is a new list, not hidden rows.
+  const kindQuery = () => {
+    const kind = FILTERS.find((candidate) => candidate.id === filter).kind;
+    return kind ? `&kind=${encodeURIComponent(kind)}` : '';
   };
-  filters.addEventListener('tab-switch', (event) => {
+  const emptyText = () => (filter === 'all' ? 'No history yet.' : 'No changes of this kind in the history.');
+  const skeleton = '<div class="hive-version-loading" aria-hidden="true">' + '<span class="hive-vd-skeleton-row"><i></i><b><i></i><i></i></b></span>'.repeat(4) + '</div>';
+  let turn = 0; // which list is current: a page of a filter the reader has left is dropped
+  filters.addEventListener('tab-switch', async (event) => {
     filter = event.detail.tab;
-    applyFilter();
+    const mine = ++turn;
+    loaded = [];
+    hasMore = false;
+    more.hidden = true;
+    list.innerHTML = skeleton;
+    list.setAttribute('aria-busy', 'true');
+    updateRail();
+    try {
+      await loadPage();
+    } catch (error) {
+      if (mine === turn) list.innerHTML = `<p class="note-version-message error">${esc(error.message)}</p>`;
+    } finally {
+      if (mine === turn) list.removeAttribute('aria-busy');
+    }
   });
 
   const showList = () => {
     filters.hidden = false;
-    filterNote.hidden = filter === 'all';
     detail.hidden = true;
     for (const el of [back, position, older, newer, footer]) el.hidden = true;
     list.hidden = false;
@@ -123,14 +119,16 @@ export async function openVersionHistory(slug, { onRestored }) {
   back.addEventListener('click', () => { showList(); open?.row.focus(); });
 
   const loadPage = async () => {
-    const page = await api(`${base}/versions?limit=${PAGE}&offset=${loaded.length}`);
+    const mine = turn;
+    const page = await api(`${base}/versions?limit=${PAGE}&offset=${loaded.length}${kindQuery()}`);
+    if (mine !== turn) return;
     const html = renderVersionList(page, new Date(), loaded[loaded.length - 1]);
-    if (!loaded.length) list.innerHTML = html || '<p>No history yet.</p>'; // also replaces the loading placeholder
+    if (!loaded.length) list.innerHTML = html || `<p>${emptyText()}</p>`; // also replaces the loading placeholder
     else list.insertAdjacentHTML('beforeend', html);
     loaded = loaded.concat(page);
     hasMore = page.length === PAGE;
     more.hidden = !hasMore;
-    applyFilter();
+    updateRail();
   };
   more.addEventListener('click', async () => {
     more.disabled = true;
@@ -143,7 +141,7 @@ export async function openVersionHistory(slug, { onRestored }) {
     }
   });
 
-  list.innerHTML = '<div class="hive-version-loading" aria-hidden="true">' + '<span class="hive-vd-skeleton-row"><i></i><b><i></i><i></i></b></span>'.repeat(4) + '</div>';
+  list.innerHTML = skeleton;
   list.setAttribute('aria-busy', 'true');
   try {
     await loadPage();
@@ -160,12 +158,12 @@ export async function openVersionHistory(slug, { onRestored }) {
     const wasAt = open.committedAt;
     const index = loaded.findIndex((version) => version.sha === open.sha);
     const count = Math.max(loaded.length, PAGE);
-    const page = await api(`${base}/versions?limit=${count}`);
+    const page = await api(`${base}/versions?limit=${count}${kindQuery()}`);
     loaded = page;
     diffs.clear();
-    list.innerHTML = renderVersionList(page) || '<p>No history yet.</p>';
+    list.innerHTML = renderVersionList(page) || `<p>${emptyText()}</p>`;
     hasMore = page.length === count;
-    applyFilter();
+    updateRail();
     const same = page.filter((version) => version.committed_at === wasAt);
     const found = same.find((version) => page.indexOf(version) === index) || same[0];
     if (!found) return false;
@@ -253,7 +251,6 @@ export async function openVersionHistory(slug, { onRestored }) {
     info = null;
     list.hidden = true;
     filters.hidden = true;
-    filterNote.hidden = true;
     more.hidden = true;
     detail.hidden = false;
     for (const el of [back, position, older, newer, footer]) el.hidden = false;

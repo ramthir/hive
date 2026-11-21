@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isVisible, propertyChanges } from '../../static/notes/property-fields.js';
+import { isVisible, missingRequired, propertyChanges } from '../../static/notes/property-fields.js';
 
 const field = (key, extra = {}) => ({ key, label: key, icon: 'tag', kind: 'text', target: 'property', value: '', choices: [], ...extra });
 
@@ -31,4 +31,19 @@ test('a conditional field shows only while the field it names has the value, and
   const fields = [field('billing', { kind: 'select', value: 'Shadowed' }), acting];
   assert.deepEqual(propertyChanges(fields, { billing: 'Billable', acting_for: 'Al' }), { properties: { billing: 'Billable' } });
   assert.deepEqual(propertyChanges(fields, { billing: 'Shadowed', acting_for: 'Al' }), { properties: { acting_for: 'Al' } });
+});
+
+test('spacing differences are not changes', () => {
+  assert.equal(propertyChanges([field('project', { value: 'Big Co' })], { project: ' Big   Co ' }), null);
+});
+
+test('a required field is missing when the save would leave it empty, as the server checks it', () => {
+  const billing = field('billing', { kind: 'select', value: 'Billable' });
+  const acting = field('acting_for', { required: true, show_when: { key: 'billing', value: 'Shadowed' } });
+  assert.equal(missingRequired([billing, acting], { billing: 'Shadowed', acting_for: '' }), acting); // just shown, still empty
+  assert.equal(missingRequired([billing, acting], { billing: 'Billable', acting_for: '' }), null); // hidden: not required
+  assert.equal(missingRequired([billing, acting], { billing: 'Shadowed', acting_for: 'Al' }), null);
+  const saved = [field('billing', { kind: 'select', value: 'Shadowed' }), field('acting_for', { required: true, value: '', show_when: { key: 'billing', value: 'Shadowed' } })];
+  assert.equal(missingRequired(saved, { billing: 'Shadowed', acting_for: '' }), null); // untouched: the server lets it be
+  assert.equal(missingRequired([field('role', { required: true, value: 'Dev' })], { role: '' }).key, 'role'); // cleared
 });

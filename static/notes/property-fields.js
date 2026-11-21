@@ -4,6 +4,8 @@ import { escapeHtml as esc } from '../html.js';
 /** A field with a `show_when` (Acting for) is only shown while the field it names has that value. */
 export const isVisible = (field, values) => !field.show_when || (values[field.show_when.key] ?? '') === field.show_when.value;
 
+const clean = (value) => String(value ?? '').split(/\s+/).filter(Boolean).join(' '); // as the server reads it
+
 /**
  * The body of the `PUT /notes/{slug}` that saves the drawer: only what changed. `status`, `priority` and `week` are
  * top-level keys of the update, every other field goes in `properties`. A field that is hidden is not sent: the server
@@ -12,12 +14,22 @@ export const isVisible = (field, values) => !field.show_when || (values[field.sh
 export function propertyChanges(fields, values) {
   const body = {};
   for (const field of fields) {
-    const value = String(values[field.key] ?? '').trim();
-    if (!isVisible(field, values) || value === field.value) continue;
+    const value = clean(values[field.key]);
+    if (!isVisible(field, values) || value === clean(field.value)) continue;
     if (field.target === 'property') (body.properties ||= {})[field.key] = value;
     else body[field.target] = value;
   }
   return Object.keys(body).length ? body : null;
+}
+
+/**
+ * The first required field the save would leave empty, as the server checks it: visible, required, empty, and either
+ * changed itself or shown by a field that changed. Null when all is well.
+ */
+export function missingRequired(fields, values) {
+  const was = Object.fromEntries(fields.map((f) => [f.key, clean(f.value)]));
+  return fields.find((field) => field.required && isVisible(field, values) && !clean(values[field.key])
+    && (clean(values[field.key]) !== was[field.key] || (field.show_when && clean(values[field.show_when.key]) !== was[field.show_when.key]))) || null;
 }
 
 const control = (field) => {

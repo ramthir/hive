@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
-import { isVisible, propertyChanges, renderFields } from '/static/notes/property-fields.js';
+import { confirmDiscard } from '/static/components/dialog.js';
+import { isVisible, missingRequired, propertyChanges, renderFields } from '/static/notes/property-fields.js';
 import '/static/components/combobox.js';
 import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
@@ -20,7 +21,13 @@ export async function openProperties(note, { onSaved }) {
     <div class="modal-footer">
       <button type="button" class="crud-drawer-btn" data-action="cancel">Cancel</button>
       <button type="button" class="crud-drawer-btn primary" data-action="save" disabled>Save Properties</button>
-    </div>`, { className: 'notes-properties-drawer', wide: true, initialFocus: '.modal-panel' });
+    </div>`, {
+    className: 'notes-properties-drawer',
+    wide: true,
+    initialFocus: '.modal-panel',
+    // Closing with edits in the fields asks first (Esc, the X, Cancel and the backdrop all land here).
+    beforeClose: () => !(form && propertyChanges(form.fields, values())) || confirmDiscard({ message: 'Close without saving your changes to the properties?' }),
+  });
   const grid = dialog.querySelector('.properties-form-grid');
   const loading = dialog.querySelector('[data-loading]');
   const error = dialog.querySelector('.crud-drawer-error');
@@ -50,6 +57,12 @@ export async function openProperties(note, { onSaved }) {
     error.hidden = true;
     const body = propertyChanges(form.fields, values());
     if (!body) return close();
+    const missing = missingRequired(form.fields, values());
+    if (missing) {
+      fail(`${missing.label} is required.`);
+      grid.querySelector(`[data-key="${missing.key}"]`)?.focus?.();
+      return;
+    }
     save.disabled = true;
     try {
       const saved = await api(`/notes/${encodeURIComponent(note.slug)}`, { method: 'PUT', body });

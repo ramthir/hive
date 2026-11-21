@@ -467,3 +467,22 @@ def test_a_save_based_on_an_old_revision_is_refused_and_writes_nothing(client, r
 def test_a_save_without_a_revision_still_overwrites(client):
     make(client, "Alpha")
     assert client.put("/api/notes/alpha", json={"tags": ["x"]}).status_code == 200  # the task board and the drawers send none
+
+
+def test_versions_can_be_filtered_by_kind_and_paged_after_filtering(client):
+    make(client, "F", content="0\n", types=["task"])
+    client.put("/api/notes/f", json={"status": "DONE"})  # properties
+    for i in range(1, 4):
+        client.put("/api/notes/f", json={"content": f"# F\n\n{i}\n"})  # text
+    client.put("/api/notes/f/time/2026-11-20", json={"minutes": 30})  # time
+    everything = client.get("/api/notes/f/versions").json()
+    assert [v["kind"] for v in everything] == ["time", "text", "text", "text", "properties", "created"]
+
+    text = client.get("/api/notes/f/versions", params={"kind": "text"}).json()
+    assert [v["kind"] for v in text] == ["text"] * 3
+    first = client.get("/api/notes/f/versions", params={"kind": "text", "limit": 2}).json()
+    rest = client.get("/api/notes/f/versions", params={"kind": "text", "limit": 2, "offset": 2}).json()
+    assert [v["sha"] for v in first + rest] == [v["sha"] for v in text]  # pages count matches, not commits
+    assert [v["kind"] for v in client.get("/api/notes/f/versions", params={"kind": "time"}).json()] == ["time"]
+    assert client.get("/api/notes/f/versions", params={"kind": "restore"}).json() == []
+    assert client.get("/api/notes/f/versions", params={"kind": "nonsense"}).status_code == 422

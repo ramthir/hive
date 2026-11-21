@@ -1,8 +1,8 @@
 import { createDialog } from '/static/components/dialog.js';
 import { escapeHtml as esc } from '/static/html.js';
 
-/** Open a modal built from `innerHtml`. Returns `{ dialog, close }`; `[data-action="cancel"]` buttons close it. */
-export function openDialog(innerHtml, { className = '', initialFocus = null, wide = false } = {}) {
+/** Open a modal built from `innerHtml`. Returns `{ dialog, close }`; `[data-action="cancel"]` buttons ask to close it. */
+export function openDialog(innerHtml, { className = '', initialFocus = null, wide = false, beforeClose = null } = {}) {
   const dialog = document.createElement('app-dialog');
   dialog.className = `modal-backdrop is-hidden ${className}`;
   dialog.innerHTML = `<div class="modal-panel${wide ? ' modal-panel--drawer modal-panel--drawer-wide' : ''}" tabindex="-1">${innerHtml}</div>`;
@@ -12,8 +12,9 @@ export function openDialog(innerHtml, { className = '', initialFocus = null, wid
     controller.close();
     setTimeout(() => dialog.remove(), 220);
   };
-  controller.open({ onClose: () => setTimeout(() => dialog.remove(), 220) });
-  dialog.querySelectorAll('[data-action="cancel"]').forEach((el) => el.addEventListener('click', close));
+  controller.open({ onClose: () => setTimeout(() => dialog.remove(), 220), beforeClose });
+  // Cancel, Esc, the X and the backdrop ask `beforeClose` (it may return false to keep the dialog); `close` does not.
+  dialog.querySelectorAll('[data-action="cancel"]').forEach((el) => el.addEventListener('click', () => controller.requestClose('cancel')));
   return { dialog, close };
 }
 

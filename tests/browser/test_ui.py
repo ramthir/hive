@@ -259,10 +259,10 @@ def test_new_note_title_rename_history_restore_delete(page, server, notes_dir):
     expect(rows.last).to_contain_text("Created the note")
     expect(page.locator("app-tab-bar [role=tab]")).to_have_count(5)
     expect(page.locator("[data-tab=all]")).to_have_attribute("aria-selected", "true")
-    page.click("[data-tab=restores]")  # filters the loaded versions by kind
+    page.click("[data-tab=restores]")  # asks the server for that kind of version
     expect(page.locator("[data-tab=restores]")).to_have_attribute("aria-selected", "true")
     expect(page.locator(".hive-version-row:not([hidden])")).to_have_count(0)
-    expect(page.locator(".hive-version-filter-note")).to_contain_text("Nothing matches")
+    expect(page.locator("#version-list")).to_contain_text("No changes of this kind")
     page.keyboard.press("Home")  # arrow keys and Home/End move between the tabs
     page.keyboard.press("ArrowRight")
     expect(page.locator("[data-tab=text]")).to_have_attribute("aria-selected", "true")
@@ -1198,3 +1198,70 @@ def test_browser_back_asks_before_dropping_unsaved_edits(page, server, notes_dir
     page.wait_for_url("**/notes/alpha")
     expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
     assert "unsaved words" not in (notes_dir / "beta.md").read_text()
+
+
+def test_closing_the_properties_drawer_with_edits_asks_first(page, server, property_notes):
+    page.goto(f"{server}/notes/fix-it")
+    page.click("#note-properties-btn")
+    drawer = page.locator(".notes-properties-drawer")
+    page.keyboard.press("Escape")  # nothing edited: closes at once
+    expect(drawer).to_have_count(0)
+
+    page.click("#note-properties-btn")
+    pick_field(drawer, "project", "Acme")
+    page.keyboard.press("Escape")
+    expect(page.locator(".confirm-dialog-host .modal-title")).to_have_text("Unsaved changes")
+    page.click(".confirm-dialog-host [data-action=cancel]")  # keep editing
+    expect(drawer.locator('[data-key="project"] .combobox-input')).to_have_value("Acme")
+    drawer.locator('[data-action="cancel"]').click()  # the drawer's own Cancel asks too
+    page.click(".confirm-dialog-host [data-action=confirm]")  # discard
+    expect(drawer).to_have_count(0)
+    assert "project" not in (property_notes / "fix-it.md").read_text()
+    assert page.errors == []
+
+
+def test_log_time_dialog_lists_logged_days_and_removes_one_in_a_commit(page, server, notes_dir):
+    (notes_dir / "ship-it.md").write_text("---\ntitle: Ship it\ntype: task\ntime: {2026-11-19: 90, 2026-11-20: 30}\nupdated: 2026-11-20\n---\n\n# Ship it\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "task with time")
+    page.request.post(f"{server}/api/reindex")
+    commits = len(git(notes_dir, "rev-list", "HEAD").split())
+    page.goto(f"{server}/notes/ship-it")
+    expect(page.locator(".stat-logged")).to_contain_text("2h logged")
+    page.click("#log-time-btn")
+    days = page.locator(".log-time-days li")
+    expect(days).to_have_count(2)
+    expect(days.first).to_contain_text("Nov 20")  # newest day first
+    expect(days.last).to_contain_text("1h 30m")
+    assert page.evaluate("document.activeElement.classList.contains('combobox-input')")  # focus is on the fields, not on Log time
+
+    page.click('[data-remove="2026-11-19"]')
+    expect(days).to_have_count(1)
+    expect(page.locator(".stat-logged")).to_contain_text("30m logged")  # the footer follows
+    assert len(git(notes_dir, "rev-list", "HEAD").split()) == commits + 1
+    assert "2026-11-19" not in (notes_dir / "ship-it.md").read_text()
+    page.click('[data-remove="2026-11-20"]')
+    expect(page.locator(".log-time-days")).to_be_hidden()
+    expect(page.locator(".stat-logged")).to_be_hidden()
+    assert page.errors == []
+
+
+def test_history_filter_finds_versions_older_than_the_first_page(page, server, notes_dir):
+    (notes_dir / "busy.md").write_text("---\ntitle: Busy\ntype: task\nupdated: 2026-11-01\n---\n\n# Busy\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "busy")
+    page.request.post(f"{server}/api/reindex")
+    page.request.put(f"{server}/api/notes/busy/time/2026-11-20", data={"minutes": 30})  # the one time change, oldest
+    for i in range(35):  # more than a page (30) of text edits after it
+        page.request.put(f"{server}/api/notes/busy", data={"content": f"# Busy\n\nedit {i}\n"})
+    page.goto(f"{server}/notes/busy")
+    page.click("#note-versions-btn")
+    expect(page.locator(".hive-version-row")).to_have_count(30)
+    page.click("[data-tab=time]")
+    rows = page.locator(".hive-version-row")
+    expect(rows).to_have_count(1)  # found without paging through the text edits
+    expect(rows.first).to_contain_text("Logged 30m")
+    expect(page.locator("#version-list")).not_to_have_attribute("aria-live", "polite")
+    rows.first.click()  # a filtered version opens like any other
+    expect(page.locator("#version-detail")).to_be_visible()
+    assert page.errors == []
