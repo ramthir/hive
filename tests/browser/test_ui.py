@@ -56,6 +56,32 @@ def server(notes_dir):
     thread.join(5)
 
 
+class _UsageCollector:
+    """A ccusage that answers at once with a small, fixed report (the tests never run the real one)."""
+
+    def collect(self, now):
+        from tests.agent_reports import envelope
+        return envelope(now, since=now.replace(day=1).strftime("%Y-%m-%d"))
+
+
+@pytest.fixture
+def agents_server(notes_dir, tmp_path_factory):
+    from src.application.agents.usage import AgentUsage
+    from src.infrastructure.agents.usage_files import ReportStore
+    usage = AgentUsage(ReportStore(tmp_path_factory.mktemp("agents") / "usage.json"), _UsageCollector())
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, agent_usage=usage), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}"
+    srv.should_exit = True
+    thread.join(5)
+
+
 @pytest.fixture
 def page(server):
     with sync_playwright() as p:
@@ -1406,4 +1432,49 @@ def test_dashboard_shows_stat_cards_and_the_container_processes(page, server):
     expect(page.locator("app-table th", has_text="PID")).to_be_visible()
     page.locator("app-table th", has_text="Memory").click()  # a server-side sort reloads the page without errors
     expect(rows.first).to_be_visible()
+    assert page.errors == []
+
+
+def test_dashboard_opens_on_the_debian_tab_and_switches_to_agents_without_a_reload(page, agents_server):
+    page.goto(f"{agents_server}/dashboard")
+    tabs = page.locator("dashboard-app app-tab-bar .tab-bar-item")
+    expect(tabs).to_have_text(["Debian", "Agents"])
+    expect(tabs.first).to_have_class("tab-bar-item tab-bar-item--active")
+    expect(page.locator("debian-tab .dash-grid stat-card")).to_have_count(4)
+    expect(page.locator("debian-tab app-table tbody tr").first).to_be_visible()  # the stats have loaded
+    expect(page.locator("dashboard-app .dash-status")).to_have_text("")  # no "Updated 15:06:55" in the header
+    expect(page.locator("agents-tab")).to_have_count(0)
+    page.evaluate("window.__same = true")
+    tabs.nth(1).click()
+    expect(page.locator("agents-tab .card[data-provider]")).to_have_count(3)
+    expect(page.locator("debian-tab")).to_have_count(0)  # a tab that is not shown is not in the page, so it does not poll
+    assert page.url.endswith("/dashboard/agents") and page.evaluate("window.__same") is True
+    expect(page.locator("app-sidebar .nav-link.active")).to_have_text("Dashboard")
+    page.go_back()
+    expect(page.locator("debian-tab")).to_have_count(1)
+    expect(tabs.first).to_have_class("tab-bar-item tab-bar-item--active")
+    assert page.errors == []
+
+
+def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_the_sessions(page, agents_server):
+    page.goto(f"{agents_server}/dashboard/agents")
+    expect(page.locator("dashboard-app app-tab-bar .tab-bar-item").nth(1)).to_have_class("tab-bar-item tab-bar-item--active")
+    cards = page.locator("agents-tab .card[data-provider]")
+    expect(cards).to_have_count(3)
+    expect(page.locator('.card[data-provider="claude"] .metric.totals dd')).to_have_text("1.05K")
+    expect(page.locator('.card[data-provider="antigravity"]')).to_contain_text("0 sessions")
+    expect(page.locator("agents-tab .bar")).not_to_have_count(0)
+    rows = page.locator("agents-tab app-table tbody tr")
+    expect(rows).to_have_count(3)
+    expect(rows.first).to_contain_text("Codex")  # newest activity first
+    page.locator("agents-tab app-table th", has_text="Total").click()  # a server-side sort reloads the rows without errors
+    expect(rows).to_have_count(3)
+    assert page.errors == []
+
+
+def test_agents_tab_copies_a_resume_command(page, agents_server):
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    page.goto(f"{agents_server}/dashboard/agents")
+    page.locator("agents-tab .session-resume").first.click()
+    assert page.evaluate("navigator.clipboard.readText()") == "codex resume sess-b"
     assert page.errors == []
