@@ -50,6 +50,9 @@ body.dialog-open {
 .modal-backdrop.is-closing .modal-panel--drawer {
   animation: drawer-slide-out 0.2s ease-in forwards;
 }
+.modal-panel--drawer-medium {
+  --panel-width: var(--dialog-card-max-width-drawer-medium);
+}
 .modal-panel--drawer-wide {
   --panel-width: var(--dialog-card-max-width-drawer-wide);
 }

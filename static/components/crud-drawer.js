@@ -13,10 +13,11 @@ export function createCrudDrawer(config) {
     onClose,
     initialFocus = '[name="name"]',
     autocomplete = 'on',
+    size = '',
   } = config;
   if (!host || !singularLabel || !fieldsHtml || !populateForm || !buildPayload || !onSave)
     throw new Error('CRUD drawer configuration is incomplete.');
-  host.innerHTML = `<app-dialog class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="crud-drawer-title"><div class="modal-panel modal-panel--drawer" tabindex="-1"><div class="modal-header"><h2 class="modal-title" id="crud-drawer-title">Add ${singularLabel}</h2><button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><form class="modal-body crud-drawer-form" autocomplete="${autocomplete === 'off' ? 'off' : 'on'}">${fieldsHtml}<div class="crud-drawer-notice" role="status" hidden></div><div class="crud-drawer-error" hidden></div></form><div class="modal-footer"><button type="button" class="crud-drawer-btn danger is-hidden" data-delete>Delete</button><button type="button" class="crud-drawer-btn" data-dialog-close>Cancel</button><button type="button" class="crud-drawer-btn primary" data-save>Save</button></div></div></app-dialog>`;
+  host.innerHTML = `<app-dialog class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="crud-drawer-title"><div class="modal-panel modal-panel--drawer${size ? ` modal-panel--drawer-${size}` : ''}" tabindex="-1"><div class="modal-header"><h2 class="modal-title" id="crud-drawer-title">Add ${singularLabel}</h2><button type="button" class="modal-close-btn" data-dialog-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><form class="modal-body crud-drawer-form" autocomplete="${autocomplete === 'off' ? 'off' : 'on'}">${fieldsHtml}<div class="crud-drawer-notice" role="status" hidden></div><div class="crud-drawer-error" hidden></div></form><div class="modal-footer"><button type="button" class="crud-drawer-btn danger is-hidden" data-delete>Delete</button><button type="button" class="crud-drawer-btn" data-dialog-close>Cancel</button><button type="button" class="crud-drawer-btn primary" data-save>Save</button></div></div></app-dialog>`;
   const element = host.querySelector('app-dialog'),
     form = host.querySelector('form'),
     title = host.querySelector('.modal-title'),

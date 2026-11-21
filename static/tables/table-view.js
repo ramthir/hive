@@ -246,6 +246,7 @@ export class TableView {
     return createCrudDrawer({
       host: this.host.querySelector('#notes-table-drawer-host'),
       singularLabel: 'Row',
+      size: 'medium',
       initialFocus: first.isWikilink ? `[name="${first.key}"] .combobox-input` : `[name="${first.key}"]`,
       fieldsHtml,
       populateForm: (record, form) => {
