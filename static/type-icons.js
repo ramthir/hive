@@ -52,11 +52,11 @@ export const TYPE_ICONS = {
 // diagram, contact, project, spec, minutes, month, week) the colour is the same; the rest follow the same groups.
 // A type that is not listed keeps the muted default.
 export const TYPE_COLORS = {
-  note: 'purple', document: 'purple', clipping: 'purple', reference: 'purple', book: 'purple', glossary: 'purple', week: 'purple',
+  document: 'purple', clipping: 'purple', reference: 'purple', book: 'purple', glossary: 'purple', week: 'purple',
   project: 'blue', specification: 'blue', spec: 'blue', product: 'blue', component: 'blue', application: 'blue', month: 'blue', year: 'blue', timeline: 'blue',
   table: 'green', contact: 'green', team: 'green', role: 'green', company: 'green', education: 'green',
   task: 'orange', status: 'orange', priority: 'orange', prompt: 'orange', runbook: 'orange', guideline: 'orange', decision: 'orange',
-  meeting: 'yellow', meeting_minutes: 'yellow', interview: 'yellow', holiday: 'yellow', keynote: 'yellow',
+  note: 'yellow', meeting: 'blue', meeting_minutes: 'yellow', interview: 'yellow', holiday: 'yellow', keynote: 'yellow',
   diagram: 'red', hub: 'red', environment: 'red', resource: 'red', domain: 'red', technology: 'red', city: 'red', folder: 'red', work_nature: 'red',
 };
 

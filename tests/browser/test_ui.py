@@ -964,6 +964,6 @@ def test_search_icons_are_coloured_by_note_type(page, server, notes_dir):
     page.keyboard.press("Control+k")
     icon = lambda title: page.locator("note-spotlight .spotlight-item", has_text=title).locator(".spotlight-item-icon")
     expect(icon("Job")).to_have_attribute("style", "color: var(--color-orange)")
-    expect(icon("Alpha")).to_have_attribute("style", "color: var(--color-purple)")  # no type: the default, note
+    expect(icon("Alpha")).to_have_attribute("style", "color: var(--color-yellow)")  # no type: the default, note
     expect(icon("Mystery")).to_have_attribute("style", "")  # an unknown type keeps the muted default
     assert page.errors == []

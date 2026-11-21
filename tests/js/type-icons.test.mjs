@@ -79,6 +79,7 @@ test('every type used in the vault has a colour', () => {
 
 test('a note takes the colour of its first type like its icon; an unknown type has none', () => {
   assert.equal(typeColor('Task'), 'var(--color-orange)');
+  assert.equal(typeColor('Meeting'), 'var(--color-blue)');
   assert.equal(typeColor('Meeting Minutes'), 'var(--color-yellow)');
   assert.equal(typeColor('zzz'), '');
   assert.equal(noteTypeColor(['', 'contact']), 'var(--color-green)');
