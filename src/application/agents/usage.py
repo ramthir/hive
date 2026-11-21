@@ -1,6 +1,6 @@
-"""Agent usage for the current month, kept fresh without a scheduler (see `RefreshingReport`).
+"""Agent usage for the current month, refreshed on the quarter hour (see `RefreshingReport`).
 
-Only a missing report or a new month makes a request wait for ccusage (it takes a fraction of a second); an old report
+Only a missing report or a new month makes a request wait for ccusage (it takes a fraction of a second); a due report
 is served while a new one is made in the background.
 """
 from __future__ import annotations

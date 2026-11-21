@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.routes import agents, diagrams, notes, system
 from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
+from src.application.agents.refresh import RefreshSchedule
 from src.application.agents.usage import AgentUsage
 from src.application.colab.collector import ColabCollector
 from src.application.diagrams.service import DiagramError, DiagramService
@@ -46,7 +47,7 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
-               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None, colab: ColabCollector | None = None) -> FastAPI:
+               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None, colab: ColabCollector | None = None, schedule: bool | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -64,12 +65,18 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         watcher = NotesWatcher(root, service.invalidate, metrics) if watch else None
         if watcher:
             watcher.start()
+        if schedule:
+            refresh_schedule.start()
         try:
             yield
         finally:
+            refresh_schedule.stop()
             await app.state.colab.shutdown()  # stops the per-runtime collectors; nothing keeps probing after shutdown
             if watcher:
                 watcher.stop()
+
+    if schedule is None:  # the quarter-hour refresh belongs to the real collectors; tests that inject fakes drive them themselves
+        schedule = agent_usage is None and agent_quota is None
 
     if diagram_service is None:
         diagram_service = DiagramService(
@@ -89,6 +96,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     if agent_quota is None:
         agent_quota = AgentQuota(ReportStore(agents_state / "quota.json", parse_snapshot, (QuotaError,), "quota snapshot"), QuotaCollector())
     agent_usage.metrics = agent_quota.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
+    refresh_schedule = RefreshSchedule([agent_usage, agent_quota])
     app.state.agents = agent_usage
     app.state.agent_quota = agent_quota
     app.state.colab = colab or ColabCollector(sessions=get_colab_sessions, kernel_state=get_colab_kernel_state, collect=collect_colab_snapshot)

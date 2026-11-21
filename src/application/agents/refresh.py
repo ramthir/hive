@@ -1,7 +1,9 @@
-"""A report kept in a file and refreshed on demand, without a scheduler.
+"""A report kept in a file and refreshed on the quarter hour (:00, :15, :30, :45).
 
-A request reads the file. When it is older than `interval` the answer is still the old report and a background thread
-makes a new one, so a request never waits for the program that makes it. Subclasses decide what a usable report is
+A request reads the file: between two refreshes it is only a cache read. `RefreshSchedule` wakes at each boundary and
+makes a new report in a background thread. A report is due when it was made before the current slot, so a request that
+finds one due (the app was off or asleep at the boundary) starts the catch-up itself; its answer is still the old report
+and never waits for the program that makes it. Subclasses decide what a usable report is
 (`usable`) and whether the very first request waits for one (`wait_for_first`). A failed run keeps the old report and
 is not retried for `RETRY_AFTER`, so a missing program costs one attempt a minute, not one per poll.
 """
@@ -14,6 +16,12 @@ from datetime import datetime, timedelta, timezone
 log = logging.getLogger("hive.agents")
 REFRESH_EVERY = timedelta(minutes=15)
 RETRY_AFTER = timedelta(minutes=1)
+
+
+def slot_start(now: datetime, interval: timedelta) -> datetime:
+    """The latest boundary at or before `now` (a multiple of `interval` since the epoch: :00/:15/:30/:45 for 15 minutes)."""
+    step = interval.total_seconds()
+    return datetime.fromtimestamp(now.timestamp() // step * step, tz=timezone.utc)
 
 
 class RefreshingReport:
@@ -36,6 +44,16 @@ class RefreshingReport:
 
     def usable(self, envelope, now: datetime) -> bool:
         return True
+
+    def due(self, envelope, now: datetime) -> bool:
+        return envelope["generated_at"] < slot_start(now, self.interval)
+
+    def tick(self) -> None:
+        """Called at each boundary: make a new report in the background unless this slot already has one."""
+        now = self.clock()
+        envelope, _ = self.store.load()
+        if envelope is None or not self.usable(envelope, now) or self.due(envelope, now):
+            self._refresh_later(now)
 
     def refresh(self) -> bool:
         """Make a new report now. False (and `error` set) when that failed; the last good report is kept."""
@@ -68,7 +86,7 @@ class RefreshingReport:
         envelope, error = self.store.load()
         now = self.clock()
         if envelope is not None and self.usable(envelope, now):
-            if now - envelope["generated_at"] > self.interval:
+            if self.due(envelope, now):
                 self._refresh_later(now)
             return envelope, error
         if not self.wait_for_first:
@@ -96,3 +114,41 @@ class RefreshingReport:
             return
         self._thread = threading.Thread(target=self.refresh, name=f"{self.metric}-refresh", daemon=True)
         self._thread.start()
+
+
+class RefreshSchedule:
+    """A thread that calls `tick()` on each report at every boundary of `interval` (and once at start, to catch up)."""
+
+    def __init__(self, reports, interval: timedelta = REFRESH_EVERY, clock=None, wait=None):
+        self.reports = list(reports)
+        self.interval = interval
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self._stop = threading.Event()
+        self._wait = wait or self._stop.wait  # seconds -> True when stopped
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self._run, name="agents-schedule", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(2)
+
+    def seconds_to_next(self) -> float:
+        now = self.clock()
+        return (slot_start(now, self.interval) + self.interval - now).total_seconds()
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            self.tick()
+            if self._wait(self.seconds_to_next()):
+                return
+
+    def tick(self) -> None:
+        for report in self.reports:
+            try:
+                report.tick()
+            except Exception:  # one report must never stop the schedule
+                log.exception("%s scheduled refresh failed", report.metric)

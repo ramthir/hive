@@ -130,3 +130,31 @@ def test_a_report_that_does_not_validate_is_not_saved(tmp_path):
     usage, collector, _, _ = make(tmp_path)
     collector.collect = lambda now: {"schema_version": 1}
     assert usage.view()["status"] == "unavailable" and not (tmp_path / "usage.json").exists()
+
+
+def test_a_report_is_due_once_a_quarter_hour_boundary_has_passed(tmp_path):
+    usage, collector, clock, _ = make(tmp_path)
+    clock.now = START + timedelta(minutes=14, seconds=50)
+    usage.view()  # first report, made at 08:14:50
+    clock.now = START + timedelta(minutes=15, seconds=1)
+    usage.view()  # 08:15 passed: due, even though the report is 11 s old
+    assert collector.calls == 2
+    clock.now = START + timedelta(minutes=29, seconds=59)
+    usage.view(); usage.sessions()  # the middle of the slot is only a cache read
+    assert collector.calls == 2
+
+
+def test_the_schedule_refreshes_at_each_boundary_and_not_in_between(tmp_path):
+    from src.application.agents.refresh import RefreshSchedule
+    usage, collector, clock, _ = make(tmp_path)
+    waits = []
+    schedule = RefreshSchedule([usage], clock=clock, wait=lambda s: waits.append(s) or len(waits) > 3)
+    clock.now = START + timedelta(minutes=2)
+    schedule._run()  # ticks at 08:02 (catch-up: no report yet), then waits
+    assert collector.calls == 1 and waits[0] == 13 * 60
+    clock.now = START + timedelta(minutes=10)
+    schedule.tick()
+    assert collector.calls == 1  # same slot: nothing to do
+    clock.now = START + timedelta(minutes=15)
+    schedule.tick()
+    assert collector.calls == 2 and usage.store.load()[0]["generated_at"] == clock.now

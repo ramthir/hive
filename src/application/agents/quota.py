@@ -1,4 +1,4 @@
-"""The 5-hour and weekly quota of the coding agents, kept fresh without a scheduler (see `RefreshingReport`).
+"""The 5-hour and weekly quota of the coding agents, refreshed on the quarter hour (see `RefreshingReport`).
 
 Unlike the usage report, the first request does not wait: reading the three CLIs takes a few seconds (Antigravity up to a
 minute), so it starts the run and answers "being collected"; the page asks again shortly.
