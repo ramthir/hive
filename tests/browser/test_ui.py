@@ -1467,6 +1467,22 @@ def test_dashboard_opens_on_the_debian_tab_and_switches_to_agents_without_a_relo
     assert page.errors == []
 
 
+def test_dashboard_tabs_are_links_that_open_in_a_new_tab_and_switch_in_place_on_a_plain_click(page, agents_server):
+    page.goto(f"{agents_server}/dashboard")
+    tabs = page.locator("dashboard-app app-tab-bar a.tab-bar-item")
+    expect(tabs).to_have_count(3)
+    assert [tabs.nth(i).get_attribute("href") for i in range(3)] == ["/dashboard", "/dashboard/agents", "/dashboard/colab"]
+    with page.context.expect_page() as opened:
+        tabs.nth(1).click(modifiers=["Control"])
+    assert opened.value.url.endswith("/dashboard/agents")
+    opened.value.close()
+    assert page.url.endswith("/dashboard") and page.locator("debian-tab").count() == 1  # the page it was clicked on did not move
+    tabs.nth(1).click()
+    expect(page.locator("agents-tab")).to_have_count(1)
+    assert page.url.endswith("/dashboard/agents")
+    assert page.errors == []
+
+
 def test_agents_tab_opens_directly_and_shows_a_card_per_provider_the_trend_and_the_sessions(page, agents_server):
     page.goto(f"{agents_server}/dashboard/agents")
     expect(page.locator("dashboard-app app-tab-bar .tab-bar-item").nth(1)).to_have_class("tab-bar-item tab-bar-item--active")

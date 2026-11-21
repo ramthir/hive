@@ -27,6 +27,9 @@
     background 0.15s ease,
     color 0.15s ease;
 }
+a.tab-bar-item {
+  text-decoration: none;
+}
 .tab-bar-item:hover {
   color: var(--color-text);
 }

@@ -5,7 +5,7 @@ const escapeHtml = (value) =>
 if (!document.querySelector('link[href*="tab-bar.css"]')) {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/static/components/tab-bar.css?v=5';
+  link.href = '/static/components/tab-bar.css?v=6';
   document.head.appendChild(link);
 }
 
@@ -40,8 +40,15 @@ class AppTabBar extends HTMLElement {
     this.dispatchEvent(new CustomEvent('tab-switch', { detail: { tab: key }, bubbles: true }));
   };
   _click = (event) => {
-    const key = event.target.closest('[data-tab]')?.dataset.tab;
-    if (!key || key === this._active || !this._tabs[key]) return;
+    const item = event.target.closest('[data-tab]');
+    const key = item?.dataset.tab;
+    if (!key || !this._tabs[key]) return;
+    if (item.tagName === 'A') {
+      // A tab with an address is a real link: a modified click (new tab or window) is the browser's, a plain one switches in place.
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+    }
+    if (key === this._active) return;
     this.active = key;
     this.dispatchEvent(new CustomEvent('tab-switch', { detail: { tab: key }, bubbles: true }));
   };
@@ -68,8 +75,13 @@ class AppTabBar extends HTMLElement {
     if (!this.isConnected) return;
     this.innerHTML = Object.entries(this._tabs)
       .map(
-        ([key, tab]) =>
-          `<button type="button" class="tab-bar-item" data-tab="${escapeHtml(key)}" role="tab">${tab.icon ? `<i class="${escapeHtml(tab.icon)}" aria-hidden="true" style="margin-right: 6px;"></i>` : ''}${escapeHtml(tab.label)}</button>`
+        ([key, tab]) => {
+          const content = `${tab.icon ? `<i class="${escapeHtml(tab.icon)}" aria-hidden="true" style="margin-right: 6px;"></i>` : ''}${escapeHtml(tab.label)}`;
+          // With an `href` the tab is a link, so it can be opened in a new tab; without one it is a button.
+          return tab.href
+            ? `<a class="tab-bar-item" href="${escapeHtml(tab.href)}" data-tab="${escapeHtml(key)}" role="tab">${content}</a>`
+            : `<button type="button" class="tab-bar-item" data-tab="${escapeHtml(key)}" role="tab">${content}</button>`;
+        }
       )
       .join('');
     this.sync();

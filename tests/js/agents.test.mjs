@@ -213,3 +213,7 @@ test('the report says how old it is', () => {
   assert.match(renderUsage(view({ generated_at: ago(7) })), /<time class="updated" datetime="[^"]+" title="[^"]+">Updated 7m ago<\/time>/);
   assert.equal(renderUsage(view({ generated_at: null })).includes('class="updated"'), false);
 });
+
+test('every dashboard tab links to its own address', () => {
+  assert.deepEqual(Object.values(tabBarTabs()).map((t) => t.href), ['/dashboard', '/dashboard/agents', '/dashboard/colab']);
+});

@@ -11,5 +11,5 @@ export function tabForPath(pathname) {
   return Object.keys(TABS).find((key) => TABS[key].path === path) || 'debian';
 }
 
-/** The tab bar's `tabs` property. */
-export const tabBarTabs = () => Object.fromEntries(Object.entries(TABS).map(([key, { label, icon }]) => [key, { label, icon }]));
+/** The tab bar's `tabs` property: each tab links to its own address, so it opens in a new tab like any link. */
+export const tabBarTabs = () => Object.fromEntries(Object.entries(TABS).map(([key, { label, icon, path }]) => [key, { label, icon, href: path }]));
