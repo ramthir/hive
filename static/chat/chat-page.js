@@ -188,7 +188,7 @@ class ChatApp extends HTMLElement {
   messageHtml(turn, index) {
     if (turn.role === 'user') {
       return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar" title="${esc(CURRENT_USER.name)}">${esc(initialsOf(CURRENT_USER.name))}</div>
-        <div class="chat-body"><div class="chat-sender">You</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
+        <div class="chat-body"><div class="chat-sender">Ramesh</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
     }
     const steps = [...turn.narration.map((text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`),
       ...turn.steps.map((s) => `<li class="${s.write ? 'write ' : ''}${s.status}"><i class="${stepIcon(s)}"></i><span title="${esc(s.label)}">${esc(s.label)}</span></li>`)];
