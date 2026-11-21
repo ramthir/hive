@@ -1163,3 +1163,38 @@ def test_saving_over_a_change_made_elsewhere_asks_before_overwriting(page, serve
     expect(page.locator("#save-note-btn")).to_be_disabled()
     assert "added in another editor" not in path.read_text()  # replaced, as the dialog said
     assert all("412" in e or "Save failed" in e or "Precondition" in e for e in page.errors)  # only the refusal we provoked
+
+
+def test_escape_in_the_restore_confirmation_closes_only_the_confirmation(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha")
+    page.click("#note-versions-btn")
+    page.locator(".hive-version-row").first.click()
+    expect(page.locator("#version-restore")).to_be_enabled()
+    page.click("#version-restore")
+    expect(page.locator("[data-action=confirm]")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.locator("[data-action=confirm]")).to_have_count(0)
+    expect(page.locator("#version-detail")).to_be_visible()  # still on the version, not stepped back to the list
+    assert page.errors == []
+
+
+def test_browser_back_asks_before_dropping_unsaved_edits(page, server, notes_dir):
+    page.goto(f"{server}/notes/alpha")
+    page.click('#notes-md a.notes-wikilink[data-target="beta"]')
+    page.wait_for_url("**/notes/beta")
+    page.click("#edit-note-btn")
+    page.wait_for_selector(".cm-content")
+    page.click(".cm-content")
+    page.keyboard.type("unsaved words")
+    page.go_back()
+    expect(page.locator(".confirm-dialog-host .modal-title")).to_have_text("Unsaved changes")  # asked first
+    page.click("[data-action=cancel]")
+    assert page.url.endswith("/notes/beta?mode=edit")  # the address went back to the note being edited
+    assert "unsaved words" in page.locator(".cm-content").inner_text()
+    expect(page.locator("#save-note-btn")).to_be_enabled()
+
+    page.go_back()  # asked again; this time discard and go where Back pointed
+    page.click("[data-action=confirm]")
+    page.wait_for_url("**/notes/alpha")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Alpha")
+    assert "unsaved words" not in (notes_dir / "beta.md").read_text()

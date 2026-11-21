@@ -329,6 +329,8 @@ export async function openVersionHistory(slug, { onRestored }) {
   const onKey = (event) => {
     if (!dialog.isConnected) { window.removeEventListener('keydown', onKey, true); return; }
     if (detail.hidden || !open) return;
+    // Another dialog (the restore confirmation) is on top: the keys are its own.
+    if ([...document.querySelectorAll('app-dialog:not(.is-hidden)')].at(-1) !== dialog) return;
     if (event.key === 'Escape') {
       event.stopImmediatePropagation();
       event.preventDefault();

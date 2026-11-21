@@ -86,7 +86,11 @@ class NotesApp extends HTMLElement {
   connectedCallback() {
     if (window.location.pathname === '/') history.replaceState(null, '', '/notes');
     notesRouter.start();
-    this._unsubscribe = notesRouter.subscribe((_path, route, params) => this.handleRouting(route, params));
+    this._unsubscribe = notesRouter.subscribe((_path, route, params) => {
+      if (this.guardUnsavedRoute(route, params)) return;
+      this._shownUrl = window.location.pathname + window.location.search;
+      this.handleRouting(route, params);
+    });
 
     this._shellRoot = this.closest('app-shell')?.shadowRoot;
     this._sidebarClick = (event) => {
@@ -145,6 +149,23 @@ class NotesApp extends HTMLElement {
       return;
     }
     notesRouter.navigate(path, options);
+  }
+
+  // Back/Forward and links the router handles itself (backlinks) do not go through go(). If one of them would leave a note
+  // with unsaved edits, put the address back, ask, and only then go where it pointed.
+  guardUnsavedRoute(route, params) {
+    if (this.currentView !== 'editor' || this.saveStatus !== 'dirty' || !this._shownUrl) return false;
+    const stays = route?.view === 'editor' && (route.isNew ? !this.selectedSlug : decodeURIComponent(params?.slug || '') === this.selectedSlug);
+    if (stays) return false;
+    const target = window.location.pathname + window.location.search;
+    history.pushState(null, '', this._shownUrl);
+    confirmDiscard({ title: 'Unsaved changes', message: 'Leave this note without saving?', confirmText: 'Discard', cancelText: 'Cancel' })
+      .then((confirmed) => {
+        if (!confirmed) return;
+        this.saveStatus = 'saved';
+        notesRouter.navigate(target);
+      });
+    return true;
   }
 
   handleGlobalKeydown(event) {
