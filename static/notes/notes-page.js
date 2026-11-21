@@ -328,6 +328,10 @@ class NotesApp extends HTMLElement {
   applyRemoteNote(fresh) {
     const preview = this.querySelector('#notes-preview');
     const scrollTop = preview?.scrollTop ?? 0;
+    // The editor is rebuilt with the new text: remember where the caret and the editor's scroll were.
+    this._restoreEditorView = this.cmEditor
+      ? { head: this.cmEditor.state.selection.main.head, scrollTop: this.cmEditor.scrollDOM.scrollTop }
+      : null;
     this.selectedNote = fresh;
     this.saveStatus = 'saved';
     this.destroyCodeMirror();
@@ -335,6 +339,19 @@ class NotesApp extends HTMLElement {
     const again = this.querySelector('#notes-preview');
     if (again) again.scrollTop = scrollTop;
     if (this.isNoteEditing) setTimeout(() => this.focusEditor(), 0);
+  }
+
+  // Put the caret and scroll of the editor that was replaced into the new one (the text may be shorter now).
+  restoreEditorView() {
+    const saved = this._restoreEditorView;
+    this._restoreEditorView = null;
+    if (!saved || !this.cmEditor) return;
+    const head = Math.min(saved.head, this.cmEditor.state.doc.length);
+    this.cmEditor.dispatch({ selection: { anchor: head } });
+    // Focusing the editor scrolls the caret into view, which may be far from where the reader was: put the scroll back after it.
+    const scroll = () => { if (this.cmEditor) this.cmEditor.scrollDOM.scrollTop = saved.scrollTop; };
+    requestAnimationFrame(scroll);
+    setTimeout(scroll, 100);
   }
 
   showRemoteBanner(message, fresh = null) {
@@ -959,6 +976,7 @@ class NotesApp extends HTMLElement {
     });
     if (!this.selectedNote?.slug) this.cmEditor.dispatch({ selection: { anchor: 2 } }); // new note: type the title
     if (this._focusEditorWhenReady) this.focusEditor();
+    this.restoreEditorView();
   }
 
   focusEditor() {

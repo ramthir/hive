@@ -2012,3 +2012,45 @@ def test_the_task_board_picks_up_a_task_created_outside_hive(page, server, task_
     (task_notes / "fresh.md").write_text("---\ntitle: Fresh\ntype: task\nstatus: TODO\n---\n\n# Fresh\n")
     expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report", "Fresh"], timeout=5000)
     assert page.errors == []
+
+
+def test_an_outside_change_keeps_the_reading_position(page, server, notes_dir):
+    body = "\n\n".join(f"Paragraph {n} " + "word " * 40 for n in range(80))
+    (notes_dir / "long.md").write_text(f"---\ntitle: Long\n---\n\n# Long\n\n{body}\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "long")
+    page.goto(f"{server}/notes/long")
+    expect(page.locator("#notes-md")).to_contain_text("Paragraph 79")
+    page.evaluate("document.querySelector('#notes-preview').scrollTop = 1500")
+    before = page.evaluate("document.querySelector('#notes-preview').scrollTop")
+    assert before > 1000
+    (notes_dir / "long.md").write_text(f"---\ntitle: Long\n---\n\n# Long\n\n{body}\n\nAdded at the end.\n")
+    expect(page.locator("#notes-md")).to_contain_text("Added at the end", timeout=5000)
+    assert abs(page.evaluate("document.querySelector('#notes-preview').scrollTop") - before) < 5
+    assert page.errors == []
+
+
+def test_an_outside_change_keeps_the_caret_and_scroll_of_a_clean_editor(page, server, notes_dir):
+    body = "\n\n".join(f"Paragraph {n} " + "word " * 40 for n in range(80))
+    (notes_dir / "long.md").write_text(f"---\ntitle: Long\n---\n\n# Long\n\n{body}\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "long")
+    page.goto(f"{server}/notes/long?mode=edit")
+    page.wait_for_selector(".cm-content")
+    place = """() => {
+      const view = document.querySelector('notes-app').cmEditor;
+      view.dispatch({ selection: { anchor: 5000 } });
+      view.scrollDOM.scrollTop = 1200;
+      return [view.state.selection.main.head, view.scrollDOM.scrollTop];
+    }"""
+    page.evaluate(place)
+    page.wait_for_timeout(500)  # CodeMirror settles (it may scroll the caret into view) before we note where things are
+    head, scroll = page.evaluate("() => { const v = document.querySelector('notes-app').cmEditor; return [v.state.selection.main.head, v.scrollDOM.scrollTop]; }")
+    assert scroll > 500
+    (notes_dir / "long.md").write_text(f"---\ntitle: Long\n---\n\n# Long\n\n{body}\n\nAdded at the end.\n")
+    # (the editor only draws the lines in view, so look at its document, not at the page text)
+    page.wait_for_function("document.querySelector('notes-app').cmEditor?.state.doc.toString().includes('Added at the end')", timeout=5000)
+    page.wait_for_timeout(500)
+    now = page.evaluate("() => { const v = document.querySelector('notes-app').cmEditor; return [v.state.selection.main.head, v.scrollDOM.scrollTop]; }")
+    assert now[0] == head and abs(now[1] - scroll) < 5
+    assert page.errors == []
