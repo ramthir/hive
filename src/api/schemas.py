@@ -160,12 +160,12 @@ class PropertyShowWhen(BaseModel):
 
 class PropertyFieldOut(BaseModel):
     """One field of the properties drawer. `target` says which key of `PUT /notes/{slug}` carries it: `property` fields go
-    in `properties` under their `key`; `status`, `priority` and `week` are top-level keys of the update."""
+    in `properties` under their `key`; `tags`, `status`, `priority` and `week` are top-level keys of the update."""
     key: str
     label: str
     icon: str
-    kind: Literal["text", "select", "note"]
-    target: Literal["property", "status", "priority", "week"]
+    kind: Literal["text", "select", "note", "tags"]
+    target: Literal["property", "tags", "status", "priority", "week"]
     group: str | None
     placeholder: str
     required: bool
@@ -176,6 +176,7 @@ class PropertyFieldOut(BaseModel):
 
 
 class PropertiesOut(BaseModel):
+    title: str  # the drawer's heading, from the note's type: "Task Properties"
     groups: dict[str, str]
     fields: list[PropertyFieldOut]
 

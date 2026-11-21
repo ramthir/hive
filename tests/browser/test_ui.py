@@ -765,49 +765,34 @@ def test_tasks_board_drag_saves_the_status_as_a_commit(page, server, task_notes)
     assert page.errors == []
 
 
-def pick(drawer, name, label):
-    """Choose an option of one of the drawer's comboboxes."""
-    combo = drawer.locator(f'app-combobox:has([name="{name}"])')
-    combo.locator(".combobox-input").click()
-    combo.locator(".combobox-option", has_text=label).click()
-
-
-def test_tasks_card_opens_a_drawer_and_its_link_opens_the_note(page, server, task_notes):
+def test_tasks_card_opens_the_task_properties_drawer(page, server, task_notes):
     page.goto(f"{server}/tasks")
     column(page, "DONE").locator(".board-card", has_text="Ship it").click()
-    expect(page.locator("#task-drawer-title")).to_be_visible()
-    expect(page.locator('.task-drawer-host [name="title"]')).to_have_value("Ship it")
-    page.click("[data-open-note]")
-    page.wait_for_url("**/notes/ship-it")
-    expect(page.locator("app-header")).to_have_attribute("heading", "Ship it")
-    page.click('app-sidebar .nav-link[href="/tasks"]')  # from the notes page: a full navigation, not the notes router
-    page.wait_for_url("**/tasks")
-    expect(column(page, "TODO").locator(".board-card")).to_have_count(1)
+    drawer = page.locator(".notes-properties-drawer")
+    expect(drawer.locator(".modal-title")).to_have_text("Task Properties")
+    expect(drawer.locator('[data-key="status"] .combobox-input')).to_have_value("Done")
+    drawer.locator('[data-action="cancel"]').click()
+    expect(page.locator(".notes-properties-drawer")).to_have_count(0)
     assert page.errors == []
 
 
-def test_tasks_drawer_saves_title_status_priority_and_tags_in_one_request(page, server, task_notes):
+def test_tasks_drawer_saves_status_and_priority_in_one_commit(page, server, task_notes):
     page.goto(f"{server}/tasks")
     before = len(git(task_notes, "rev-list", "HEAD").split())
     column(page, "TODO").locator(".board-card", has_text="Write report").click()
-    drawer = page.locator(".task-drawer-host")
-    drawer.locator('[name="title"]').fill("Write the report")
-    pick(drawer, "status", "In Progress")
-    pick(drawer, "priority", "Must")
-    tags = drawer.locator('app-combobox[name="tags"]')
-    tags.locator(".combobox-input").click()
-    page.keyboard.type("work,")
-    page.keyboard.type("q4")
-    drawer.locator(".modal-title").click()  # leaving the field adds the pending text
-    drawer.locator("[data-save]").click()
-    card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write the report")
+    drawer = page.locator(".notes-properties-drawer")
+    for key, label in (("status", "In Progress"), ("priority", "Must")):
+        combo = drawer.locator(f'app-combobox[data-key="{key}"]')
+        combo.locator(".combobox-input").click()
+        combo.locator(".combobox-option", has_text=label).click()
+    drawer.locator('[data-action="save"]').click()
+    card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write report")
     expect(card).to_have_count(1)
     expect(card.locator(".board-chip--must")).to_have_text("Must")
-    wait_for_commits(task_notes, before + 2)  # the new title renames the file (a commit), then everything else is one commit
-    text = (task_notes / "write-the-report.md").read_text()
-    assert "status: IN_PROGRESS" in text and "tags: [todo, work, q4, must]" in text
-    assert not (task_notes / "write-report.md").exists()
-    assert len(git(task_notes, "rev-list", "HEAD").split()) == before + 2
+    wait_for_commits(task_notes, before + 1)
+    text = (task_notes / "write-report.md").read_text()
+    assert "status: IN_PROGRESS" in text and "priority: must" in text
+    assert len(git(task_notes, "rev-list", "HEAD").split()) == before + 1
     assert page.errors == []
 
 
@@ -881,8 +866,8 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     before = len(git(property_notes, "rev-list", "HEAD").split())
     page.click("#note-properties-btn")
     drawer = page.locator(".notes-properties-drawer")
-    expect(drawer.locator(".modal-title")).to_have_text("Note Properties")
-    expect(drawer.locator("[data-field]")).to_have_count(7)  # project, specification, ticket, status, priority, assignee, week
+    expect(drawer.locator(".modal-title")).to_have_text("Task Properties")
+    expect(drawer.locator("[data-field]")).to_have_count(8)  # project, specification, ticket, status, priority, assignee, week, tags
     pick_field(drawer, "project", "Acme")
     pick_field(drawer, "assignee", "Bo")
     pick_field(drawer, "status", "In Progress")
@@ -923,7 +908,7 @@ def test_properties_drawer_keeps_unsaved_text_by_saving_it_first_and_has_a_short
     page.click(".cm-content")
     page.keyboard.type("words typed before opening")
     page.keyboard.press("Control+Shift+P")
-    expect(page.locator(".notes-properties-drawer .modal-title")).to_have_text("Note Properties")
+    expect(page.locator(".notes-properties-drawer .modal-title")).to_have_text("Task Properties")
     assert "words typed before opening" in (property_notes / "fix-it.md").read_text()
 
 
@@ -1388,3 +1373,18 @@ def test_saving_shows_no_toast_and_a_missing_note_says_so(page, server, notes_di
     page.goto(f"{server}/notes/nope")
     page.wait_for_url("**/notes/beta")  # the note edited last
     expect(page.get_by_text("does not exist")).to_be_visible()
+
+
+def test_task_properties_edit_tags_and_keep_the_priority(page, server, property_notes):
+    page.goto(f"{server}/notes/fix-it")
+    before = len(git(property_notes, "rev-list", "HEAD").split())
+    page.click("#note-properties-btn")
+    drawer = page.locator(".notes-properties-drawer")
+    drawer.locator('app-combobox[data-key="tags"] .combobox-input').click()
+    page.keyboard.type("work,")
+    drawer.locator(".modal-title").click()  # leaving the field adds the pending text
+    drawer.locator('[data-action="save"]').click()
+    expect(page.locator(".notes-properties-drawer")).to_have_count(0)
+    wait_for_commits(property_notes, before + 1)
+    assert "tags: [todo, work]" in (property_notes / "fix-it.md").read_text()
+    assert page.errors == []

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { COLUMNS, drawerChanges, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
+import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
 
 test('the board has the three Pandora columns in order', () => {
   assert.deepEqual(COLUMNS.map((c) => c.value), ['TODO', 'IN_PROGRESS', 'DONE']);
@@ -89,16 +89,6 @@ test('parseTags splits on commas, drops # and repeats', () => {
   assert.deepEqual(parseTags(''), []);
 });
 
-test('the drawer sends only what changed; tags always travel with the priority', () => {
-  const task = { title: 'T', status: 'TODO', priority: 'must', tags: ['todo', 'work'] };
-  const same = { title: 'T', status: 'TODO', priority: 'must', tags: 'todo, work' };
-  assert.deepEqual(drawerChanges(task, same), {}, 'nothing changed');
-  assert.deepEqual(drawerChanges(task, { ...same, title: ' New ', status: 'DONE' }), { title: 'New', status: 'DONE' });
-  assert.deepEqual(drawerChanges(task, { ...same, priority: 'important' }), { priority: 'important' });
-  assert.deepEqual(drawerChanges(task, { ...same, priority: '' }), { priority: '' });
-  assert.deepEqual(drawerChanges(task, { ...same, tags: 'todo, work, extra' }), { tags: ['todo', 'work', 'extra'], priority: 'must' });
-  assert.deepEqual(drawerChanges({ ...task, priority: null }, { ...same, priority: '', tags: 'work' }), { tags: ['work'], priority: '' });
-});
 
 test('a card shows its ticket id, escaped, and nothing without one', () => {
   const html = renderCard({ slug: 'x', title: 'X', tags: [], ticket: 'PROJ-12' });

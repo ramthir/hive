@@ -5,20 +5,26 @@ import { escapeHtml as esc } from '../html.js';
 export const isVisible = (field, values) => !field.show_when || (values[field.show_when.key] ?? '') === field.show_when.value;
 
 const clean = (value) => String(value ?? '').split(/\s+/).filter(Boolean).join(' '); // as the server reads it
+const tagList = (value) => [...new Set(String(value ?? '').split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean))];
 
 /**
  * The body of the `PUT /notes/{slug}` that saves the drawer: only what changed. `status`, `priority` and `week` are
- * top-level keys of the update, every other field goes in `properties`. A field that is hidden is not sent: the server
+ * top-level keys of the update (so is `tags`; changed tags travel with the priority, because the server
+ * drops a priority tag from the tags it is given), every other field goes in `properties`. A field that is hidden is not sent: the server
  * drops it itself once the field it depends on changes. Returns null when nothing changed.
  */
 export function propertyChanges(fields, values) {
   const body = {};
   for (const field of fields) {
-    const value = clean(values[field.key]);
-    if (!isVisible(field, values) || value === clean(field.value)) continue;
-    if (field.target === 'property') (body.properties ||= {})[field.key] = value;
+    const tags = field.target === 'tags';
+    const value = tags ? tagList(values[field.key]).join(',') : clean(values[field.key]);
+    if (!isVisible(field, values) || value === (tags ? tagList(field.value).join(',') : clean(field.value))) continue;
+    if (tags) body.tags = tagList(value);
+    else if (field.target === 'property') (body.properties ||= {})[field.key] = value;
     else body[field.target] = value;
   }
+  const priority = fields.find((f) => f.target === 'priority');
+  if (body.tags && priority && !('priority' in body)) body.priority = clean(values[priority.key] ?? priority.value);
   return Object.keys(body).length ? body : null;
 }
 
@@ -34,6 +40,9 @@ export function missingRequired(fields, values) {
 
 const control = (field) => {
   const label = esc(field.label);
+  if (field.kind === 'tags') {
+    return `<app-combobox data-key="${esc(field.key)}" multiple creatable aria-label="${label}" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}"></app-combobox>`;
+  }
   if (field.kind === 'text') {
     return `<input data-key="${esc(field.key)}" aria-label="${label}" maxlength="255" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">`;
   }

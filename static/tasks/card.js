@@ -99,21 +99,3 @@ export function parseTags(text) {
   return [...new Set(tags)];
 }
 
-/**
- * What the drawer's form changes about a task, as a `PUT /api/notes/{slug}` body holding only the changed keys
- * (empty when nothing changed). `values` = {title, status, priority: 'must' | 'important' | 'nice-to-have' | '', tags: comma-separated}.
- * `task.tags` has no priority tag, so the text field only holds the others; the server turns `priority` into the tag,
- * and `tags` replaces the whole list, so it is sent together with `priority`.
- */
-export function drawerChanges(task, values) {
-  const body = {};
-  const title = String(values.title ?? '').trim();
-  if (title && title !== task.title) body.title = title;
-  if (values.status && values.status !== task.status) body.status = values.status;
-  const tags = parseTags(values.tags);
-  const same = tags.length === (task.tags || []).length && tags.every((t) => (task.tags || []).includes(t));
-  const priority = values.priority || '';
-  if (!same) body.tags = tags;
-  if (!same || priority !== (task.priority || '')) body.priority = priority;
-  return body;
-}

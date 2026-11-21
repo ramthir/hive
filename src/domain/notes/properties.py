@@ -2,7 +2,7 @@
 
 Pandora keeps these as links between notes in a database; here they are frontmatter. A field's `target` says where
 it lives: `property` is its own frontmatter key (`project: Acme`), the others are the keys the app already manages
-(`status`, the priority tag, `week`) so the drawer and the task board stay in step.
+(`tags`, `status`, `priority`, `week`) so the drawer and the task board stay in step.
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from typing import Literal
 from src.domain.notes.entities import Note
 from src.domain.notes.errors import InvalidProperty
 
-Kind = Literal["text", "select", "note"]  # free text, one of `choices`, or the title of a note of one of `note_types`
-Target = Literal["property", "status", "priority", "week"]
+Kind = Literal["text", "select", "note", "tags"]  # free text, one of `choices`, the title of a note of one of `note_types`, or a list of tags
+Target = Literal["property", "tags", "status", "priority", "week"]
 MAX_LENGTH = 255
 
 
@@ -35,6 +35,7 @@ class Field:
 
 @dataclass(frozen=True)
 class Form:
+    name: str  # "Task": the drawer is titled "Task Properties"
     fields: tuple[Field, ...]
     groups: dict[str, str] | None = None  # group key -> heading
 
@@ -55,7 +56,8 @@ TASK_STATUS = (("TODO", "To Do"), ("IN_PROGRESS", "In Progress"), ("DONE", "Done
 TASK_PRIORITY = (("must", "Must"), ("important", "Important"), ("nice-to-have", "Nice to have"))
 
 TASK = Form(
-    groups={"context": "Project & Context", "execution": "Task Execution & Schedule"},
+    "Task",
+    groups={"context": "Project & Context", "execution": "Task Execution & Schedule", "tags": "Tags"},
     fields=(
         Field("project", "Project", "briefcase", "note", group="context", note_types=("project",), placeholder="Select project..."),
         Field("specification", "Specification", "certificate", "note", group="context", note_types=("spec", "specification"),
@@ -66,11 +68,13 @@ TASK = Form(
               placeholder="None"),
         Field("assignee", "Assignee", "user", "note", group="execution", note_types=("contact",), placeholder="Select assignee..."),
         Field("week", "Week", "calendar-week", "select", target="week", group="execution", placeholder="No week"),
+        Field("tags", "Tags", "tag", "tags", target="tags", group="tags", wide=True, placeholder="Add tags"),
     ),
 )
-SPEC = Form(fields=(_project(), Field("application", "Application", "code", "note", note_types=("application", "product"),
+SPEC = Form("Spec", fields=(_project(), Field("application", "Application", "code", "note", note_types=("application", "product"),
                                        placeholder="Select application...")))
 CONTACT = Form(
+    "Contact",
     groups={"context": "Project & Team"},
     fields=(
         Field("role", "Role", "id-badge", placeholder="Role or job title"),
@@ -87,13 +91,13 @@ CONTACT = Form(
 # both a task and a meeting gets the task's.
 FORMS: dict[str, Form] = {
     "task": TASK,
-    "meeting": Form(fields=(Field("week", "Week", "calendar-week", "select", target="week", placeholder="No week"), _project())),
-    "project": Form(fields=(Field("billing", "Billing", "money-bill-wave", "select", choices=_choices(*BILLING, "Prospecting"),
+    "meeting": Form("Meeting", fields=(Field("week", "Week", "calendar-week", "select", target="week", placeholder="No week"), _project())),
+    "project": Form("Project", fields=(Field("billing", "Billing", "money-bill-wave", "select", choices=_choices(*BILLING, "Prospecting"),
                                   placeholder="Not set"),)),
     "contact": CONTACT,
     "spec": SPEC,
     "specification": SPEC,
-    "prompt": Form(fields=(_project(),)),
+    "prompt": Form("Prompt", fields=(_project(),)),
 }
 
 

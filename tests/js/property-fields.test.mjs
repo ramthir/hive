@@ -47,3 +47,13 @@ test('a required field is missing when the save would leave it empty, as the ser
   assert.equal(missingRequired(saved, { billing: 'Shadowed', acting_for: '' }), null); // untouched: the server lets it be
   assert.equal(missingRequired([field('role', { required: true, value: 'Dev' })], { role: '' }).key, 'role'); // cleared
 });
+
+test('title and tags are top-level keys; changed tags travel with the priority', () => {
+  const fields = [field('title', { target: 'title', value: 'T' }), field('tags', { target: 'tags', kind: 'tags', value: 'todo,work' }),
+    field('priority', { target: 'priority', value: 'must' })];
+  const same = { title: 'T', tags: 'todo,work', priority: 'must' };
+  assert.equal(propertyChanges(fields, same), null);
+  assert.deepEqual(propertyChanges(fields, { ...same, title: ' New ' }), { title: 'New' });
+  assert.deepEqual(propertyChanges(fields, { ...same, tags: 'todo, #work,extra' }), { tags: ['todo', 'work', 'extra'], priority: 'must' });
+  assert.deepEqual(propertyChanges(fields, { ...same, tags: '', priority: 'important' }), { tags: [], priority: 'important' });
+});

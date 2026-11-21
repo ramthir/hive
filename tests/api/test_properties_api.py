@@ -43,7 +43,7 @@ def test_a_note_says_whether_its_type_has_properties(client):
 
 def test_each_type_gets_its_own_fields(client):
     keys = lambda slug: list(form(client, slug))
-    assert keys(make(client, "T", "task")) == ["project", "specification", "ticket", "status", "priority", "assignee", "week"]
+    assert keys(make(client, "T", "task")) == ["project", "specification", "ticket", "status", "priority", "assignee", "week", "tags"]
     assert keys(make(client, "M", "meeting")) == ["week", "project"]
     assert keys(make(client, "P", "project")) == ["billing"]
     assert keys(make(client, "C", "contact")) == ["role", "project", "team", "billing", "acting_for"]
@@ -63,6 +63,7 @@ def test_the_form_has_current_values_and_choices(client, root):
     assert [c["value"] for c in f["project"]["choices"]] == ["Acme", "Zed Corp"]
     assert [c["value"] for c in f["assignee"]["choices"]] == ["Bo"]
     assert (f["status"]["value"], f["priority"]["value"], f["week"]["value"]) == ("TODO", "must", "")
+    assert f["tags"]["value"] == "todo"  # the priority tag is the Priority field
     assert [c["value"] for c in f["status"]["choices"]] == ["TODO", "IN_PROGRESS", "DONE"]
     this_week = week_label(date.today())
     assert this_week in [c["value"] for c in f["week"]["choices"]] and len(f["week"]["choices"]) == 5
@@ -152,3 +153,25 @@ def test_tasks_board_carries_the_ticket_id(client):
     assert client.get("/api/tasks").json()[0]["ticket"] is None
     client.put(f"/api/notes/{slug}", json={"properties": {"ticket": "PROJ-12"}})
     assert client.get("/api/tasks").json()[0]["ticket"] == "PROJ-12"
+
+
+def test_task_tags_are_saved_with_the_priority_in_one_request(client, root):
+    slug = make(client, "Job", "task", tags=["todo", "must"])
+    r = client.put(f"/api/notes/{slug}", json={"title": "Better job", "tags": ["todo", "work"], "priority": "must"})
+    assert r.status_code == 200, r.text
+    text = (root / "better-job.md").read_text()
+    assert "priority: must" in text and "tags: [todo, work]" in text
+    f = form(client, "better-job")
+    assert (f["tags"]["value"], f["priority"]["value"]) == ("todo,work", "must")
+
+
+def test_the_drawer_is_titled_for_the_type(client):
+    title = lambda type_: client.get(f"/api/notes/{make(client, type_.title(), type_)}/properties").json()["title"]
+    assert [title(t) for t in ("task", "meeting", "project", "contact", "spec", "prompt")] == [
+        "Task Properties", "Meeting Properties", "Project Properties", "Contact Properties", "Spec Properties", "Prompt Properties"]
+
+
+def test_task_tags_have_their_own_section(client):
+    data = client.get(f"/api/notes/{make(client, 'Job', 'task')}/properties").json()
+    assert data["groups"]["tags"] == "Tags"
+    assert {f["key"]: f["group"] for f in data["fields"]}["tags"] == "tags"

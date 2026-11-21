@@ -3,7 +3,7 @@ import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import { COLUMNS, doneWeekOptions, isDoneWeekChoice, renderCard, sortByPriority, visibleTasks } from '/static/tasks/card.js';
-import { createTaskDrawer } from '/static/tasks/drawer.js';
+import { openProperties } from '/static/notes/properties.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 
@@ -21,11 +21,9 @@ class TasksApp extends HTMLElement {
           </div>
         </app-header>
         <div class="tasks-board-wrap"><app-board id="tasks-board"></app-board></div>
-        <div class="task-drawer-host"></div>
       </section>`;
     wireSearchTrigger(this);
     this.board = this.querySelector('app-board');
-    this.drawer = createTaskDrawer({ host: this.querySelector('.task-drawer-host'), onSave: (task, changes) => this.edit(task, changes) });
     this.board.configure({
       columns: COLUMNS,
       groupKey: (task) => task.status,
@@ -34,7 +32,7 @@ class TasksApp extends HTMLElement {
       columnLimits: COLUMN_LIMITS,
       renderCard,
       loading: true,
-      onCardClick: (task) => this.drawer.open(task),
+      onCardClick: (task) => openProperties(task, { onSaved: () => this.reloadTasks().catch((error) => showToast(error.message, 'error')) }),
       onDrop: (task, status, previous) => this.move(task, status, previous),
     });
     this.board.addEventListener('board-error', (event) => showToast(event.detail.error.message, 'error'));
@@ -105,12 +103,6 @@ class TasksApp extends HTMLElement {
   async reloadTasks() {
     this.tasks = await api('/tasks');
     this.refresh();
-  }
-
-  // Saved from the drawer: one PUT (one commit); a new title renames the note.
-  async edit(task, changes) {
-    await api(`/notes/${encodeURIComponent(task.slug)}`, { method: 'PUT', body: changes });
-    await this.reloadTasks();
   }
 
   // Optimistic: the card jumps columns at once; if the save fails it goes back and the error is shown.

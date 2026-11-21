@@ -6,7 +6,7 @@ from typing import Iterable
 
 from src.domain.notes.entities import Note
 from src.domain.notes.properties import Field, Form, extra_values
-from src.domain.notes.tasks import task_priority, task_status, week_label
+from src.domain.notes.tasks import task_priority, task_status, week_label, without_priority
 
 WEEKS_BEFORE, WEEKS_AFTER = 2, 2
 
@@ -29,6 +29,8 @@ def _note_choices(field: Field, notes: Iterable[Note], me: str, current: str) ->
 
 
 def _value(field: Field, note: Note, values: dict[str, str]) -> str:
+    if field.target == "tags":  # comma-separated; the priority tag of an older note is the Priority field
+        return ",".join(without_priority(note.tags))
     if field.target == "status":
         return task_status(note)
     if field.target == "priority":
@@ -55,4 +57,4 @@ def build(form: Form, note: Note, notes: Iterable[Note], today: date) -> dict:
             "show_when": None if f.show_when is None else {"key": f.show_when[0], "value": f.show_when[1]},
             "value": value, "choices": [{"value": v, "label": label} for v, label in choices],
         })
-    return {"groups": form.groups or {}, "fields": fields}
+    return {"title": f"{form.name} Properties", "groups": form.groups or {}, "fields": fields}
