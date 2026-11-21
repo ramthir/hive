@@ -43,19 +43,6 @@ export function storageTooltipDetails(storage, disk = null) {
   return rows;
 }
 
-/** One-line container summary shown beside the process filter: uptime, processes and threads. */
-export function containerSummary(stats) {
-  if (!stats) return '';
-  const parts = [];
-  if (stats.uptime) parts.push(`Up ${stats.uptime}`);
-  const procs = stats.processes;
-  if (procs && typeof procs.total === 'number') {
-    parts.push(`${procs.total} ${procs.total === 1 ? 'process' : 'processes'}`);
-    if (typeof procs.threads === 'number') parts.push(`${procs.threads} ${procs.threads === 1 ? 'thread' : 'threads'}`);
-  }
-  return parts.join(' · ');
-}
-
 const clamp = (n) => Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
 
 /**
@@ -113,9 +100,7 @@ export function statusColor(status) {
   return 'var(--color-dimmed2)';
 }
 
-/** The query string of one page of processes; the filter is left out while it is empty. */
-export function processQuery({ page, pageSize, sort, direction, q = '' }) {
-  const query = new URLSearchParams({ page: String(page), page_size: String(pageSize), sort, direction });
-  if (q.trim()) query.set('q', q.trim());
-  return query.toString();
+/** The query string of one page of processes. */
+export function processQuery({ page, pageSize, sort, direction }) {
+  return new URLSearchParams({ page: String(page), page_size: String(pageSize), sort, direction }).toString();
 }

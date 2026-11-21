@@ -1,6 +1,5 @@
 import os
 import subprocess
-import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,12 +26,6 @@ def test_processes_are_paged_and_sorted(client):
     body = client.get("/api/system/processes", params={"page_size": 2, "sort": "mem_percent"}).json()
     assert len(body["processes"]) <= 2 and body["page"] == 1 and body["total"] >= 1
     assert {"pid", "name", "cmdline", "cpu_percent", "mem", "running_for"} <= body["processes"][0].keys()
-
-
-def test_processes_can_be_filtered(client):
-    body = client.get("/api/system/processes", params={"q": "zz-" + uuid.uuid4().hex}).json()  # on no command line
-    assert body["processes"] == [] and body["total"] == 0
-    assert client.get("/api/system/processes", params={"q": "x" * 101}).status_code == 422
 
 
 @pytest.mark.parametrize("query", ["sort=name", "direction=up", "page=0", "page_size=0", "page_size=101"])

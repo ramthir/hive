@@ -222,7 +222,7 @@ class ContainerMonitor:
                 continue
         return rows
 
-    def process_page(self, page: int = 1, page_size: int = 10, sort: str = "cpu_percent", direction: str = "desc", q: str = "") -> dict:
+    def process_page(self, page: int = 1, page_size: int = 10, sort: str = "cpu_percent", direction: str = "desc") -> dict:
         if page < 1 or not 1 <= page_size <= 100 or sort not in ("cpu_percent", "mem_percent") or direction not in ("asc", "desc"):
             raise ValueError("Invalid process pagination or sorting options")
         with self._lock:
@@ -230,9 +230,6 @@ class ContainerMonitor:
             if self._snapshot is None or now - self._snapshot[0] >= SNAPSHOT_TTL:
                 self._snapshot = (now, self._sample())
             rows = list(self._snapshot[1])
-        needle = q.strip().lower()
-        if needle:  # the filter is on the server so it reaches every page, not only the one on screen
-            rows = [r for r in rows if needle in f"{r[4]} {r[5]}".lower()]
         index, sign = (0 if sort == "cpu_percent" else 1), (-1 if direction == "desc" else 1)
         rows.sort(key=lambda r: (sign * r[index], r[2]))
         while True:

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { containerSummary, diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml, storageTooltipDetails } from '../../static/dashboard/format.js';
+import { diskColor, levelColor, processQuery, processTitle, statTiles, statusColor, storageSubHtml, storageTooltipDetails } from '../../static/dashboard/format.js';
 
 const stats = {
   cpu: { percent: 42.26, limit: 2 },
@@ -78,11 +78,8 @@ test('the storage card says what is free on the disk, in the colour of how full 
   assert.equal(statTiles(stats).find((t) => t.key === 'storage').sub.includes('Free'), false); // no disk reading, no Free
 });
 
-test('the process query carries the filter only when there is one', () => {
-  const base = { page: 2, pageSize: 10, sort: 'mem_percent', direction: 'asc' };
-  assert.equal(processQuery(base), 'page=2&page_size=10&sort=mem_percent&direction=asc');
-  assert.equal(processQuery({ ...base, q: '   ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc');
-  assert.equal(processQuery({ ...base, q: ' python main ' }), 'page=2&page_size=10&sort=mem_percent&direction=asc&q=python+main');
+test('the process query carries page, size and sort', () => {
+  assert.equal(processQuery({ page: 2, pageSize: 10, sort: 'mem_percent', direction: 'asc' }), 'page=2&page_size=10&sort=mem_percent&direction=asc');
 });
 
 test('CPU, memory and load cards carry threshold colours and storage has a tooltip breakdown', () => {
@@ -95,10 +92,4 @@ test('CPU, memory and load cards carry threshold colours and storage has a toolt
   const details = storageTooltipDetails(stats.storage, disk);
   assert.deepEqual(details.map((r) => r.label), ['Home', 'Notes', 'Downloads', 'Disk Free']);
   assert.equal(details[3].color, 'var(--color-red)');
-});
-
-test('containerSummary formats uptime, process count and thread count', () => {
-  assert.equal(containerSummary(stats), 'Up 3h 2m · 12 processes · 40 threads');
-  assert.equal(containerSummary({ uptime: '10s', processes: { total: 1, threads: 1 } }), 'Up 10s · 1 process · 1 thread');
-  assert.equal(containerSummary(null), '');
 });

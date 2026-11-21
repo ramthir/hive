@@ -4,7 +4,6 @@ from datetime import date
 import subprocess
 import threading
 import time
-import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -1542,22 +1541,7 @@ def test_agents_tab_loads_each_section_when_the_other_fails(page, agents_server,
     expect(table.locator("tbody tr")).to_have_count(3)
 
 
-def test_debian_tab_filters_the_processes_on_the_server(page, server):
-    page.goto(f"{server}/dashboard")
-    rows = page.locator("debian-tab app-table tbody tr")
-    expect(rows.first).to_be_visible()
-    requests = []
-    page.on("request", lambda r: "/api/system/processes" in r.url and requests.append(r.url))
-    nothing = "zz-" + uuid.uuid4().hex  # on no command line
-    page.locator("debian-tab .proc-filter").fill(nothing)
-    expect(page.locator("debian-tab app-table")).to_contain_text("No process matches the filter")
-    assert any(f"q={nothing}" in url for url in requests)
-    page.locator("debian-tab .proc-filter").fill("")
-    expect(rows.first).to_be_visible()
-    assert page.errors == []
-
-
-def test_debian_process_table_recovers_after_a_failed_filter_request(page, server):
+def test_debian_process_table_recovers_after_a_failed_request(page, server):
     page.goto(f"{server}/dashboard")
     tab = page.locator("debian-tab")
     table = tab.locator("app-table")
@@ -1572,19 +1556,9 @@ def test_debian_process_table_recovers_after_a_failed_filter_request(page, serve
     expect(status).to_contain_text("Process data unavailable")
     assert rows.all_text_contents() == previous_rows
 
-    query = "zz-" + uuid.uuid4().hex
-    tab.locator(".proc-filter").fill(query)
-    expect(table).to_contain_text("Could not read processes: Process data unavailable")
-    expect(table).not_to_have_attribute("aria-busy", "")
-    expect(tab.locator("app-pagination")).to_be_hidden()
-
     page.unroute(endpoint)
     tab.evaluate("(tab) => tab.loadProcesses()")
     expect(status).to_have_text("")
-    expect(table).to_contain_text("No process matches the filter")
-    expect(tab.locator(".proc-filter")).to_have_value(query)
-    tab.locator(".proc-filter").fill("")
-    expect(table).not_to_contain_text("No process matches the filter")
     expect(table).not_to_have_attribute("aria-busy", "")
     expect(rows.first).to_be_visible()
 
