@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Run Hive in the background: scripts/service.sh start|stop|restart|status
+# Run Hive in the background: scripts/service.sh start|stop|restart|status|ensure
+# `ensure` is for a watchdog: it starts Hive if it is down, unless it was stopped on purpose (`stop` leaves a marker that
+# `start` removes), so a crash is recovered and a deliberate stop is respected.
 # No systemd needed. The pid and the log live in ~/.local/state/hive/. Settings come from the environment and .env
 # (NOTES_DIR, PORT, HOST, ...), as for `python main.py`; NOTES_DIR defaults to ~/Workspace/notes.
 set -euo pipefail
@@ -7,10 +9,12 @@ cd "$(dirname "$0")/.."
 STATE="${HIVE_STATE_DIR:-$HOME/.local/state/hive}"
 PIDFILE="$STATE/hive.pid"
 LOG="$STATE/hive.log"
+STOPPED="$STATE/stopped"
 mkdir -p "$STATE"
 
 # True if `$1` is a `python main.py` whose working directory is this one.
 is_hive() {
+  [[ -r "/proc/$1/cmdline" ]] || return 1
   [[ "$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null)" == *"python main.py"* ]] && [[ "$(readlink "/proc/$1/cwd" 2>/dev/null)" == "$PWD" ]]
 }
 
@@ -28,6 +32,7 @@ running_pid() {
 
 stop() {
   local pid
+  touch "$STOPPED"
   pid="$(running_pid)" || { echo "not running"; rm -f "$PIDFILE"; return 0; }
   kill "$pid"
   for _ in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.25; done
@@ -37,6 +42,7 @@ stop() {
 }
 
 start() {
+  rm -f "$STOPPED"
   if pid="$(running_pid)"; then echo "already running ($pid)"; return 0; fi
   NOTES_DIR="${NOTES_DIR:-$HOME/Workspace/notes}" setsid nohup .venv/bin/python main.py >>"$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDFILE"
@@ -58,6 +64,7 @@ case "${1:-}" in
   start) start ;;
   stop) stop ;;
   restart) stop; start ;;
+  ensure) [[ -e "$STOPPED" ]] || running_pid >/dev/null || start ;;
   status) status ;;
-  *) echo "usage: $0 start|stop|restart|status" >&2; exit 2 ;;
+  *) echo "usage: $0 start|stop|restart|status|ensure" >&2; exit 2 ;;
 esac
