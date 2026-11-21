@@ -1,4 +1,3 @@
-import { ScopedRouter } from '/static/scoped-router.js';
 import { confirmDialog, confirmDiscard } from '/static/components/dialog.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
@@ -8,12 +7,10 @@ import '/static/components/action-bar.js';
 import { SPOTLIGHT_SELECT_EVENT } from '/static/components/note-spotlight.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { DEFAULT_TYPE, typeIcon, typeLabel, typeOptions } from '/static/type-icons.js';
-import { createPlantUmlLanguage } from '/static/notes/plantuml-lang.js';
-import { renderMarkdownPreview as renderMarkdown, configureMarkedWikilinks } from '/static/notes/markdown.js';
+import { configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
 import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
-import { debounce, remoteAction, watchChanges } from '/static/events.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
@@ -22,14 +19,12 @@ import { openProperties } from '/static/notes/properties.js';
 import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { readPagePath } from '/static/notes/read-pages.js';
-import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
-import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
-
-const notesRouter = new ScopedRouter({ basename: '/notes' });
-notesRouter.register('/notes', { view: 'list' });
-notesRouter.register('/notes/new', { view: 'editor', isNew: true });
-notesRouter.register('/notes/:slug', { view: 'editor' });
-notesRouter.registerFallback({ view: 'list' });
+import { notesRouter } from '/static/notes/notes-router.js';
+import { mixin } from '/static/mixin.js';
+import { RemoteChanges } from '/static/notes/remote-changes.js';
+import { Preview } from '/static/notes/preview.js';
+import { CodeMirrorEditor } from '/static/notes/codemirror.js';
+import { noteStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
@@ -38,35 +33,6 @@ const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) 
 
 
 configureMarkedWikilinks();
-
-/* --- Editor (CodeMirror is ~670 KB; loaded on first edit or when idle) -- */
-
-let sqlLanguage = null;
-let shellLanguage = null;
-let plantumlLanguage = null;
-let editorModules = null;
-const loadEditor = () => {
-  editorModules ||= Promise.all([
-    import('/static/vendor/codemirror.bundle.js'),
-    import('/static/components/editor.js'),
-  ]).then(([codemirror, editor]) => {
-    sqlLanguage = codemirror.sql().language;
-    shellLanguage = codemirror.StreamLanguage.define(codemirror.shellMode);
-    plantumlLanguage = createPlantUmlLanguage(codemirror.StreamLanguage);
-    return { markdown: codemirror.markdown, createEditor: editor.createEditor };
-  }).catch((error) => {
-    editorModules = null;
-    throw error;
-  });
-  return editorModules;
-};
-const fencedCodeLanguage = (info) => {
-  const language = String(info || '').trim().toLowerCase();
-  if (language === 'sql') return sqlLanguage;
-  if (['bash', 'sh', 'shell'].includes(language)) return shellLanguage;
-  if (['plantuml', 'puml'].includes(language)) return plantumlLanguage;
-  return null;
-};
 
 /* --- The app ---------------------------------------------------------- */
 
@@ -284,92 +250,6 @@ class NotesApp extends HTMLElement {
         this.renderLoadError(slug, error.message); // stay on this note's address: Retry loads it again
       }
     }
-  }
-
-  /* --- Changes made elsewhere (another tab, an editor, git pull) ------------------------- */
-
-  // Listen for the open note only. An event says "look again": the note is fetched and its revision compared with the
-  // one this page holds, so the page's own saves (which update the revision) are recognised and nothing flickers.
-  watchNote(slug) {
-    if (this._watchedSlug === slug && this._changes) return;
-    this.stopWatching();
-    this._watchedSlug = slug;
-    this._checkRemote = debounce(() => this.checkRemoteChange(slug), 400);
-    this._changes = watchChanges({ note: slug }, this._checkRemote);
-  }
-
-  stopWatching() {
-    this._changes?.close();
-    this._checkRemote?.cancel();
-    this._changes = this._checkRemote = this._watchedSlug = null;
-    this.querySelector('.notes-remote-banner')?.remove();
-  }
-
-  async checkRemoteChange(slug) {
-    if (this.selectedSlug !== slug || !this.selectedNote) return;
-    if (this.saveStatus === 'saving') { this._checkRemote(); return; } // look again once the save has landed
-    let fresh = null;
-    try {
-      fresh = await api(`/notes/${encodeURIComponent(slug)}`);
-    } catch (error) {
-      if (error.status !== 404) return; // the server is not reachable: the stream reconnects and asks again
-    }
-    if (this.selectedSlug !== slug || !this.selectedNote || this.saveStatus === 'saving') return;
-    const action = remoteAction({ heldRevision: this.selectedNote.revision, fresh, unsaved: this.saveStatus === 'dirty' });
-    if (action === 'none') return;
-    if (action === 'gone') {
-      if (this.saveStatus === 'dirty') return this.showRemoteBanner('This note was deleted or renamed outside this page. Your unsaved text is still here; saving writes it back.');
-      showToast('This note was renamed or deleted elsewhere.', 'info');
-      notesRouter.navigate('/notes', { replace: true });
-      return;
-    }
-    if (action === 'banner') return this.showRemoteBanner('This note changed outside this page. Reloading discards your unsaved edits.', fresh);
-    this.applyRemoteNote(fresh);
-  }
-
-  // Show the note as it is now, keeping the reading position and edit mode.
-  applyRemoteNote(fresh) {
-    const preview = this.querySelector('#notes-preview');
-    const scrollTop = preview?.scrollTop ?? 0;
-    // The editor is rebuilt with the new text: remember where the caret and the editor's scroll were.
-    this._restoreEditorView = this.cmEditor
-      ? { head: this.cmEditor.state.selection.main.head, scrollTop: this.cmEditor.scrollDOM.scrollTop }
-      : null;
-    this.selectedNote = fresh;
-    this.saveStatus = 'saved';
-    this.destroyCodeMirror();
-    this.renderEditorView();
-    const again = this.querySelector('#notes-preview');
-    if (again) again.scrollTop = scrollTop;
-    if (this.isNoteEditing) setTimeout(() => this.focusEditor(), 0);
-  }
-
-  // Put the caret and scroll of the editor that was replaced into the new one (the text may be shorter now).
-  restoreEditorView() {
-    const saved = this._restoreEditorView;
-    this._restoreEditorView = null;
-    if (!saved || !this.cmEditor) return;
-    const head = Math.min(saved.head, this.cmEditor.state.doc.length);
-    this.cmEditor.dispatch({ selection: { anchor: head } });
-    // Focusing the editor scrolls the caret into view, which may be far from where the reader was: put the scroll back after it.
-    const scroll = () => { if (this.cmEditor) this.cmEditor.scrollDOM.scrollTop = saved.scrollTop; };
-    requestAnimationFrame(scroll);
-    setTimeout(scroll, 100);
-  }
-
-  showRemoteBanner(message, fresh = null) {
-    this.querySelector('.notes-remote-banner')?.remove();
-    const banner = document.createElement('div');
-    banner.className = 'notes-remote-banner';
-    banner.setAttribute('role', 'status');
-    banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${esc(message)}</span>${fresh ? '<button type="button" class="crud-drawer-btn" data-remote="reload">Reload</button>' : ''}<button type="button" class="crud-drawer-btn" data-remote="dismiss">Keep editing</button>`;
-    banner.addEventListener('click', (event) => {
-      const action = event.target.closest('[data-remote]')?.dataset.remote;
-      if (!action) return;
-      banner.remove();
-      if (action === 'reload') this.applyRemoteNote(fresh);
-    });
-    (this.querySelector('.notes-editor-page') || this).prepend(banner);
   }
 
   renderLoadError(slug, message) {
@@ -782,216 +662,6 @@ class NotesApp extends HTMLElement {
     }
   }
 
-  /* --- Preview ------------------------------------------------------- */
-
-  getTitleFromContent(content) {
-    const heading = /^#\s+(.+)$/m.exec(String(content || ''));
-    return heading ? heading[1].trim() : '';
-  }
-
-  // Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi).
-  async downloadDiagramPng(source, theme) {
-    try {
-      const res = await fetch('/api/diagram/render/png', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, theme }),
-      });
-      if (!res.ok) {
-        const detail = await res.json().then((body) => body.detail).catch(() => '');
-        throw new Error(detail || 'Could not render the PNG.');
-      }
-      const url = URL.createObjectURL(await res.blob());
-      const link = document.createElement('a');
-      const name = String(this.selectedNote?.title || 'diagram').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
-      link.href = url;
-      link.download = `${name}-${theme}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      showToast(error.message || 'Could not download the diagram PNG.', 'error');
-    }
-  }
-
-  renderMarkdownPreview(content) {
-    const html = renderMarkdown(content, {
-      isRoute: (pathname) => Boolean(notesRouter.getMatch(pathname)),
-      decorate: (parsed) => this._diagrams.markBlocks(parsed),
-    });
-    return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, ''); // the title is in the header
-  }
-
-  updateLivePreview(content) {
-    const preview = this.querySelector('#notes-preview');
-    const body = this.querySelector('#notes-md');
-    if (!preview || !body) return;
-    const scrollTop = preview.scrollTop;
-    body.innerHTML = this.renderMarkdownPreview(content);
-    const header = this.querySelector('app-header');
-    const title = this.getTitleFromContent(content);
-    if (header && title) header.heading = title;
-    this.setupPreviewEvents();
-    preview.scrollTop = scrollTop;
-  }
-
-  setupPreviewEvents() {
-    const preview = this.querySelector('#notes-preview');
-    if (!preview) return;
-    preview.removeEventListener('click', this._previewClickHandler);
-    preview.addEventListener('click', this._previewClickHandler);
-    preview.removeEventListener('dropdown-select', this._diagramMenuHandler);
-    preview.addEventListener('dropdown-select', this._diagramMenuHandler);
-    this.decorateWikilinks(preview);
-    this._diagrams.decorate(preview, { editing: this.isNoteEditing });
-    setupCodeBlockActions(preview);
-    this.preloadEditorWhenIdle();
-  }
-
-  // Fetch CodeMirror once the note has been shown, so the first switch to edit mode does not wait for it.
-  preloadEditorWhenIdle() {
-    if (editorModules || this._editorPreloadScheduled) return;
-    this._editorPreloadScheduled = true;
-    const preload = () => loadEditor().catch(() => {});
-    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(preload, { timeout: 4000 });
-    else setTimeout(preload, 2000);
-  }
-
-  // Resolve [[targets]] against the notes on disk: link them, label them, or mark them broken.
-  async decorateWikilinks(preview) {
-    const links = [...preview.querySelectorAll('.notes-wikilink')];
-    const targets = [...new Set(links.map((link) => link.dataset.target).filter((target) => target && !target.startsWith('#')))];
-    for (const link of links) if (link.dataset.target?.startsWith('#')) link.classList.remove('unresolved');
-    if (!targets.length) return;
-    let resolved;
-    try {
-      resolved = await api(`/resolve?${targets.map((target) => `target=${encodeURIComponent(target)}`).join('&')}`);
-    } catch (error) {
-      console.error('Failed to resolve wikilinks:', error);
-      return;
-    }
-    if (!preview.isConnected) return;
-    for (const link of links) {
-      const hit = resolved[link.dataset.target];
-      if (!hit) {
-        if (!link.dataset.target.startsWith('#')) link.classList.add('unresolved');
-        continue;
-      }
-      link.classList.remove('unresolved');
-      link.dataset.slug = hit.slug;
-      link.setAttribute('href', `/notes/${encodeURIComponent(hit.slug)}`);
-      if (link.dataset.autoLabel === 'true') link.textContent = hit.title;
-    }
-  }
-
-  handlePreviewClick(event) {
-    const wikilink = event.target.closest('.notes-wikilink');
-    if (!wikilink) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const target = wikilink.dataset.target || '';
-    if (target.startsWith('#')) return;
-    if (wikilink.dataset.slug) {
-      const url = `/notes/${encodeURIComponent(wikilink.dataset.slug)}`;
-      if (event.metaKey || event.ctrlKey || event.button === 1) window.open(url, '_blank');
-      else this.go(url);
-      return;
-    }
-    if (wikilink.classList.contains('unresolved')) this.promptCreateNoteFromWikilink(target);
-  }
-
-  promptCreateNoteFromWikilink(target) {
-    const title = target.split('#', 1)[0].trim();
-    if (!title) return;
-    const { dialog, close } = openDialog(`
-      ${dialogHeader('Create Note')}
-      <div class="modal-body">Note &ldquo;<strong>${esc(title)}</strong>&rdquo; does not exist yet. Would you like to create it?</div>
-      <div class="modal-footer">
-        <button type="button" class="crud-drawer-btn" data-action="cancel">Cancel</button>
-        <button type="button" class="crud-drawer-btn primary" data-action="confirm-create"><i class="fa-solid fa-plus" aria-hidden="true"></i> Create Note</button>
-      </div>`, { initialFocus: '[data-action="confirm-create"]' });
-    dialog.querySelector('[data-action="confirm-create"]').addEventListener('click', async (event) => {
-      const button = event.currentTarget;
-      button.disabled = true;
-      try {
-        const created = await api('/notes', { method: 'POST', body: { content: `# ${title}\n\n`, tags: [] } });
-        close();
-        if (this.saveStatus === 'dirty') showToast(`Created ${created.slug}. Your unsaved edits are still here.`, 'success');
-        else notesRouter.navigate(`/notes/${encodeURIComponent(created.slug)}?mode=edit`);
-        if (this.selectedNote) this.refreshBacklinks(), this.setupPreviewEvents();
-      } catch (error) {
-        button.disabled = false;
-        this.showAlert('Could Not Create Note', error.message);
-      }
-    });
-  }
-
-  /* --- CodeMirror ---------------------------------------------------- */
-
-  destroyCodeMirror() {
-    this._cmInitToken = null;
-    if (this.cmEditor) {
-      this.cmEditor.destroy();
-      this.cmEditor = null;
-    }
-  }
-
-  async initCodeMirror() {
-    const container = this.querySelector('#notes-cm-editor');
-    if (!container) return;
-    this.destroyCodeMirror();
-    const initToken = (this._cmInitToken = Symbol('codemirror'));
-    let modules;
-    try {
-      modules = await loadEditor();
-    } catch (error) {
-      console.error('Could not load the editor', error);
-      showToast('Could not load the editor. Reload the page and try again.', 'error');
-      return;
-    }
-    // The note may have changed or the view been redrawn while the editor downloaded.
-    if (this._cmInitToken !== initToken || !container.isConnected) return;
-
-    this.cmEditor = modules.createEditor({
-      doc: this.selectedNote?.content || '',
-      language: modules.markdown({ codeLanguages: fencedCodeLanguage }),
-      shortcuts: [{
-        key: 'Mod-s',
-        run: () => {
-          if (this.selectedNote && this.saveStatus === 'dirty') this.saveCurrentNote();
-          return true;
-        },
-      }],
-      placeholder: 'Start writing markdown...',
-      contentAttributes: { spellcheck: 'true', lang: 'en-US', autocorrect: 'on', autocapitalize: 'sentences' },
-      onUpdate: (update) => {
-        if (!update.docChanged) return;
-        const text = update.state.doc.toString();
-        this.selectedNote.content = text;
-        this.updateLivePreview(text);
-        updateStats(this, this.currentContent());
-        this.markDirty();
-      },
-      // The action bar overlays the bottom of the editor; the content's bottom padding is its height.
-      scrollMargins: (view) => ({ bottom: parseFloat(getComputedStyle(view.contentDOM).paddingBottom) || 0 }),
-      parent: container,
-      root: document,
-    });
-    if (!this.selectedNote?.slug) this.cmEditor.dispatch({ selection: { anchor: 2 } }); // new note: type the title
-    if (this._focusEditorWhenReady) this.focusEditor();
-    this.restoreEditorView();
-  }
-
-  focusEditor() {
-    if (this.cmEditor) {
-      this._focusEditorWhenReady = false;
-      this.cmEditor.focus();
-    } else {
-      this._focusEditorWhenReady = true;
-    }
-  }
-
   async copyCurrentNote() {
     try {
       await copyTextToClipboard(this.currentContent());
@@ -1087,5 +757,7 @@ class NotesApp extends HTMLElement {
     });
   }
 }
+
+mixin(NotesApp, RemoteChanges, Preview, CodeMirrorEditor);
 
 customElements.define('notes-app', NotesApp);
