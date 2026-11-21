@@ -5,7 +5,7 @@ import '/static/components/dropdown-menu.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { api } from '/static/notes/api.js';
-import { processColor, processTitle } from '/static/dashboard/format.js';
+import { processColumns } from '/static/dashboard/process-columns.js';
 import { PAGE_SIZE, chooseSession, machineTiles, pickerItems, headerStatus, processPage, statusText, streamIsLive, waitingReason, usageTiles, uptimeTile } from '/static/colab/format.js';
 
 const POLL_MS = 30000; // usage and the runtime list; the live numbers come from the stream
@@ -307,16 +307,7 @@ class ColabTab extends HTMLElement {
   }
 
   columns() {
-    const percent = (value) => `<span style="color:${processColor(value)}">${(Number(value) || 0).toFixed(1)}%</span>`;
-    return [
-      { key: 'name', label: 'Process', className: 'proc-cell',
-        render: (_v, p) => `<span class="proc-label" title="${esc(processTitle(p))}"><span class="proc-name">${esc(p.name)}</span>${p.cmdline ? `<span class="proc-cmd">${esc(p.cmdline)}</span>` : ''}</span>` },
-      { key: 'pid', label: 'PID', className: 'muted tabular', width: '5.5rem', render: (v) => esc(v) },
-      { key: 'running_for', label: 'Running', className: 'tabular', width: '8.5rem', render: (v) => `<span style="color:var(--color-green)">${esc(v || '--')}</span>` },
-      { key: 'cpu_percent', label: 'CPU', className: 'tabular', width: '6rem', sortable: true, render: percent },
-      { key: 'mem', label: 'Memory', className: 'tabular', width: '7.5rem', sortable: true,
-        render: (v, row) => `<span title="${(Number(row.mem_percent) || 0).toFixed(1)}%">${esc(v || '—')}</span>` },
-    ];
+    return processColumns();
   }
 }
 
