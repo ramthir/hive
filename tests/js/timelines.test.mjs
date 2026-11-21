@@ -54,3 +54,11 @@ test('a heading without a dash has no label, and no headings means no phases', (
   assert.deepEqual(t.splitHeading('Kickoff'), { label: '', title: 'Kickoff' });
   assert.deepEqual(t.parseTimeline('# Only a title\n\ntext').phases, []);
 });
+
+test('readPagePath sends table and timeline notes to their own page', async () => {
+  const { readPagePath } = await import('/static/notes/read-pages.js');
+  assert.equal(readPagePath({ slug: 'plan', types: ['timeline'] }), '/timelines/plan');
+  assert.equal(readPagePath({ slug: 'a b', types: ['Table'] }), '/tables/a%20b');
+  assert.equal(readPagePath({ slug: 'plan', types: ['task'] }), '');
+  assert.equal(readPagePath({ types: ['table'] }), '');
+});

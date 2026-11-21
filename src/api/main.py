@@ -158,13 +158,12 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     def tasks_page() -> FileResponse:
         return FileResponse(static / "tasks.html", headers={"Cache-Control": "no-cache"})
 
-    @app.get("/tables/{slug}", include_in_schema=False)
-    def tables_page(slug: str) -> FileResponse:
-        return FileResponse(static / "tables.html", headers={"Cache-Control": "no-cache"})
+    # Note types read on their own page (keep in step with READ_PAGES in static/notes/read-pages.js).
+    for prefix, html in (("tables", "tables.html"), ("timelines", "timelines.html")):
+        def read_page(slug: str, html: str = html) -> FileResponse:
+            return FileResponse(static / html, headers={"Cache-Control": "no-cache"})
 
-    @app.get("/timelines/{slug}", include_in_schema=False)
-    def timelines_page(slug: str) -> FileResponse:
-        return FileResponse(static / "timelines.html", headers={"Cache-Control": "no-cache"})
+        app.add_api_route(f"/{prefix}/{{slug}}", read_page, methods=["GET"], include_in_schema=False)
 
     @app.get("/dashboard", include_in_schema=False)
     @app.get("/dashboard/agents", include_in_schema=False)

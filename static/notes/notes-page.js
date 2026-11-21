@@ -21,8 +21,7 @@ import { tagChips, tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
 import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
-import { isTableNote } from '/static/tables/table-note.js';
-import { isTimelineNote } from '/static/timelines/timeline-note.js';
+import { readPagePath } from '/static/notes/read-pages.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { noteStats, updateStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
 
@@ -598,14 +597,10 @@ class NotesApp extends HTMLElement {
     const kept = keepEditor && editing && this.cmEditor
       ? { dom: this.cmEditor.dom, scroll: this.cmEditor.scrollDOM.scrollTop, preview: this.querySelector('#notes-preview')?.scrollTop || 0 }
       : null;
-    // A table note is read on its own page (static/tables/); the pencil there comes back here in edit mode.
-    if (!editing && note.slug && isTableNote(note)) {
-      window.location.replace(`/tables/${encodeURIComponent(note.slug)}`);
-      return;
-    }
-    // Likewise a timeline note (static/timelines/).
-    if (!editing && note.slug && isTimelineNote(note)) {
-      window.location.replace(`/timelines/${encodeURIComponent(note.slug)}`);
+    // Table and timeline notes are read on their own page (READ_PAGES); the pencil there comes back here in edit mode.
+    const readPath = !editing && readPagePath(note);
+    if (readPath) {
+      window.location.replace(readPath);
       return;
     }
     const { words, chars, readingMinutes } = noteStats(note.content);
