@@ -26,11 +26,19 @@ class SessionStore:
         value = self._read().get(name)
         return value if isinstance(value, str) and UUID.match(value) else None
 
-    def set(self, name: str, session: str | None) -> None:
+    def tag(self, name: str) -> str | None:
+        """A label saved with the session (the commit messages use the month it started in)."""
+        value = self._read().get(f"{name}.tag")
+        return value if isinstance(value, str) else None
+
+    def set(self, name: str, session: str | None, tag: str | None = None) -> None:
         with self._lock:
             data = self._read()
+            data.pop(f"{name}.tag", None)
             if session and UUID.match(session):
                 data[name] = session
+                if tag:
+                    data[f"{name}.tag"] = tag
             else:
                 data.pop(name, None)
             self.path.parent.mkdir(parents=True, exist_ok=True)

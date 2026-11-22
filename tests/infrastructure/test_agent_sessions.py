@@ -53,3 +53,36 @@ def test_a_session_that_cannot_be_resumed_starts_a_new_one(tmp_path):
     sessions.set("commit", A)
     assert CodexCommitMessages(program, notes_dir=notes, sessions=sessions).describe("T", "s", "+x\n") == "doc: x"
     assert sessions.get("commit") == B
+
+
+def test_the_commit_session_starts_anew_each_month(tmp_path):
+    from datetime import date
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    log = tmp_path / "calls.jsonl"
+    ids = iter([A, B, A])
+    program = fake_codex(tmp_path, f"import os\nopen({str(log)!r}, 'a').write(json.dumps(args) + '\\n')\n"
+                                   f"print(json.dumps({{'type': 'thread.started', 'thread_id': {A!r} if 'resume' in args else open({str(tmp_path / 'n')!r}, 'a+').read() or {B!r}}}))\nopen(out, 'w').write('doc: x')")
+    sessions = SessionStore(tmp_path / "s.json")
+    day = [date(2026, 11, 20)]
+    writer = CodexCommitMessages(program, notes_dir=notes, sessions=sessions, today=lambda: day[0])
+    writer.describe("T", "s", "+1\n")
+    assert sessions.get("commit") == B and sessions.tag("commit") == "2026-11"
+    day[0] = date(2026, 11, 30)
+    writer.describe("T", "s", "+2\n")  # same month: resumed
+    day[0] = date(2026, 12, 1)
+    writer.describe("T", "s", "+3\n")  # new month: a new session
+    calls = [json.loads(l) for l in log.read_text().splitlines()]
+    assert ["resume" in c for c in calls] == [False, True, False]
+    assert sessions.tag("commit") == "2026-12"
+
+
+def test_an_id_without_a_month_is_rotated_once(tmp_path):
+    from datetime import date
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    program = fake_codex(tmp_path, f"print(json.dumps({{'type': 'thread.started', 'thread_id': {B!r}}}))\nassert 'resume' not in args\nopen(out, 'w').write('doc: x')")
+    sessions = SessionStore(tmp_path / "s.json")
+    sessions.set("commit", A)
+    assert CodexCommitMessages(program, notes_dir=notes, sessions=sessions, today=lambda: date(2026, 11, 1)).describe("T", "s", "+x\n") == "doc: x"
+    assert sessions.get("commit") == B and sessions.tag("commit") == "2026-11"

@@ -1,6 +1,6 @@
 """Writes commit messages with Codex: `codex exec` with no shell and no user config or rules, the prompt on standard input and
 the answer read from `-o <file>`. With a `SessionStore` (what Hive uses) it works in the notes folder and carries on in one saved
-Codex session, `codex exec resume <id>`, so it knows the vault's earlier commits; without one every call is a fresh `--ephemeral` run.
+Codex session per month, `codex exec resume <id>`, so it knows the month's earlier commits; without one every call is a fresh `--ephemeral` run.
 The note's diff is sent to the model (so this is opt-in: see HIVE_COMMIT_MESSAGES)."""
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 from src.infrastructure.agents.sessions import SessionStore
@@ -68,9 +70,9 @@ class CodexCommitMessages:
     SESSION = "commit"
 
     def __init__(self, program: str, model: str | None = None, timeout: float = 90, effort: str | None = None,
-                 notes_dir: Path | None = None, sessions: SessionStore | None = None):
+                 notes_dir: Path | None = None, sessions: SessionStore | None = None, today: Callable[[], date] = date.today):
         self.program, self.model, self.timeout, self.effort = program, model, timeout, effort
-        self.notes_dir, self.sessions = (Path(notes_dir) if notes_dir else None), sessions
+        self.notes_dir, self.sessions, self.today = (Path(notes_dir) if notes_dir else None), sessions, today
 
     def _args(self, cwd: str, answer: Path, session: str | None) -> list[str]:
         common = ["--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--disable", "shell_tool", "--disable", "unified_exec", "-o", str(answer),
@@ -96,7 +98,10 @@ class CodexCommitMessages:
         cwd = str(self.notes_dir) if self.sessions and self.notes_dir else scratch
         try:
             answer = Path(scratch) / "answer.txt"
+            month = f"{self.today():%Y-%m}"
             session = self.sessions.get(self.SESSION) if self.sessions else None
+            if session and self.sessions.tag(self.SESSION) != month:
+                session = None  # a new session every month: it would otherwise grow for ever
             for attempt in (0, 1):
                 answer.unlink(missing_ok=True)
                 result = subprocess.run(self._args(cwd, answer, session), input=prompt.encode(), capture_output=True, env=env, timeout=self.timeout, cwd=cwd)
@@ -108,7 +113,7 @@ class CodexCommitMessages:
                 session = None  # the saved session cannot be resumed (its file is gone): start a new one
                 self.sessions.clear(self.SESSION)
             if self.sessions and (new := thread_id(result.stdout)):
-                self.sessions.set(self.SESSION, new)
+                self.sessions.set(self.SESSION, new, month)
             return clean_subject(answer.read_text(encoding="utf-8", errors="replace")) if answer.is_file() else None
         except (OSError, subprocess.TimeoutExpired) as error:
             log.warning("codex could not run: %s", error)
