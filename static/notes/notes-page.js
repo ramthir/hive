@@ -25,6 +25,7 @@ import { RemoteChanges } from '/static/notes/remote-changes.js';
 import { Preview } from '/static/notes/preview.js';
 import { CodeMirrorEditor } from '/static/notes/codemirror.js';
 import { noteStats, updateSaveIndicator, updateUpdatedStamp } from '/static/notes/status-bar.js';
+import { chatButtonHtml, isChatShortcut, NoteChatDock } from '/static/notes/note-chat.js';
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
@@ -46,6 +47,15 @@ class NotesApp extends HTMLElement {
     this.isNoteEditing = false;
     this.cmEditor = null;
     this._unsubscribe = null;
+    // The chat beside the note (static/notes/note-chat.js): made the first time it opens, then kept across redraws.
+    this.chatDock = new NoteChatDock(this, {
+      parent: () => this.querySelector('.notes-editor-workspace'),
+      note: () => this.selectedNote,
+      beforeSend: () => this.prepareChat(),
+      onFinished: (detail) => this.chatFinished(detail),
+      onNavigate: (href) => this.go(href),
+      onHistory: () => this.openNoteVersions(),
+    });
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
     // PlantUML previews: rendered diagrams are cached by source; failed sources are not retried until edited.
     this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }));
@@ -83,6 +93,9 @@ class NotesApp extends HTMLElement {
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._keydownHandler = (event) => this.handleGlobalKeydown(event);
     window.addEventListener('keydown', this._keydownHandler);
+    this._selectionHandler = (event) => this.captureChatSelection(event);
+    this.addEventListener('mouseup', this._selectionHandler);
+    this.addEventListener('keyup', this._selectionHandler);
     this._beforeUnloadHandler = (event) => {
       if (this.currentView === 'editor' && this.saveStatus === 'dirty') {
         event.preventDefault();
@@ -99,6 +112,8 @@ class NotesApp extends HTMLElement {
     this._diagrams.dispose();
     this.destroyCodeMirror();
     window.removeEventListener('keydown', this._keydownHandler);
+    this.removeEventListener('mouseup', this._selectionHandler);
+    this.removeEventListener('keyup', this._selectionHandler);
     window.removeEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._shellRoot?.removeEventListener('click', this._sidebarClick, true);
     window.removeEventListener('beforeunload', this._beforeUnloadHandler);
@@ -161,6 +176,9 @@ class NotesApp extends HTMLElement {
     } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'p') {
       event.preventDefault();
       if (this.currentView === 'editor' && this.selectedNote?.has_properties) this.openProperties();
+    } else if (isChatShortcut(event)) {
+      event.preventDefault();
+      if (this.currentView === 'editor' && this.selectedNote?.slug) this.chatDock.toggle();
     } else if ((event.metaKey || (!isMac && event.ctrlKey)) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
       event.preventDefault();
       if (this.currentView === 'editor' && this.selectedNote) this.setNoteEditing(!this.isNoteEditing);
@@ -445,6 +463,7 @@ class NotesApp extends HTMLElement {
   /* --- List view ----------------------------------------------------- */
 
   renderRouteLoading() {
+    this.classList.remove('chat-docked');
     this.innerHTML = `
       <section class="notes-page notes-editor-page notes-editor--skeleton" aria-busy="true">
         <app-header heading="Notes" variant="flush" attached>
@@ -474,6 +493,7 @@ class NotesApp extends HTMLElement {
     if (!this.selectedNote) return;
     const note = this.selectedNote;
     const editing = this.isNoteEditing;
+    const chatFocused = this.chatDock.hasFocus(); // the redraw below takes the chat out and puts it back
     const kept = keepEditor && editing && this.cmEditor
       ? { dom: this.cmEditor.dom, scroll: this.cmEditor.scrollDOM.scrollTop, preview: this.querySelector('#notes-preview')?.scrollTop || 0 }
       : null;
@@ -538,6 +558,7 @@ class NotesApp extends HTMLElement {
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
               ${note.slug && note.has_properties ? `<button id="note-properties-btn" class="tool-button" type="button" title="Edit note properties (${propertiesShortcutKey})" aria-label="Edit note properties"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>` : ''}
               ${canLogTime(note) ? '<button id="log-time-btn" class="tool-button" type="button" title="Log time" aria-label="Log time"><i class="fa-solid fa-clock" aria-hidden="true"></i></button>' : ''}
+              ${note.slug ? chatButtonHtml(this.chatDock.open) : ''}
               ${note.slug ? '<button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>' : ''}
               ${editing ? `
                 <span class="tool-divider" aria-hidden="true"></span>
@@ -550,6 +571,7 @@ class NotesApp extends HTMLElement {
 
     this.updateDocumentTitle();
     this.querySelector('#copy-note-btn').addEventListener('click', () => this.copyCurrentNote());
+    this.querySelector('#note-chat-btn')?.addEventListener('click', () => this.chatDock.toggle());
     this.querySelector('#note-versions-btn')?.addEventListener('click', () => this.openNoteVersions());
     this.querySelector('#log-time-btn')?.addEventListener('click', () => this.openLogTime());
     this.querySelector('#note-properties-btn')?.addEventListener('click', () => this.openProperties());
@@ -576,6 +598,7 @@ class NotesApp extends HTMLElement {
     }
     this.setupPreviewEvents();
     this.refreshBacklinks();
+    this.chatDock.mount({ refocus: chatFocused });
   }
 
   // Tags are chips; the suggestions are the tags in use in the vault, and what is typed can be added as a new one.
@@ -725,6 +748,43 @@ class NotesApp extends HTMLElement {
     } finally {
       this._propertiesOpening = false;
     }
+  }
+
+  /* --- Chat beside the note (the dock itself is in static/notes/note-chat.js) ------ */
+
+  // Before a question goes out: what is on screen is saved, so the agent reads the note as it is and no banner or conflict follows.
+  async prepareChat() {
+    for (let i = 0; i < 50 && this.saveStatus === 'saving'; i += 1) await new Promise((resolve) => setTimeout(resolve, 100));
+    if (this.saveStatus === 'dirty') await this.saveCurrentNote();
+    return this.saveStatus === 'saved';
+  }
+
+  // The chat's run ended. If it renamed the open note (a new heading), go to the new file; otherwise look again at what the watcher
+  // may have held back while it ran.
+  chatFinished({ renamed }) {
+    if (renamed && renamed.from === this.selectedSlug && this.currentView === 'editor') {
+      notesRouter.navigate(`/notes/${encodeURIComponent(renamed.slug)}${this.isNoteEditing ? '?mode=edit' : ''}`, { replace: true });
+    } else if (this.selectedSlug && this._watchedSlug === this.selectedSlug) {
+      this.checkRemoteChange(this.selectedSlug);
+    }
+  }
+
+  // The text selected in the note goes to the chat as context for the next question (a click that selects nothing clears it).
+  captureChatSelection(event) {
+    if (!this.chatDock.element || !this.chatDock.open || !this.selectedNote?.slug) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest('.notes-chat-dock')) return;
+    let text = '';
+    if (target.closest('.notes-editor-pane') && this.cmEditor) {
+      const { from, to } = this.cmEditor.state.selection.main;
+      text = this.cmEditor.state.sliceDoc(from, to);
+    } else if (target.closest('#notes-md')) {
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) text = selection.toString();
+    } else {
+      return;
+    }
+    this.chatDock.setSelection(text);
   }
 
   /* --- History (git) ------------------------------------------------- */

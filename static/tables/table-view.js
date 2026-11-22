@@ -6,6 +6,7 @@ import { renderFilterField } from '/static/components/search-trigger.js';
 import '/static/components/stat-card.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { createCrudDrawer } from '/static/components/crud-drawer.js';
+import { chatButtonHtml } from '/static/notes/note-chat.js';
 import '/static/components/table.js';
 import '/static/components/pagination.js';
 import '/static/components/combobox.js';
@@ -35,6 +36,12 @@ export class TableView {
     this.slugs = new Map(); // wikilink target -> file name
     this.people = []; // combobox choices for the linked columns: notes of type contact
     this.drawer = null;
+  }
+
+  /** Why the page must not redraw now: 'saving' (our own save is out; its answer updates the page) or 'editing' (a row is open in the drawer). */
+  busy() {
+    if (this.saving) return 'saving';
+    return this.drawer?.isOpen?.() ? 'editing' : '';
   }
 
   destroy() {
@@ -87,6 +94,7 @@ export class TableView {
               <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
               <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
               ${note.has_properties ? '<button id="note-properties-btn" class="tool-button" type="button" title="Edit note properties" aria-label="Edit note properties"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>' : ''}
+              ${chatButtonHtml(this.actions.chatOpen())}
               <button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
               <button id="edit-note-btn" class="tool-button notes-edit-toggle" type="button" title="Edit markdown" aria-label="Edit note" aria-pressed="false"><i class="fa-solid fa-pencil" aria-hidden="true"></i></button>
             </div>
@@ -95,7 +103,7 @@ export class TableView {
       </section>`;
     for (const [id, run] of Object.entries({
       'delete-note-btn': 'delete', 'copy-note-btn': 'copy', 'note-properties-btn': 'properties',
-      'note-versions-btn': 'versions', 'edit-note-btn': 'edit',
+      'note-versions-btn': 'versions', 'edit-note-btn': 'edit', 'note-chat-btn': 'chat',
     })) host.querySelector(`#${id}`)?.addEventListener('click', () => this.actions[run]());
 
     this.table = host.querySelector('#notes-data-table');
@@ -293,7 +301,13 @@ export class TableView {
   async persist(rows, message) {
     const slug = this.note.slug;
     const content = serializeMarkdownTableNote(this.parsed, rows);
-    const saved = await api(`/notes/${encodeURIComponent(slug)}`, { method: 'PUT', body: { content } });
+    this.saving = true;
+    let saved;
+    try {
+      saved = await api(`/notes/${encodeURIComponent(slug)}`, { method: 'PUT', body: { content } });
+    } finally {
+      this.saving = false;
+    }
     if (this.slug !== slug) return;
     this.actions.saved(saved);
     this.note = saved;

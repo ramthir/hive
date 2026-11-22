@@ -2,21 +2,29 @@ import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/action-bar.js';
 import { api } from '/static/notes/api.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
-import { showToast } from '/static/toast.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, SESSION_KEY, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, NOTE_SUGGESTIONS, parseSse, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
 import { friendlyLabel, LIVE_STEPS, workSummary } from '/static/chat/steps.js';
 
 /* Chat with the notes. The answers come from Codex (server side) in the notes folder with its own shell. A chat is one Codex session: the
-   server tells us its id, we keep it with the turns in this browser and send it back so follow-ups resume it. "New chat" forgets both. */
+   server tells us its id, we keep it with the turns in this browser and send it back so follow-ups resume it. "New chat" forgets both.
+
+   With a `note` attribute (a slug) it is the chat beside that note (`compact`: a narrow panel): the conversation and its session are that
+   note's own, the question says which note it is about, and the host page can set `beforeSend` (an async function that saves what is on
+   screen; false stops the send) and `setSelection(text)` (the text selected in the note, sent with the next question). It tells the host
+   what happened with `chat-finished` ({slug, changed, renamed}), `chat-navigate` ({href}) and `chat-history` ({slug}) events. */
 
 class ChatApp extends HTMLElement {
+  static get observedAttributes() { return ['note']; }
+
   connectedCallback() {
-    this.turns = this.load();
-    this.session = this.loadSession();
-    this.abort = null;
+    if (this.ready) { this.reattach(); return; }
+    this.ready = true;
+    this.compact = this.hasAttribute('compact');
     this.available = true;
-    this.innerHTML = `
+    this.selected = '';
+    this.conv = this.loadConv(this.getAttribute('note') || '');
+    this.innerHTML = this.compact ? this.compactHtml() : `
       <section class="chat-page">
         <app-header heading="Chat" variant="flush" attached>
           <div slot="actions" class="app-header-action-group">
@@ -39,35 +47,112 @@ class ChatApp extends HTMLElement {
     this.input = this.querySelector('#chat-input');
     this.sendButton = this.querySelector('#chat-send');
     this.querySelector('#chat-form').addEventListener('submit', (event) => { event.preventDefault(); this.submit(); });
-    this.querySelector('.chat-action-bar').addEventListener('click', () => this.input.focus());
+    this.querySelector('.chat-action-bar')?.addEventListener('click', () => this.input.focus());
     this.querySelector('#chat-new').addEventListener('click', () => this.reset());
+    this.querySelector('#chat-close')?.addEventListener('click', () => this.dispatchEvent(new CustomEvent('chat-close', { bubbles: true })));
+    this.querySelector('#chat-clear-selection')?.addEventListener('click', () => { this.setSelection(''); this.input.focus(); });
     this.input.addEventListener('input', () => this.grow());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); this.submit(); }
     });
     this.log.addEventListener('click', (event) => {
       const suggestion = event.target.closest('[data-suggestion]');
-      if (suggestion) this.submit(suggestion.dataset.suggestion);
+      if (suggestion) { this.submit(suggestion.dataset.suggestion); return; }
+      const history = event.target.closest('[data-history]');
+      if (history) { this.dispatchEvent(new CustomEvent('chat-history', { bubbles: true, detail: { slug: history.dataset.history } })); return; }
+      // Inside a note page a link to a note goes through the page (it asks about unsaved edits and does not reload).
+      const link = event.target.closest('a[href^="/notes"]');
+      if (link && this.compact && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.button) {
+        event.preventDefault();
+        this.dispatchEvent(new CustomEvent('chat-navigate', { bubbles: true, detail: { href: link.getAttribute('href') } }));
+      }
     });
     this.stick = true;  // follow the newest text until the reader scrolls up
+    this.lastTop = 0;
     this.scroller.addEventListener('scroll', () => {
+      this.lastTop = this.scroller.scrollTop;
       this.stick = this.scroller.scrollHeight - this.scroller.scrollTop - this.scroller.clientHeight < 80;
     });
     this.leaving = false;
-    this._persist = () => { this.leaving = true; this.save(); };
+    this._persist = () => { this.leaving = true; this.save(this.conv); };
     window.addEventListener('pagehide', this._persist);  // a full navigation away: keep the chat for when we come back
     this.render();
     this.scroller.scrollTop = this.scroller.scrollHeight;
+    this.updateControls();
     this.checkStatus();
-    this.input.focus();
+    if (!this.compact) this.input.focus();
   }
 
   disconnectedCallback() {
-    this.leaving = true;  // the stream is about to fail because we left: that is a stop, not an error
     window.removeEventListener('pagehide', this._persist);
-    this.abort?.abort();
-    this.save();
+    // A host that redraws around us takes the element out and puts it back in the same task: only a real removal stops the run.
+    queueMicrotask(() => {
+      if (this.isConnected || !this.ready) return;
+      this.leaving = true;  // the stream is about to fail because we left: that is a stop, not an error
+      this.conv.abort?.abort();
+      this.save(this.conv);
+    });
   }
+
+  /** Back in the page after the host redrew around us (the stream and the conversation went on meanwhile). */
+  reattach() {
+    this.leaving = false;
+    window.removeEventListener('pagehide', this._persist);
+    window.addEventListener('pagehide', this._persist);
+    this.scroller.scrollTop = this.stick ? this.scroller.scrollHeight : this.lastTop; // a detached scroller forgets its place
+  }
+
+  attributeChangedCallback(name, _old, value) {
+    if (!this.ready) return;
+    if (name === 'note' && (value || '') !== this.conv.slug) this.switchNote(value || '');
+  }
+
+  /* --- Conversations: the page's chat, or one per note. Everything a run touches lives on its own `conv`, so a run that
+     outlasts a switch to another note still saves to the note it was asked about. --- */
+
+  loadConv(slug) {
+    const keys = noteKeys(slug);
+    let turns = [];
+    let session = '';
+    try { turns = restoreTurns(localStorage.getItem(keys.turns)); } catch (_error) { /* no storage: a fresh chat */ }
+    try { session = turns.length ? sessionId(localStorage.getItem(keys.session)) : ''; } catch (_error) { /* as above */ }
+    return { slug, keys, turns, session, abort: null };
+  }
+
+  /** The conversation lives in this browser only (nothing goes to the server): it survives leaving the page and reloads. */
+  save(conv) {
+    try {
+      if (conv.turns.length) localStorage.setItem(conv.keys.turns, serializeTurns(conv.turns));
+      else localStorage.removeItem(conv.keys.turns);
+      if (conv.turns.length && conv.session) localStorage.setItem(conv.keys.session, conv.session);
+      else localStorage.removeItem(conv.keys.session);
+    } catch (_error) { /* storage unavailable: the chat just is not kept */ }
+  }
+
+  switchNote(slug) {
+    this.conv.abort?.abort();
+    this.save(this.conv);
+    this.conv = this.loadConv(slug);
+    this.selected = '';
+    this.stick = true;
+    this.render();
+    this.renderSelection();
+    this.updateControls();
+    this.scroller.scrollTop = this.scroller.scrollHeight;
+  }
+
+  /** The run renamed the note (its heading changed): the conversation and its saved copy follow the new file name. */
+  rekey(conv, slug) {
+    const old = conv.keys;
+    conv.slug = slug;
+    conv.keys = noteKeys(slug);
+    this.save(conv);
+    try { localStorage.removeItem(old.turns); localStorage.removeItem(old.session); } catch (_error) { /* nothing kept */ }
+    if (conv === this.conv && this.getAttribute('note') !== slug) this.setAttribute('note', slug);
+  }
+
+  get turns() { return this.conv.turns; }
+  get running() { return Boolean(this.conv.abort); }
 
   async checkStatus() {
     try {
@@ -80,32 +165,55 @@ class ChatApp extends HTMLElement {
     } catch (_error) { /* the first question reports a real failure */ }
   }
 
-  get running() { return Boolean(this.abort); }
-
-  /** The conversation lives in this browser only (nothing goes to the server): it survives leaving the page and reloads. */
-  load() {
-    try { return restoreTurns(localStorage.getItem(STORAGE_KEY)); } catch (_error) { return []; }
+  compactHtml() {
+    return `
+      <section class="chat-page chat-dock">
+        <header class="chat-dock-header">
+          <i class="fa-solid fa-comments" aria-hidden="true"></i>
+          <span class="chat-dock-title">Chat</span>
+          <button type="button" id="chat-new" class="chat-dock-btn" title="Start a new chat about this note" aria-label="New chat"><i class="fa-solid fa-plus"></i></button>
+          <button type="button" id="chat-close" class="chat-dock-btn" title="Close the chat" aria-label="Close chat"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-notice" id="chat-notice" role="status" hidden></div>
+          <div class="chat-column" id="chat-log" aria-live="polite"></div>
+        </div>
+        <div class="chat-dock-foot">
+          <div class="chat-context" id="chat-context" hidden><i class="fa-solid fa-quote-left" aria-hidden="true"></i><span id="chat-context-text"></span>
+            <button type="button" id="chat-clear-selection" class="chat-dock-btn" title="Do not send the selection" aria-label="Do not send the selection"><i class="fa-solid fa-xmark"></i></button></div>
+          <form class="chat-composer chat-composer--dock" id="chat-form">
+            <textarea id="chat-input" rows="1" placeholder="Ask about this note, or ask me to change it…" aria-label="Message"></textarea>
+            <button type="submit" class="chat-send" id="chat-send" title="Send" aria-label="Send"><i class="fa-solid fa-arrow-right"></i></button>
+          </form>
+        </div>
+      </section>`;
   }
 
-  loadSession() {
-    try { return this.turns.length ? sessionId(localStorage.getItem(SESSION_KEY)) : ''; } catch (_error) { return ''; }
+  /** The text selected in the note, to send with the next question (shown as a chip above the box); '' clears it. */
+  setSelection(text) {
+    this.selected = selectionToSend(text);
+    this.renderSelection();
   }
 
-  save() {
-    try {
-      if (this.turns.length) localStorage.setItem(STORAGE_KEY, serializeTurns(this.turns));
-      else localStorage.removeItem(STORAGE_KEY);
-      if (this.turns.length && this.session) localStorage.setItem(SESSION_KEY, this.session);
-      else localStorage.removeItem(SESSION_KEY);
-    } catch (_error) { /* storage unavailable: the chat just is not kept */ }
+  renderSelection() {
+    const box = this.querySelector('#chat-context');
+    if (!box) return;
+    const chip = selectionChip(this.selected);
+    box.hidden = !chip;
+    this.querySelector('#chat-context-text').textContent = chip;
+    this.querySelector('#chat-context-text').title = this.selected;
   }
+
+  focusInput() { this.input?.focus(); }
 
   reset() {
-    this.abort?.abort();
-    this.turns = [];
-    this.session = '';
-    fetch('/api/chat/session', { method: 'DELETE' }).catch(() => {}); // the server keeps the Codex session too
-    this.save();
+    const conv = this.conv;
+    conv.abort?.abort();
+    conv.turns = [];
+    conv.session = '';
+    // The server keeps the Codex session too (a note's chat has its own).
+    fetch(`/api/chat/session${conv.slug ? `?note=${encodeURIComponent(conv.slug)}` : ''}`, { method: 'DELETE' }).catch(() => {});
+    this.save(conv);
     this.render();
     this.input.focus();
   }
@@ -124,24 +232,39 @@ class ChatApp extends HTMLElement {
   }
 
   async submit(text) {
-    if (this.running) { this.abort.abort(); return; }  // the send button is a stop button while Codex works
+    if (this.running) { this.conv.abort.abort(); return; }  // the send button is a stop button while Codex works
+    if (this.sending) return;
     const question = (text ?? this.input.value).trim();
     if (!question || !this.available) return;
+    if (this.beforeSend) {  // the host saves what is on screen first, so the agent reads the note as it is
+      this.sending = true;
+      let ok = false;
+      try { ok = await this.beforeSend(); } catch (_error) { ok = false; } finally { this.sending = false; }
+      if (!ok) return;
+    }
+    const conv = this.conv;
+    const selection = conv.slug ? this.selected : '';
     this.input.value = '';
     this.grow();
-    this.turns.push({ role: 'user', content: question });
+    conv.turns.push({ role: 'user', content: question });
     let turn = { role: 'assistant', ...newTurn(), startedAt: Date.now() };
-    this.turns.push(turn);
-    this.save();
-    const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)), ...(this.session ? { session: this.session } : {}) });
-    this.abort = new AbortController();
+    conv.turns.push(turn);
+    this.save(conv);
+    const body = JSON.stringify({
+      messages: historyFor(conv.turns.slice(0, -1)),
+      ...(conv.session ? { session: conv.session } : {}),
+      ...(conv.slug ? { note: conv.slug, ...(selection ? { selection } : {}) } : {}),
+    });
+    if (selection) this.setSelection('');  // it belongs to this question
+    conv.abort = new AbortController();
     this.updateControls();
     this.render();
     this.stick = true;
     this.scroller.scrollTop = this.scroller.scrollHeight;
-    const set = (next) => { turn = Object.assign(turn, next); this.renderLast(); };
+    const current = () => conv === this.conv;
+    const set = (next) => { turn = Object.assign(turn, next); if (current()) this.renderLast(); };
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: this.abort.signal });
+      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: conv.abort.signal });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || `HTTP ${response.status}`);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -152,7 +275,8 @@ class ChatApp extends HTMLElement {
         const parsed = parseSse(buffer + decoder.decode(value, { stream: true }));
         buffer = parsed.rest;
         for (const event of parsed.events) {
-          if (event.type === 'session') { this.session = sessionId(event.id) || this.session; this.save(); }
+          if (event.type === 'session') { conv.session = sessionId(event.id) || conv.session; this.save(conv); }
+          if (event.type === 'changed' && event.renamed?.from === conv.slug) this.rekey(conv, event.renamed.slug);
           set(applyEvent(turn, event));
         }
       }
@@ -161,22 +285,27 @@ class ChatApp extends HTMLElement {
       set(finishTurn(turn, error.name === 'AbortError' || this.leaving ? { stopped: true } : { failure: error.message }));
     } finally {
       turn.endedAt = Date.now();
-      this.abort = null;
-      this.updateControls();
-      this.renderLast();
-      this.save();
-      this.input.focus();
+      conv.abort = null;
+      if (current()) { this.updateControls(); this.renderLast(); if (!this.compact) this.input.focus(); }  // beside a note the reader may be typing in it
+      this.save(conv);
+      this.dispatchEvent(new CustomEvent('chat-finished', { bubbles: true, detail: { slug: conv.slug, changed: turn.changed, renamed: turn.renamed, status: turn.status } }));
     }
   }
 
   render() {
     if (!this.turns.length) {
-      this.log.innerHTML = `
+      const suggestions = this.conv.slug ? NOTE_SUGGESTIONS : SUGGESTIONS;
+      this.log.innerHTML = this.compact ? `
+        <div class="chat-empty">
+          <i class="fa-solid fa-comments chat-empty-icon"></i>
+          <p>Ask about this note, or ask me to change it. Edits are saved as normal commits, so History can undo them.</p>
+          <div class="chat-suggestions">${suggestions.map((s) => `<button type="button" class="chat-suggestion" data-suggestion="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+        </div>` : `
         <div class="chat-empty">
           <i class="fa-solid fa-comments chat-empty-icon"></i>
           <h2>Ask your notes</h2>
           <p>Answers come only from your notes, and I can change them too: “add a line to my Home network note”, “mark the Tax task as done”.</p>
-          <div class="chat-suggestions">${SUGGESTIONS.map((s) => `<button type="button" class="chat-suggestion" data-suggestion="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+          <div class="chat-suggestions">${suggestions.map((s) => `<button type="button" class="chat-suggestion" data-suggestion="${esc(s)}">${esc(s)}</button>`).join('')}</div>
         </div>`;
       return;
     }
@@ -191,6 +320,16 @@ class ChatApp extends HTMLElement {
     last.outerHTML = this.messageHtml(this.turns[this.turns.length - 1], this.turns.length - 1);
     this.afterRender(this.log.lastElementChild);
     if (this.stick) this.scroller.scrollTop = this.scroller.scrollHeight;
+  }
+
+  /** The notes a turn changed: links, and for the note this chat is beside a History button to review or undo the change. */
+  changedHtml(turn) {
+    if (!turn.changed.length) return '';
+    const here = this.conv.slug;
+    const items = turn.changed.map((n) => (this.compact && n.slug === here
+      ? `<button type="button" class="chat-changed-history" data-history="${esc(n.slug)}" title="Open the history of this note to review or undo the change"><i class="fa-solid fa-clock-rotate-left"></i> View changes</button>`
+      : `<a href="/notes/${encodeURIComponent(n.slug)}">${esc(n.title)}</a>`));
+    return `<div class="chat-changed"><span><i class="fa-solid fa-pen"></i> Changed</span>${items.join('')}</div>`;
   }
 
   messageHtml(turn, index) {
@@ -212,7 +351,7 @@ class ChatApp extends HTMLElement {
           : running ? '<div class="chat-thinking">Thinking…</div>' : ''}
         ${turn.status === 'error' ? `<div class="chat-error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(turn.error)}</div>` : ''}
         ${turn.status === 'stopped' ? '<div class="chat-stopped">Stopped. Anything already saved stays saved (see History on the note).</div>' : ''}
-        ${turn.changed.length ? `<div class="chat-changed"><span><i class="fa-solid fa-pen"></i> Changed</span>${turn.changed.map((n) => `<a href="/notes/${encodeURIComponent(n.slug)}">${esc(n.title)}</a>`).join('')}</div>` : ''}
+        ${this.changedHtml(turn)}
       </div></div>`;
   }
 

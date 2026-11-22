@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { friendlyLabel, workSummary, words, LIVE_STEPS } from '../../static/chat/steps.js';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, stepIcon } from '../../static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, parseSse, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, STORAGE_KEY, SESSION_KEY } from '../../static/chat/format.js';
 
 test('parseSse returns whole events and keeps the unfinished tail', () => {
   const first = parseSse('data: {"type":"step","id":"1"}\n\ndata: {"type":"mess');
@@ -153,4 +153,45 @@ test('start and end times survive saving the conversation', () => {
   const [, turn] = restoreTurns(saved);
   assert.deepEqual([turn.startedAt, turn.endedAt], [5, 9]);
   assert.deepEqual([restoreTurns('[{"role":"user","content":"q"},{"role":"assistant","startedAt":"x"}]')[1].startedAt], [0]);
+});
+
+test('a note has its own storage keys and the chat page keeps its own', () => {
+  assert.deepEqual(noteKeys(''), { turns: STORAGE_KEY, session: SESSION_KEY });
+  assert.deepEqual(noteKeys('wifi'), { turns: `${STORAGE_KEY}:note:wifi`, session: `${SESSION_KEY}:note:wifi` });
+  assert.notDeepEqual(noteKeys('a'), noteKeys('b'));
+});
+
+test('the selection chip is one short line and nothing for blank text', () => {
+  assert.equal(selectionChip('  \n  '), '');
+  assert.equal(selectionChip(undefined), '');
+  assert.equal(selectionChip('two\n  lines\there'), 'two lines here');
+  const long = selectionChip('x'.repeat(500));
+  assert.ok(long.length <= 90 && long.endsWith('…'));
+});
+
+test('the selection is sent trimmed and cut to what the server takes', () => {
+  assert.equal(selectionToSend('  hi \n'), 'hi');
+  assert.equal(selectionToSend('y'.repeat(9000)).length, 4000);
+  assert.equal(selectionToSend(null), '');
+});
+
+test('a changed event carries the rename of the note the chat is beside', () => {
+  const renamed = { from: 'alpha', slug: 'alpha-two', title: 'Alpha Two' };
+  let turn = applyEvent(newTurn(), { type: 'changed', notes: [{ slug: 'alpha-two', title: 'Alpha Two' }], renamed });
+  assert.deepEqual(turn.renamed, renamed);
+  turn = applyEvent(newTurn(), { type: 'changed', notes: [{ slug: 'beta', title: 'Beta' }] });
+  assert.equal(turn.renamed, null);
+  assert.equal(newTurn().renamed, null);
+  assert.equal(restoreTurns(serializeTurns([{ role: 'user', content: 'q' }, { role: 'assistant', status: 'done', answer: 'a', renamed }]))[1].renamed, null); // not kept
+});
+
+test('the chat shortcut is Ctrl/⌘+Shift+L and nothing else (Ctrl+Shift+K belongs to the search)', async () => {
+  const { isChatShortcut, chatButtonHtml } = await import('../../static/notes/note-chat.js');
+  assert.equal(isChatShortcut({ ctrlKey: true, shiftKey: true, altKey: false, key: 'L' }), true);
+  assert.equal(isChatShortcut({ metaKey: true, shiftKey: true, altKey: false, key: 'l' }), true);
+  assert.equal(isChatShortcut({ ctrlKey: true, shiftKey: false, altKey: false, key: 'l' }), false);
+  assert.equal(isChatShortcut({ ctrlKey: true, shiftKey: true, altKey: false, key: 'K' }), false);
+  assert.equal(isChatShortcut({ ctrlKey: true, shiftKey: true, altKey: true, key: 'L' }), false);
+  assert.match(chatButtonHtml(true), /aria-pressed="true"/);
+  assert.match(chatButtonHtml(false), /aria-pressed="false"/);
 });

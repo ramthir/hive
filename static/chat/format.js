@@ -13,7 +13,7 @@ export function parseSse(buffer) {
   return { events, rest };
 }
 
-export const newTurn = () => ({ steps: [], narration: [], answer: '', changed: [], status: 'running', error: '', startedAt: 0, endedAt: 0 });
+export const newTurn = () => ({ steps: [], narration: [], answer: '', changed: [], renamed: null, status: 'running', error: '', startedAt: 0, endedAt: 0 });
 
 /** The turn after one event (a new object). `message` events are Codex's text: the newest is the answer and the one it
  *  replaces becomes a line of narration ("Let me look that up."), since only the last message answers. */
@@ -28,7 +28,7 @@ export function applyEvent(turn, event) {
     case 'message':
       return { ...turn, narration: turn.answer ? [...turn.narration, turn.answer] : turn.narration, answer: event.text };
     case 'changed':
-      return { ...turn, changed: event.notes || [] };
+      return { ...turn, changed: event.notes || [], renamed: event.renamed?.slug ? event.renamed : null };
     case 'done':
       return { ...turn, status: turn.status === 'error' ? 'error' : 'done' };
     case 'error':
@@ -67,6 +67,27 @@ export const SUGGESTIONS = Object.freeze([
 
 export const STORAGE_KEY = 'hive:chat';
 export const SESSION_KEY = 'hive:chat-session';
+
+/** The browser-storage keys of a conversation: the chat page's, or (with a slug) the chat beside that note, one per note. */
+export const noteKeys = (slug) => (slug ? { turns: `${STORAGE_KEY}:note:${slug}`, session: `${SESSION_KEY}:note:${slug}` } : { turns: STORAGE_KEY, session: SESSION_KEY });
+
+export const NOTE_SUGGESTIONS = Object.freeze([
+  'Summarise this note.',
+  'Fix spelling and grammar.',
+  'Tidy the structure and headings.',
+]);
+
+export const MAX_SELECTION = 4000;
+
+/** What the chat shows for the text selected in the note: one line, cut, or '' for nothing worth sending. */
+export function selectionChip(text) {
+  const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (!flat) return '';
+  return flat.length > 90 ? `${flat.slice(0, 89)}…` : flat;
+}
+
+/** The selection as it is sent: trimmed and cut to what the server accepts. */
+export const selectionToSend = (text) => String(text ?? '').trim().slice(0, MAX_SELECTION);
 
 /** A Codex session id as the server sent it (a UUID), or '' for anything else: it is sent back with the next question. */
 export const sessionId = (value) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(value ?? '')) ? String(value) : '');
