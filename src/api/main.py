@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.api.localhost import LocalhostOnly
 from src.api.routes import agents, chat as chat_routes, diagrams, events, notes, system
 from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
@@ -100,6 +101,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
 
     diagram_service.metrics = metrics  # one set of metrics for the whole app (/api/metrics)
     app = FastAPI(title="Hive Notes", lifespan=lifespan)
+    app.add_middleware(LocalhostOnly)  # no login: only requests addressed to localhost are served
     app.state.notes = service
     app.state.diagrams = diagram_service
     app.state.metrics = metrics

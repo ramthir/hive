@@ -3,3 +3,8 @@
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Starlette's TestClient talks to the host "testserver"; Hive only answers on localhost names (src/api/localhost.py).
+import os
+
+os.environ["HIVE_ALLOWED_HOSTS"] = "testserver"

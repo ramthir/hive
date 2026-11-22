@@ -7,8 +7,9 @@ if __name__ == "__main__":
     uvicorn.run(
         "src.api.main:create_app",
         factory=True,
-        # Listens on all interfaces (needed inside Docker). There is no authentication yet: anyone who can reach
-        # the port can read, edit and delete notes. Set HOST=127.0.0.1 to limit it to this machine.
+        # Listens on all interfaces (needed inside Docker, where a published port arrives from the gateway). There is
+        # no authentication, so the app itself only answers requests addressed to localhost (src/api/localhost.py);
+        # publish the port on the host's loopback (-p 127.0.0.1:80:80). HOST=127.0.0.1 also closes the socket.
         host=os.environ.get("HOST", "0.0.0.0"),
         port=int(os.environ.get("PORT", "80")),
         proxy_headers=False,
