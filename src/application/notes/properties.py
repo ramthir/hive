@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from typing import Iterable
 
 from src.domain.notes.entities import Note
-from src.domain.notes.properties import Field, Form, extra_values
+from src.domain.notes.properties import Field, Form, extra_values, split_titles
 from src.domain.notes.tasks import task_priority, task_status, week_label, without_priority
 
 WEEKS_BEFORE, WEEKS_AFTER = 2, 2
@@ -23,8 +23,9 @@ def _note_choices(field: Field, notes: Iterable[Note], me: str, current: str) ->
     wanted = {t.casefold() for t in field.note_types}
     titles = sorted({n.title for n in notes if n.slug != me and wanted & {t.casefold() for t in n.types}},
                     key=str.casefold)
-    if current and current not in titles:  # a value typed by hand (or a note since retyped) stays selectable
-        titles.append(current)
+    for kept in split_titles(current):  # a value typed by hand (or a note since retyped) stays selectable
+        if kept not in titles:
+            titles.append(kept)
     return [(t, t) for t in titles]
 
 
@@ -53,7 +54,7 @@ def build(form: Form, note: Note, notes: Iterable[Note], today: date) -> dict:
             choices = list(f.choices)
         fields.append({
             "key": f.key, "label": f.label, "icon": f.icon, "kind": f.kind, "target": f.target, "group": f.group,
-            "placeholder": f.placeholder or f"Select {f.label.lower()}...", "required": f.required, "wide": f.wide,
+            "placeholder": f.placeholder or f"Select {f.label.lower()}...", "required": f.required, "wide": f.wide, "multiple": f.multiple,
             "show_when": None if f.show_when is None else {"key": f.show_when[0], "value": f.show_when[1]},
             "value": value, "choices": [{"value": v, "label": label} for v, label in choices],
         })

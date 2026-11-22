@@ -171,6 +171,7 @@ class PropertyFieldOut(BaseModel):
     required: bool
     wide: bool
     show_when: PropertyShowWhen | None
+    multiple: bool = False
     value: str
     choices: list[PropertyChoice]
 

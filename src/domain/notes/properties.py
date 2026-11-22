@@ -6,6 +6,7 @@ it lives: `property` is its own frontmatter key (`project: Acme`), the others ar
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -31,6 +32,7 @@ class Field:
     required: bool = False
     wide: bool = False
     placeholder: str = ""
+    multiple: bool = False  # a `note` field that takes several titles: a list in the frontmatter (one title stays a plain value)
 
 
 @dataclass(frozen=True)
@@ -83,7 +85,8 @@ CONTACT = Form(
     groups={"context": "Project & Team"},
     fields=(
         Field("role", "Role", "id-badge", placeholder="Role or job title"),
-        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, placeholder="Select project..."),
+        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, multiple=True,
+              placeholder="Select projects..."),
         Field("team", "Team", "users", group="context", placeholder="Team name"),
         Field("billing", "Billing", "money-bill-wave", "select", group="context", choices=_choices(*BILLING, "Shadowed"),
               placeholder="Not set"),
@@ -115,9 +118,38 @@ def visible(field: Field, values: dict[str, str]) -> bool:
     return field.show_when is None or values.get(field.show_when[0], "") == field.show_when[1]
 
 
+_LINK = re.compile(r"^\[\[(.*?)(?:\|.*)?\]\]$")
+
+
+def _linked(value: object) -> bool:
+    """True when the stored value is written as wiki links (`['[[Acme]]']`), as the vault's own notes do."""
+    return isinstance(value, (list, tuple)) and any(_LINK.match(str(v).strip()) for v in value)
+
+
+def split_titles(value: object) -> list[str]:
+    """The titles in a stored or submitted value: a list, or text with commas between the titles; `[[Title]]` links
+    count as their title; no blanks or repeats."""
+    parts = value if isinstance(value, (list, tuple)) else str(value or "").split(",")
+    seen: dict[str, None] = {}
+    for part in parts:
+        text = str(part).strip()
+        link = _LINK.match(text)
+        title = " ".join((link.group(1) if link else text).split())
+        if title:
+            seen.setdefault(title)
+    return list(seen)
+
+
+def _text(field: Field, value: object) -> str:
+    if field.multiple:
+        return ",".join(split_titles(value))
+    return str(value or "").strip()
+
+
 def extra_values(form: Form, note: Note) -> dict[str, str]:
-    """The current value of each `property` field of the form, as text ("" when not set)."""
-    return {f.key: str(note.extra.get(f.key) or "").strip() for f in form.fields if f.target == "property"}
+    """The current value of each `property` field of the form, as text ("" when not set; a multiple field's titles are
+    comma-separated)."""
+    return {f.key: _text(f, note.extra.get(f.key)) for f in form.fields if f.target == "property"}
 
 
 def apply_properties(form: Form | None, note: Note, changes: dict[str, str]) -> dict:
@@ -136,7 +168,7 @@ def apply_properties(form: Form | None, note: Note, changes: dict[str, str]) -> 
         field = form.field(key)
         if field is None:
             raise InvalidProperty(f"{key!r} is not a property of this note's type.")
-        value = " ".join(str(raw).split())
+        value = ",".join(split_titles(raw)) if field.multiple else " ".join(str(raw).split())
         if len(value) > MAX_LENGTH:
             raise InvalidProperty(f"{field.label} is longer than {MAX_LENGTH} characters.")
         if value and field.kind == "select" and value not in dict(field.choices):
@@ -152,8 +184,13 @@ def apply_properties(form: Form | None, note: Note, changes: dict[str, str]) -> 
             raise InvalidProperty(f"{field.label} is required.")
     for key, value in values.items():
         if value:
-            if extra.get(key) is None or str(extra[key]).strip() != value:
-                extra[key] = value
+            field = form.field(key)
+            if extra.get(key) is None or _text(field, extra[key]) != value:
+                titles = value.split(",") if field.multiple else []
+                if field.multiple and _linked(extra.get(key)):  # keep the note's own style: a list of `[[Title]]`
+                    extra[key] = [f"[[{t}]]" for t in titles]
+                else:
+                    extra[key] = titles if len(titles) > 1 else value
         else:
             extra.pop(key, None)
     return extra

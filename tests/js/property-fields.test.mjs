@@ -57,3 +57,10 @@ test('title and tags are top-level keys; changed tags travel with the priority',
   assert.deepEqual(propertyChanges(fields, { ...same, tags: 'todo, #work,extra' }), { tags: ['todo', 'work', 'extra'], priority: 'must' });
   assert.deepEqual(propertyChanges(fields, { ...same, tags: '', priority: 'important' }), { tags: [], priority: 'important' });
 });
+
+test('a multiple field is compared as a list of titles', () => {
+  const projects = field('project', { kind: 'note', multiple: true, value: 'Acme,Zed' });
+  assert.equal(propertyChanges([projects], { project: ' Acme, Zed ' }), null);
+  assert.deepEqual(propertyChanges([projects], { project: 'Acme,Zed,Big' }), { properties: { project: 'Acme,Zed,Big' } });
+  assert.deepEqual(propertyChanges([projects], { project: '' }), { properties: { project: '' } });
+});

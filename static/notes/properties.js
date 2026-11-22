@@ -54,7 +54,7 @@ export async function openProperties(note, { onSaved }) {
   save.disabled = false;
   sync();
   grid.addEventListener('change', sync);
-  const tagBox = grid.querySelector('app-combobox[multiple]');
+  const tagBox = grid.querySelector('app-combobox[multiple][data-key="tags"]');
   if (tagBox) {
     const draw = (counts) => { tagBox.optionsList = tagOptions(counts, tagBox.values); };
     draw({});

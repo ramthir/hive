@@ -155,7 +155,7 @@ class FileNoteRepository(NoteRepository):
             del meta[k]  # an unmanaged key the note no longer has (a cleared property)
         for k, v in note.extra.items():
             if k not in meta or meta[k] != v:  # an unchanged value keeps its own quoting and style
-                meta[k] = v
+                meta[k] = _inline(v) if isinstance(v, list) else v  # a changed list is inline, like tags
         self._path(note.slug).write_text(frontmatter.render(meta, note.content), encoding="utf-8")
 
     def _commit(self, paths: list[str], message: str, title: str | None = None) -> None:

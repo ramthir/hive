@@ -202,3 +202,40 @@ def test_a_spec_picks_its_application_from_applications_and_projects(client):
     make(client, "Old Product", "product")
     slug = make(client, "A Spec", "spec")
     assert [c["value"] for c in form(client, slug)["application"]["choices"]] == ["SourcePro", "Web App"]
+
+
+def test_a_contact_can_have_several_projects(client, root):
+    make(client, "Acme", "project")
+    make(client, "Zed Corp", "company")
+    slug = make(client, "Jo", "contact")
+    assert form(client, slug)["project"]["multiple"] is True
+    r = client.put(f"/api/notes/{slug}", json={"properties": {"project": "Zed Corp, Acme,Acme"}})
+    assert r.status_code == 200, r.text
+    assert "project: [Zed Corp, Acme]" in (root / f"{slug}.md").read_text() or "- Acme" in (root / f"{slug}.md").read_text()
+    f = form(client, slug)["project"]
+    assert f["value"] == "Zed Corp,Acme"
+    assert [c["value"] for c in f["choices"]] == ["Acme", "Zed Corp"]
+    client.put(f"/api/notes/{slug}", json={"properties": {"project": "Acme"}})  # back to one: a plain value
+    assert "project: Acme" in (root / f"{slug}.md").read_text()
+    client.put(f"/api/notes/{slug}", json={"properties": {"project": ""}})
+    assert "project" not in (root / f"{slug}.md").read_text()
+
+
+def test_a_single_project_field_stays_single(client):
+    slug = make(client, "Plan", "spec")
+    assert form(client, slug)["project"]["multiple"] is False
+
+
+def test_projects_written_as_wiki_links_are_read_as_titles_and_stay_links(client, root):
+    make(client, "Acme", "project")
+    make(client, "Zed Corp", "project")
+    slug = make(client, "Jo", "contact")
+    path = root / f"{slug}.md"
+    path.write_text(path.read_text().replace("type:", "project: ['[[Acme]]', '[[Zed Corp]]']\ntype:", 1))
+    client.post("/api/reindex")
+    f = form(client, slug)["project"]
+    assert f["value"] == "Acme,Zed Corp"
+    assert [c["value"] for c in f["choices"]] == ["Acme", "Zed Corp"]
+    client.put(f"/api/notes/{slug}", json={"properties": {"project": "Acme"}})
+    assert "['[[Acme]]']" in path.read_text()
+

@@ -17,8 +17,9 @@ export function propertyChanges(fields, values) {
   const body = {};
   for (const field of fields) {
     const tags = field.target === 'tags';
-    const value = tags ? tagList(values[field.key]).join(',') : clean(values[field.key]);
-    if (!isVisible(field, values) || value === (tags ? tagList(field.value).join(',') : clean(field.value))) continue;
+    const norm = (v) => (tags || field.multiple ? tagList(v).join(',') : clean(v)); // a list of titles is compared as the server keeps it
+    const value = norm(values[field.key]);
+    if (!isVisible(field, values) || value === norm(field.value)) continue;
     if (tags) body.tags = tagList(value);
     else if (field.target === 'property') (body.properties ||= {})[field.key] = value;
     else body[field.target] = value;
@@ -46,8 +47,9 @@ const control = (field) => {
   if (field.kind === 'text') {
     return `<input data-key="${esc(field.key)}" aria-label="${label}" maxlength="255" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">`;
   }
+  const many = field.multiple ? ' multiple' : '';
   const options = field.choices.map((c) => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('');
-  return `<app-combobox data-key="${esc(field.key)}" aria-label="${label}" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">${options}</app-combobox>`;
+  return `<app-combobox data-key="${esc(field.key)}"${many} aria-label="${label}" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">${options}</app-combobox>`;
 };
 
 /** The drawer's fields as HTML, with a heading wherever the group changes. */
