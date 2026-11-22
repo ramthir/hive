@@ -47,7 +47,7 @@ const control = (field) => {
   if (field.kind === 'text') {
     return `<input data-key="${esc(field.key)}" aria-label="${label}" maxlength="255" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">`;
   }
-  const many = field.multiple ? ' multiple' : '';
+  const many = field.multiple ? ` multiple${field.kind === 'values' ? ' creatable' : ''}` : '';
   const options = field.choices.map((c) => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('');
   return `<app-combobox data-key="${esc(field.key)}"${many} aria-label="${label}" placeholder="${esc(field.placeholder)}" value="${esc(field.value)}">${options}</app-combobox>`;
 };

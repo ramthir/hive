@@ -164,7 +164,7 @@ class PropertyFieldOut(BaseModel):
     key: str
     label: str
     icon: str
-    kind: Literal["text", "select", "note", "tags"]
+    kind: Literal["text", "select", "note", "values", "tags"]
     target: Literal["property", "tags", "status", "priority", "week"]
     group: str | None
     placeholder: str

@@ -29,6 +29,13 @@ def _note_choices(field: Field, notes: Iterable[Note], me: str, current: str) ->
     return [(t, t) for t in titles]
 
 
+def _known_values(field: Field, notes: Iterable[Note], me: str, current: str) -> list[tuple[str, str]]:
+    """What other notes already have for the field's key (links read as their title), plus the note's own values."""
+    found = {t for n in notes if n.slug != me for t in split_titles(n.extra.get(field.key))}
+    found.update(split_titles(current))
+    return [(t, t) for t in sorted(found, key=str.casefold)]
+
+
 def _value(field: Field, note: Note, values: dict[str, str]) -> str:
     if field.target == "tags":  # comma-separated; the priority tag of an older note is the Priority field
         return ",".join(without_priority(note.tags))
@@ -48,6 +55,8 @@ def build(form: Form, note: Note, notes: Iterable[Note], today: date) -> dict:
         value = _value(f, note, values)
         if f.kind == "note":
             choices = _note_choices(f, notes, note.slug, value)
+        elif f.kind == "values":
+            choices = _known_values(f, notes, note.slug, value)
         elif f.target == "week":
             choices = week_choices(today, note.week)
         else:

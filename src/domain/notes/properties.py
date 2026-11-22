@@ -13,7 +13,7 @@ from typing import Literal
 from src.domain.notes.entities import Note
 from src.domain.notes.errors import InvalidProperty
 
-Kind = Literal["text", "select", "note", "tags"]  # free text, one of `choices`, the title of a note of one of `note_types`, or a list of tags
+Kind = Literal["text", "select", "note", "values", "tags"]  # free text, `values` (the values other notes already have for the key, and new ones), one of `choices`, the title of a note of one of `note_types`, or a list of tags
 Target = Literal["property", "tags", "status", "priority", "week"]
 MAX_LENGTH = 255
 
@@ -84,10 +84,10 @@ CONTACT = Form(
     "Contact",
     groups={"context": "Project & Team"},
     fields=(
-        Field("role", "Role", "id-badge", placeholder="Role or job title"),
+        Field("role", "Role", "id-badge", "values", multiple=True, placeholder="Select or add roles..."),
         Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, multiple=True,
               placeholder="Select projects..."),
-        Field("team", "Team", "users", group="context", placeholder="Team name"),
+        Field("team", "Team", "users", "values", group="context", multiple=True, placeholder="Select or add teams..."),
         Field("billing", "Billing", "money-bill-wave", "select", group="context", choices=_choices(*BILLING, "Shadowed"),
               placeholder="Not set"),
         Field("acting_for", "Acting for", "user-group", "note", group="context", note_types=("contact",), required=True,
@@ -122,8 +122,9 @@ _LINK = re.compile(r"^\[\[(.*?)(?:\|.*)?\]\]$")
 
 
 def _linked(value: object) -> bool:
-    """True when the stored value is written as wiki links (`['[[Acme]]']`), as the vault's own notes do."""
-    return isinstance(value, (list, tuple)) and any(_LINK.match(str(v).strip()) for v in value)
+    """True when the stored value is written as wiki links (`['[[Acme]]']`, `'[[Acme]]'`), as the vault's own notes do."""
+    parts = value if isinstance(value, (list, tuple)) else [value]
+    return any(_LINK.match(str(v).strip()) for v in parts)
 
 
 def split_titles(value: object) -> list[str]:
@@ -188,7 +189,8 @@ def apply_properties(form: Form | None, note: Note, changes: dict[str, str]) -> 
             if extra.get(key) is None or _text(field, extra[key]) != value:
                 titles = value.split(",") if field.multiple else []
                 if field.multiple and _linked(extra.get(key)):  # keep the note's own style: a list of `[[Title]]`
-                    extra[key] = [f"[[{t}]]" for t in titles]
+                    links = [f"[[{t}]]" for t in titles]
+                    extra[key] = links if len(links) > 1 or isinstance(extra.get(key), (list, tuple)) else links[0]
                 else:
                     extra[key] = titles if len(titles) > 1 else value
         else:

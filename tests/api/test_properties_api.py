@@ -239,3 +239,17 @@ def test_projects_written_as_wiki_links_are_read_as_titles_and_stay_links(client
     client.put(f"/api/notes/{slug}", json={"properties": {"project": "Acme"}})
     assert "['[[Acme]]']" in path.read_text()
 
+
+def test_role_offers_the_roles_other_contacts_have_and_accepts_new_ones(client, root):
+    a, b = make(client, "Al", "contact"), make(client, "Bo", "contact")
+    pa = root / f"{a}.md"
+    pa.write_text(pa.read_text().replace("type:", "role: '[[Software Engineer]]'\ntype:", 1))
+    client.post("/api/reindex")
+    f = form(client, b)["role"]
+    assert f["multiple"] is True and f["value"] == ""
+    assert [c["value"] for c in f["choices"]] == ["Software Engineer"]
+    client.put(f"/api/notes/{b}", json={"properties": {"role": "Architect"}})
+    assert "role: Architect" in (root / f"{b}.md").read_text()
+    client.put(f"/api/notes/{a}", json={"properties": {"role": "Lead Engineer"}})
+    assert "role: '[[Lead Engineer]]'" in pa.read_text()  # a note that used links keeps using them
+    assert form(client, b)["role"]["value"] == "Architect"
