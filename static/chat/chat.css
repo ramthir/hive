@@ -49,7 +49,9 @@ chat-app .chat-answer { min-width: 0; overflow-wrap: anywhere; }
 /* Notes cited in an answer look like the wiki-link chips of the preview. */
 chat-app .chat-answer a.notes-wikilink { color: var(--color-accent5); border: 1px solid color-mix(in srgb, var(--color-accent5) 35%, transparent); border-radius: 6px; padding: .02rem .4rem;
   background: color-mix(in srgb, var(--color-accent5) 8%, transparent); font-weight: 500; }
-chat-app .chat-answer a.notes-wikilink:hover, chat-app .chat-answer a.notes-wikilink:focus-visible { background: color-mix(in srgb, var(--color-accent5) 18%, transparent); outline: none; }
+/* One even 1px border all round: the note preview's hover colours only the bottom edge, which reads as a thick underline */
+chat-app .chat-answer a.notes-wikilink:hover, chat-app .chat-answer a.notes-wikilink:focus-visible { background: color-mix(in srgb, var(--color-accent5) 18%, transparent); border-color: var(--color-accent5); outline: none; }
+chat-app .chat-answer a.notes-wikilink.unresolved:hover { color: var(--color-dimmed3, #908e90); border-color: var(--color-dimmed3, #908e90); background: transparent; }
 chat-app .chat-answer a.notes-wikilink.unresolved { color: var(--color-dimmed3, #908e90); border-style: dashed; background: transparent; font-weight: normal; }
 chat-app .chat-answer > :first-child { margin-top: 0; }
 chat-app .chat-answer > :last-child { margin-bottom: 0; }
