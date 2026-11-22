@@ -87,3 +87,12 @@ def test_a_session_that_is_not_an_id_is_refused(client, runner):
     for bad in ("--last", "x", SESSION + " --dangerously-bypass-approvals-and-sandbox"):
         assert client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}], "session": bad}).status_code == 422
     assert runner.prompts == []
+
+
+def test_new_chat_forgets_the_server_session(client):
+    from src.infrastructure.agents.sessions import SessionStore
+    import os
+    store = SessionStore(__import__("pathlib").Path(os.environ["HIVE_STATE_DIR"]) / "codex-sessions.json")
+    store.set("chat", SESSION)
+    assert client.delete("/api/chat/session").status_code == 204
+    assert store.get("chat") is None

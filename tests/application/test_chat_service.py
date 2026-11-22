@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from src.application.chat.service import ChatService, build_prompt, instructions
+from src.application.chat.service import ChatService, build_prompt
 from src.application.chat.tools import NotesTools
 from src.application.notes.service import NoteService
 from src.infrastructure.fs_notes.repository import FileNoteRepository
@@ -43,34 +43,19 @@ def make(root, script=None):
     return ChatService(runner, notes, GitClient(root), root), runner, notes
 
 
-def test_the_prompt_has_the_rules_the_vault_instructions_the_recent_turns_and_the_question():
+def test_the_prompt_has_the_shell_rules_the_recent_turns_and_the_question():
     turns = [{"role": "user", "content": f"q{i}"} if i % 2 == 0 else {"role": "assistant", "content": f"a{i}"} for i in range(30)] + [{"role": "user", "content": "last?"}]
-    prompt = build_prompt(turns, "Always answer in French.")
-    assert "search_notes" in prompt and "<vault_instructions>\nAlways answer in French." in prompt
+    prompt = build_prompt(turns)
+    assert "shell commands" in prompt and "AGENTS.md" in prompt and "git add -- <files>" in prompt and "Never push" in prompt
+    assert "search_notes" not in prompt
     assert prompt.endswith("Question from the user (answer this one):\nlast?")
     assert "q0" not in prompt and "a29" in prompt  # only the last turns are kept
-    assert "vault_instructions" not in build_prompt([{"role": "user", "content": "hi"}]) and "Conversation so far" not in build_prompt([{"role": "user", "content": "hi"}])
+    assert "Conversation so far" not in build_prompt([{"role": "user", "content": "hi"}])
 
 
-def test_vault_instructions_come_from_agents_md_or_agent_md(root):
-    assert instructions(root) == ""
-    (root / "agent.md").write_text("Use short answers.\n")
-    assert instructions(root) == "Use short answers."
-    (root / "AGENTS.md").write_text("x" * 30_000)
-    assert instructions(root).endswith("[instructions cut]") and instructions(root).startswith("xxx")
-
-
-def test_the_vault_instructions_reach_codex(root):
-    (root / "AGENTS.md").write_text("Log meetings as type: meeting.")
-    service, runner, _ = make(root)
-    list(service.stream([{"role": "user", "content": "hello"}]))
-    assert "Log meetings as type: meeting." in runner.prompt
-
-
-def test_the_prompt_knows_today_and_the_time_tools(root):
+def test_the_prompt_knows_today():
     from datetime import date
-    prompt = build_prompt([{"role": "user", "content": "log 1h on tax"}], "", date(2026, 11, 21))
-    assert "Today is Saturday 2026-11-21." in prompt and "log_time" in prompt and "list_time" in prompt
+    assert "Today is Saturday 2026-11-21." in build_prompt([{"role": "user", "content": "log 1h on tax"}], date(2026, 11, 21))
     assert "Today is" not in build_prompt([{"role": "user", "content": "x"}])
 
 
@@ -113,12 +98,11 @@ TURNS = [{"role": "user", "content": "first q"}, {"role": "assistant", "content"
 
 
 def test_a_resumed_session_gets_only_the_question_and_today(root):
-    (root / "AGENTS.md").write_text("Log meetings as type: meeting.")
     service, runner, _ = make(root)
     list(service.stream(TURNS, SESSION))
     (session, prompt), = runner.runs
     assert session == SESSION and prompt.endswith("Question from the user (answer this one):\nand then?")
-    assert "Today is" in prompt and "first q" not in prompt and "search_notes" not in prompt and "vault_instructions" not in prompt
+    assert "Today is" in prompt and "first q" not in prompt and "AGENTS.md" not in prompt
 
 
 def test_a_session_that_cannot_be_resumed_starts_a_new_one_with_the_turns_replayed(root):
@@ -126,5 +110,23 @@ def test_a_session_that_cannot_be_resumed_starts_a_new_one_with_the_turns_replay
     runner.resume_fails = True
     events = list(service.stream(TURNS, SESSION))
     assert [r[0] for r in runner.runs] == [SESSION, None]
-    assert "User: first q" in runner.runs[1][1] and "search_notes" in runner.runs[1][1]
+    assert "User: first q" in runner.runs[1][1] and "shell commands" in runner.runs[1][1]
     assert [e["type"] for e in events] == ["message", "done"]  # the failed resume is not shown
+
+
+def test_the_server_keeps_the_session_and_new_chat_forgets_it(root, tmp_path):
+    from src.infrastructure.agents.sessions import SessionStore
+    SID = "01a1fe57-662c-77f0-bf0c-d522d9b8d05b"
+    notes = NoteService(FileNoteRepository(root))
+    notes.create("Alpha", "first")
+    runner = Scripted(notes, events=[{"type": "session", "id": SID}])
+    store = SessionStore(tmp_path / "sessions.json")
+    chat = ChatService(runner, notes, GitClient(root), root, store)
+    ask = [{"role": "user", "content": "hi"}]
+    list(chat.stream(ask))
+    assert store.get("chat") == SID and runner.runs[0][0] is None
+    list(chat.stream(ask))  # another browser, no session sent: still the same Codex session
+    assert runner.runs[1][0] == SID
+    chat.reset()
+    list(chat.stream(ask))
+    assert runner.runs[2][0] is None

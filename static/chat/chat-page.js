@@ -6,7 +6,7 @@ import { showToast } from '/static/toast.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
 import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, SESSION_KEY, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
 
-/* Chat with the notes. The answers come from Codex (server side) using only the notes tools. A chat is one Codex session: the
+/* Chat with the notes. The answers come from Codex (server side) in the notes folder with its own shell. A chat is one Codex session: the
    server tells us its id, we keep it with the turns in this browser and send it back so follow-ups resume it. "New chat" forgets both. */
 
 class ChatApp extends HTMLElement {
@@ -99,6 +99,7 @@ class ChatApp extends HTMLElement {
     this.abort?.abort();
     this.turns = [];
     this.session = '';
+    fetch('/api/chat/session', { method: 'DELETE' }).catch(() => {}); // the server keeps the Codex session too
     this.save();
     this.render();
     this.input.focus();

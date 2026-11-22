@@ -1,23 +1,41 @@
 import json
 
-from src.domain.chat import parse_line, tool_label
+from src.domain.chat import command_label, parse_line
 
 
 def line(kind, **item):
     return json.dumps({"type": kind, "item": item})
 
 
-def test_a_tool_call_becomes_a_step_that_runs_then_is_done():
-    started = parse_line(line("item.started", id="i1", type="mcp_tool_call", tool="read_note", arguments={"slug": "home-network"}, status="in_progress"))
-    assert started == {"type": "step", "id": "i1", "tool": "read_note", "label": "Reading home-network", "write": False, "status": "running"}
-    done = parse_line(line("item.completed", id="i1", type="mcp_tool_call", tool="edit_note", arguments={"slug": "a"}, status="completed", result={"content": []}))
-    assert done["status"] == "done" and done["write"] is True
+def test_a_command_becomes_a_step_that_runs_then_is_done():
+    started = parse_line(line("item.started", id="i1", type="command_execution", command="/bin/bash -lc 'rg -n wifi *.md'", status="in_progress"))
+    assert started == {"type": "step", "id": "i1", "tool": "shell", "label": "rg -n wifi *.md", "write": False, "status": "running"}
+    done = parse_line(line("item.completed", id="i1", type="command_execution", command="cat home.md", status="completed", exit_code=0))
+    assert done["status"] == "done" and done["write"] is False
 
 
-def test_a_failed_or_error_result_is_a_failed_step():
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="read_note", status="failed"))["status"] == "failed"
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="read_note", status="completed", result={"is_error": True}))["status"] == "failed"
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="read_note", status="completed", error={"message": "x"}))["status"] == "failed"
+def test_a_failed_command_is_a_failed_step():
+    assert parse_line(line("item.completed", id="1", type="command_execution", command="cat x", status="failed"))["status"] == "failed"
+    assert parse_line(line("item.completed", id="1", type="command_execution", command="cat x", status="completed", exit_code=1))["status"] == "failed"
+
+
+def test_commands_that_change_files_or_history_are_writes():
+    def write(command):
+        return parse_line(line("item.completed", id="1", type="command_execution", command=command, status="completed", exit_code=0))["write"]
+    for command in ("sed -i 's/a/b/' x.md", "git add -- x.md && git commit -m 'doc: x' -- x.md", "echo hi >> x.md", "mv a.md b.md", "git mv a.md b.md", "rm a.md", "cat <<EOF > x.md"):
+        assert write(command) is True, command
+    for command in ("cat x.md", "git log --oneline -5", "git status --short", "sed -n 1,20p x.md", "ls -la"):
+        assert write(command) is False, command
+
+
+def test_a_file_change_is_an_edit_step():
+    step = parse_line(line("item.completed", id="1", type="file_change", changes=[{"path": "a.md", "kind": "update"}], status="completed"))
+    assert step["write"] is True and step["label"] == "Editing a.md" and step["status"] == "done"
+
+
+def test_long_commands_are_cut_to_one_line():
+    label = command_label("bash -lc 'rg -n " + "x" * 200 + "\n  more'")
+    assert len(label) <= 90 and label.endswith("…") and "\n" not in label
 
 
 def test_messages_done_and_errors():
@@ -30,25 +48,8 @@ def test_messages_done_and_errors():
 
 def test_log_lines_and_other_events_are_ignored():
     for text in ("2026-11-21T12:29:42Z ERROR codex_core: x", "", "[1,2]", json.dumps({"type": "turn.started"}),
-                 line("item.completed", type="command_execution", command="ls")):
+                 line("item.completed", type="mcp_tool_call", tool="read_note")):
         assert parse_line(text) is None
-
-
-def test_time_tools_are_writes_except_listing():
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="log_time", arguments={"slug": "x", "minutes": 5}, status="completed"))["write"] is True
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="remove_time", arguments={"slug": "x"}, status="completed"))["write"] is True
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="move_time", arguments={"slug": "x"}, status="completed"))["write"] is True
-    assert parse_line(line("item.completed", id="1", type="mcp_tool_call", tool="list_time", arguments={}, status="completed"))["write"] is False
-
-
-def test_labels():
-    assert tool_label("search_notes", {"query": "wifi"}) == "Searching notes: wifi"
-    assert tool_label("create_note", {"title": "Plan"}) == "Creating Plan"
-    assert tool_label("list_notes", None) == "Listing notes"
-    assert tool_label("log_time", {"slug": "tax-return"}) == "Logging time on tax-return"
-    assert tool_label("list_time", {}) == "Listing time"
-    assert tool_label("move_time", {"slug": "x"}) == "Moving time from x"
-    assert tool_label("something_new", {}) == "Something new"
 
 
 def test_the_thread_start_is_the_session_to_resume():

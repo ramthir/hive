@@ -30,6 +30,12 @@ def status(request: Request) -> dict:
             "reason": None if chat.available else "Codex was not found. Install it or set HIVE_CODEX."}
 
 
+@router.delete("/chat/session", status_code=204)
+def new_chat(request: Request) -> None:
+    """"New chat": forget the Codex session kept on the server."""
+    request.app.state.chat.reset()
+
+
 @router.post("/chat")
 def chat(request: Request, body: ChatRequest) -> StreamingResponse:
     """Server-sent events: `session` (the Codex session to send back with the next question), `step` (a notes tool running), `message` (Codex's latest text; the last one is the answer), `done`,

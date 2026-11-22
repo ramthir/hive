@@ -26,6 +26,7 @@ from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, Inva
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.agents.codex_chat import CodexChat
+from src.infrastructure.agents.sessions import SessionStore
 from src.domain.agents.quota import QuotaError, parse_snapshot
 from src.infrastructure.agents.quota_sources import QuotaCollector
 from src.infrastructure.agents.usage_files import CcusageCollector, ReportStore
@@ -42,7 +43,16 @@ def codex_setting(feature: str, name: str) -> str | None:
     return os.environ.get(f"HIVE_CODEX_{feature}_{name}") or os.environ.get(f"HIVE_CODEX_{name}") or None
 
 
-def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
+def state_dir() -> Path:
+    return Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser()
+
+
+def codex_sessions() -> SessionStore:
+    """The Codex session ids of the chat and of the commit messages (kept on the server)."""
+    return SessionStore(state_dir() / "codex-sessions.json")
+
+
+def commit_rewriter(git: GitClient, metrics: Metrics, root: Path | None = None) -> CommitRewriter | None:
     """HIVE_COMMIT_MESSAGES=codex: after each save, Codex reads the diff and replaces "doc: update Title" with a message
     about the change. Off by default because the diff of the note is sent to the model."""
     if os.environ.get("HIVE_COMMIT_MESSAGES", "").strip().lower() != "codex":
@@ -51,14 +61,14 @@ def commit_rewriter(git: GitClient, metrics: Metrics) -> CommitRewriter | None:
     if not program:
         logging.getLogger("hive.commit_messages").warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
         return None
-    return CommitRewriter(git, CodexCommitMessages(program, codex_setting("COMMIT", "MODEL"), effort=codex_setting("COMMIT", "EFFORT")), metrics)
+    return CommitRewriter(git, CodexCommitMessages(program, codex_setting("COMMIT", "MODEL"), effort=codex_setting("COMMIT", "EFFORT"),
+                                                         notes_dir=root, sessions=codex_sessions() if root else None), metrics)
 
 
 def chat_codex(root: Path) -> CodexChat | None:
     """The chat runs Codex (HIVE_CODEX, else the one on PATH); without it the chat page says so."""
     program = codex_program(os.environ.get("HIVE_CODEX"))
-    scratch = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser() / "chat"
-    return CodexChat(program, root, codex_setting("CHAT", "MODEL"), codex_setting("CHAT", "EFFORT"), scratch=scratch) if program else None
+    return CodexChat(program, root, codex_setting("CHAT", "MODEL"), codex_setting("CHAT", "EFFORT")) if program else None
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
@@ -70,7 +80,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     if not root.is_dir() or not git.is_repo():
         raise RuntimeError(f"NOTES_DIR {root} must be an existing git working tree")
 
-    rewriter = commit_rewriter(git, metrics)
+    rewriter = commit_rewriter(git, metrics, root)
     service = NoteService(FileNoteRepository(root, git, after_commit=rewriter.submit if rewriter else None), metrics)
     if watch is None:
         watch = os.environ.get("HIVE_WATCH", "1") != "0"
@@ -116,7 +126,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.agents = agent_usage
     app.state.agent_quota = agent_quota
     app.state.colab = colab or ColabCollector(sessions=get_colab_sessions, kernel_state=get_colab_kernel_state, collect=collect_colab_snapshot)
-    app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root)
+    app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root, codex_sessions())
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:

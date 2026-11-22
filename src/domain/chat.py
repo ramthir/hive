@@ -2,25 +2,21 @@
 from __future__ import annotations
 
 import json
+import re
 
-# The notes tools that change a note; everything else only reads.
-WRITE_TOOLS = frozenset({"create_note", "edit_note", "append_to_note", "rewrite_note", "set_note_properties", "log_time", "remove_time", "move_time"})
-TOOL_LABELS = {
-    "search_notes": "Searching notes", "read_note": "Reading", "list_notes": "Listing notes", "backlinks": "Finding links to",
-    "create_note": "Creating", "edit_note": "Editing", "append_to_note": "Adding to", "rewrite_note": "Rewriting",
-    "set_note_properties": "Updating properties of",
-    "list_time": "Listing time", "log_time": "Logging time on", "remove_time": "Removing time from", "move_time": "Moving time from",
-}
+# A shell command that changes files or history; everything else only reads.
+WRITE_COMMAND = re.compile(r"(^|[\s;&|(])(git\s+(commit|mv|rm|add|restore|checkout|reset|merge|rebase|stash|apply|am)|sed\s+(-\w*i|--in-place)|perl\s+-\w*i|mv|cp|rm|tee|touch|mkdir|truncate|patch|ed|ex)\b|>>?\s*[^\s&|]")
+SHELL_WRAPPER = re.compile(r"^(?:/\S*/)?(?:ba|z)?sh\s+-\w*c\s+(['\"])(.*)\1$", re.DOTALL)
+MAX_LABEL = 90
 
 
-def tool_label(tool: str, arguments: dict | None) -> str:
-    """"Reading home-network", "Searching notes: wifi"."""
-    args = arguments if isinstance(arguments, dict) else {}
-    label = TOOL_LABELS.get(tool, tool.replace("_", " ").capitalize())
-    if tool == "search_notes":
-        return f"{label}: {args['query']}" if args.get("query") else label
-    target = args.get("slug") or args.get("title")
-    return f"{label} {target}" if target else label
+def command_label(command: str) -> str:
+    """The command as the page shows it: without the `bash -lc '...'` wrapper, on one line, cut."""
+    command = str(command or "").strip()
+    if match := SHELL_WRAPPER.match(command):
+        command = match.group(2)
+    command = " ".join(command.split())
+    return command if len(command) <= MAX_LABEL else command[:MAX_LABEL - 1] + "…"
 
 
 def parse_line(line: str) -> dict | None:
@@ -37,13 +33,15 @@ def parse_line(line: str) -> dict | None:
     item = event.get("item") if isinstance(event.get("item"), dict) else {}
     if kind == "thread.started" and event.get("thread_id"):
         return {"type": "session", "id": str(event["thread_id"])}
-    if kind in ("item.started", "item.completed") and item.get("type") == "mcp_tool_call":
-        tool = str(item.get("tool") or "")
-        result = item.get("result") if isinstance(item.get("result"), dict) else {}
-        failed = item.get("status") == "failed" or bool(item.get("error")) or bool(result.get("is_error") or result.get("isError"))
+    if kind in ("item.started", "item.completed") and item.get("type") in ("command_execution", "file_change"):
+        failed = item.get("status") == "failed" or (kind == "item.completed" and item.get("exit_code") not in (None, 0))
         status = "running" if kind == "item.started" else "failed" if failed else "done"
-        return {"type": "step", "id": item.get("id"), "tool": tool, "label": tool_label(tool, item.get("arguments")),
-                "write": tool in WRITE_TOOLS, "status": status}
+        if item["type"] == "file_change":
+            paths = [str(c.get("path")) for c in item.get("changes") or [] if isinstance(c, dict) and c.get("path")]
+            return {"type": "step", "id": item.get("id"), "tool": "file_change", "label": "Editing " + (", ".join(paths) or "files"), "write": True, "status": status}
+        command = command_label(item.get("command"))
+        return {"type": "step", "id": item.get("id"), "tool": "shell", "label": command or "Running a command",
+                "write": bool(WRITE_COMMAND.search(str(item.get("command") or ""))), "status": status}
     if kind == "item.completed" and item.get("type") == "agent_message" and str(item.get("text") or "").strip():
         return {"type": "message", "text": str(item["text"]).strip()}
     if kind == "turn.completed":

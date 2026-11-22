@@ -8,3 +8,8 @@ load_dotenv()
 import os
 
 os.environ["HIVE_ALLOWED_HOSTS"] = "testserver"
+
+# Never touch the real ~/.local/state/hive (Codex session ids, agent reports) from a test.
+import tempfile
+
+os.environ["HIVE_STATE_DIR"] = tempfile.mkdtemp(prefix="hive-test-state-")
