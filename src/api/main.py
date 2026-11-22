@@ -26,6 +26,7 @@ from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, Inva
 from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.agents.codex_chat import CodexChat
+from src.infrastructure.agents.agy import AgyChat, AgyCommitMessages, agy_program
 from src.infrastructure.agents.sessions import SessionStore
 from src.domain.agents.quota import QuotaError, parse_snapshot
 from src.infrastructure.agents.quota_sources import QuotaCollector
@@ -38,9 +39,10 @@ from src.infrastructure.system.monitor import ContainerMonitor
 from src.infrastructure.watcher import NotesWatcher
 
 
-def codex_setting(feature: str, name: str) -> str | None:
-    """HIVE_CODEX_<feature>_<name> (feature COMMIT or CHAT), else HIVE_CODEX_<name>, else None (Codex's own default)."""
-    return os.environ.get(f"HIVE_CODEX_{feature}_{name}") or os.environ.get(f"HIVE_CODEX_{name}") or None
+def codex_setting(feature: str, name: str, agent: str = "CODEX") -> str | None:
+    """HIVE_<agent>_<feature>_<name> (agent CODEX or AGY, feature COMMIT or CHAT), else HIVE_<agent>_<name>, else None (the
+    agent's own default)."""
+    return os.environ.get(f"HIVE_{agent}_{feature}_{name}") or os.environ.get(f"HIVE_{agent}_{name}") or None
 
 
 def state_dir() -> Path:
@@ -53,20 +55,39 @@ def codex_sessions() -> SessionStore:
 
 
 def commit_rewriter(git: GitClient, metrics: Metrics, root: Path | None = None) -> CommitRewriter | None:
-    """HIVE_COMMIT_MESSAGES=codex: after each save, Codex reads the diff and replaces "doc: update Title" with a message
-    about the change. Off by default because the diff of the note is sent to the model."""
-    if os.environ.get("HIVE_COMMIT_MESSAGES", "").strip().lower() != "codex":
+    """HIVE_COMMIT_MESSAGES=codex or agy: after each save, that agent reads the diff and replaces "doc: update Title" with a
+    message about the change. Off by default because the diff of the note is sent to the model."""
+    agent = os.environ.get("HIVE_COMMIT_MESSAGES", "").strip().lower()
+    if agent not in ("codex", "agy"):
         return None
-    program = codex_program(os.environ.get("HIVE_CODEX"))
-    if not program:
-        logging.getLogger("hive.commit_messages").warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
-        return None
-    return CommitRewriter(git, CodexCommitMessages(program, codex_setting("COMMIT", "MODEL"), effort=codex_setting("COMMIT", "EFFORT"),
-                                                         notes_dir=root, sessions=codex_sessions() if root else None), metrics)
+    log = logging.getLogger("hive.commit_messages")
+    sessions = codex_sessions() if root else None
+    if agent == "agy":
+        program = agy_program(os.environ.get("HIVE_AGY"))
+        if not program:
+            log.warning("HIVE_COMMIT_MESSAGES=agy but agy was not found (set HIVE_AGY)")
+            return None
+        writer = AgyCommitMessages(program, codex_setting("COMMIT", "MODEL", "AGY"), effort=codex_setting("COMMIT", "EFFORT", "AGY"), notes_dir=root, sessions=sessions)
+    else:
+        program = codex_program(os.environ.get("HIVE_CODEX"))
+        if not program:
+            log.warning("HIVE_COMMIT_MESSAGES=codex but codex was not found (set HIVE_CODEX)")
+            return None
+        writer = CodexCommitMessages(program, codex_setting("COMMIT", "MODEL"), effort=codex_setting("COMMIT", "EFFORT"), notes_dir=root, sessions=sessions)
+    return CommitRewriter(git, writer, metrics)
+
+
+def chat_missing() -> str:
+    """What the chat page says when the agent it is set to use was not found."""
+    return AgyChat.missing if os.environ.get("HIVE_CHAT_AGENT", "").strip().lower() == "agy" else CodexChat.missing
 
 
 def chat_codex(root: Path) -> CodexChat | None:
-    """The chat runs Codex (HIVE_CODEX, else the one on PATH); without it the chat page says so."""
+    """The chat runs Codex (HIVE_CODEX, else the one on PATH), or Antigravity with HIVE_CHAT_AGENT=agy (HIVE_AGY); without
+    the program the chat page says so."""
+    if os.environ.get("HIVE_CHAT_AGENT", "").strip().lower() == "agy":
+        program = agy_program(os.environ.get("HIVE_AGY"))
+        return AgyChat(program, root, codex_setting("CHAT", "MODEL", "AGY"), codex_setting("CHAT", "EFFORT", "AGY")) if program else None
     program = codex_program(os.environ.get("HIVE_CODEX"))
     return CodexChat(program, root, codex_setting("CHAT", "MODEL"), codex_setting("CHAT", "EFFORT")) if program else None
 
@@ -126,7 +147,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.agents = agent_usage
     app.state.agent_quota = agent_quota
     app.state.colab = colab or ColabCollector(sessions=get_colab_sessions, kernel_state=get_colab_kernel_state, collect=collect_colab_snapshot)
-    app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root, codex_sessions())
+    app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root, codex_sessions(), missing=chat_missing())
 
     def err(status: int):
         async def handler(_: Request, exc: Exception) -> JSONResponse:

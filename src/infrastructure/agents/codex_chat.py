@@ -28,36 +28,52 @@ def build_args(program: str, notes_dir: Path | str, model: str | None = None, ef
 
 
 class CodexChat:
+    """One chat runner. `AgyChat` (Antigravity) overrides `command`, `events` and the names below; the process handling is shared."""
+    name = "Codex"
+    session_key = "chat"  # where the server keeps this agent's session id
+    missing = "Codex was not found. Install it or set HIVE_CODEX."
+    env_names = ("CODEX_HOME", "OPENAI_API_KEY")
+
     def __init__(self, program: str, notes_dir: Path, model: str | None = None, effort: str | None = None, timeout: float = 600):
         self.program, self.notes_dir, self.model, self.effort, self.timeout = program, Path(notes_dir), model, effort, timeout
 
+    def command(self, prompt: str, session: str | None) -> tuple[list[str], bytes | None]:
+        """The program's arguments and what goes to its standard input (None: nothing)."""
+        return build_args(self.program, self.notes_dir, model=self.model, effort=self.effort, session=session), prompt.encode()
+
+    def events(self):
+        """A function turning one output line into a list of events (one per run: it may keep state)."""
+        return lambda raw: [event] if (event := parse_line(raw)) else []
+
     def run(self, prompt: str, session: str | None = None) -> Iterator[dict]:
-        """Events (see `domain.chat.parse_line`) until Codex finishes. Closing the generator (the client left) stops Codex.
-        Ends with an error event when Codex exits without finishing its turn."""
+        """Events (see `domain.chat.parse_line`) until the agent finishes. Closing the generator (the client left) stops it.
+        Ends with an error event when it exits without finishing its turn."""
         env = {"PATH": f"{os.path.dirname(self.program)}:{os.path.dirname(sys.executable)}:/usr/local/bin:/usr/bin:/bin",
                "HOME": os.path.expanduser("~"), "LANG": "C.UTF-8"}
-        env.update({name: os.environ[name] for name in ("CODEX_HOME", "OPENAI_API_KEY") if name in os.environ})
+        env.update({name: os.environ[name] for name in self.env_names if name in os.environ})
         proc = None
         timer = None
         finished = False
         try:
-            proc = subprocess.Popen(build_args(self.program, self.notes_dir, model=self.model, effort=self.effort, session=session),
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env, cwd=self.notes_dir)
+            args, stdin = self.command(prompt, session)
+            proc = subprocess.Popen(args, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, env=env, cwd=self.notes_dir)
             timer = threading.Timer(self.timeout, proc.kill)
             timer.start()
-            proc.stdin.write(prompt.encode())
-            proc.stdin.close()
+            if stdin is not None:
+                proc.stdin.write(stdin)
+                proc.stdin.close()
+            feed = self.events()
             for raw in proc.stdout:
-                event = parse_line(raw.decode("utf-8", "replace"))
-                if event:
+                for event in feed(raw.decode("utf-8", "replace")):
                     finished = finished or event["type"] in ("done", "error")
                     yield event
             proc.wait()
             if not finished:
-                yield {"type": "error", "message": "Codex took too long and was stopped." if proc.returncode < 0 else "Codex stopped before answering."}
+                yield {"type": "error", "message": f"{self.name} took too long and was stopped." if proc.returncode < 0 else f"{self.name} stopped before answering."}
         except OSError as error:
-            log.warning("codex could not run: %s", error)
-            yield {"type": "error", "message": f"Codex could not run: {error}"}
+            log.warning("%s could not run: %s", self.program, error)
+            yield {"type": "error", "message": f"{self.name} could not run: {error}"}
         finally:
             if timer:
                 timer.cancel()

@@ -50,3 +50,62 @@ def parse_line(line: str) -> dict | None:
         detail = event.get("error") if isinstance(event.get("error"), dict) else {}
         return {"type": "error", "message": str(detail.get("message") or event.get("message") or "Codex failed")}
     return None
+
+
+# --- Antigravity (`agy --print --output-format stream-json`) --------------------------------------------------------------
+AGY_WRITE_TOOLS = re.compile(r"write|replace|edit|delete|move|rename|create|apply", re.I)
+AGY_PATH_KEYS = ("CommandLine", "AbsolutePath", "TargetFile", "FilePath", "Path", "SearchPath", "DirectoryPath", "Query", "Pattern", "Url")
+AGY_FAILED_OUTPUT = re.compile(r"Command failed to run|Command exited with code (?!0\b)\d+")
+
+
+class AgyEvents:
+    """Turns the lines of one `agy` run into the page's events (see `parse_line`). It keeps state: the text of a reply arrives in
+    pieces (`text_delta`), and only a finished reply is a `message`."""
+
+    def __init__(self):
+        self.text: dict[int, str] = {}
+
+    def feed(self, line: str) -> list[dict]:
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(event, dict):
+            return []
+        kind = event.get("event")
+        if kind == "init" and event.get("conversation_id"):
+            return [{"type": "session", "id": str(event["conversation_id"])}]
+        if kind == "step_update" and isinstance(event.get("step_update"), dict):
+            return self._step(event["step_update"])
+        if kind == "result" and isinstance(event.get("result"), dict):
+            result = event["result"]
+            if result.get("status") == "SUCCESS":
+                usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+                return [{"type": "done", "usage": {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}}]
+            return [{"type": "error", "message": str(result.get("error") or result.get("message") or f"Antigravity ended with {result.get('status') or 'an error'}")}]
+        if kind == "error":
+            return [{"type": "error", "message": str(event.get("message") or (event.get("error") or {}).get("message") or "Antigravity failed")}]
+        return []
+
+    def _step(self, step: dict) -> list[dict]:
+        index = step.get("step_index")
+        state = str(step.get("state") or "")
+        if step.get("step_type") == "agent_response":
+            self.text[index] = self.text.get(index, "") + str(step.get("text_delta") or "")
+            text = self.text.get(index, "").strip()
+            return [{"type": "message", "text": text}] if state == "DONE" and text else []
+        if step.get("step_type") != "tool":
+            return []
+        info = step.get("tool_info") if isinstance(step.get("tool_info"), dict) else {}
+        params = info.get("parameters") if isinstance(info.get("parameters"), dict) else {}
+        tool = str(step.get("tool_name") or info.get("name") or "tool")
+        if tool == "run_command":
+            command = str(params.get("CommandLine") or "")
+            label, write = command_label(command) or "Running a command", bool(WRITE_COMMAND.search(command))
+        else:
+            target = next((str(params[k]) for k in AGY_PATH_KEYS if params.get(k)), "")
+            label, write = (f"{tool.replace('_', ' ').capitalize()} {target}".strip()), bool(AGY_WRITE_TOOLS.search(tool))
+        failed = state not in ("ACTIVE", "DONE") or (state == "DONE" and bool(AGY_FAILED_OUTPUT.search(str(info.get("output") or ""))))
+        status = "running" if state == "ACTIVE" else "failed" if failed else "done"
+        return [{"type": "step", "id": f"{step.get('conversation_id', '')}:{index}", "tool": "shell" if tool == "run_command" else tool,
+                 "label": label, "write": write, "status": status}]

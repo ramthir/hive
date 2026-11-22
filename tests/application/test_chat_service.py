@@ -90,7 +90,7 @@ def test_bad_requests_and_a_missing_codex_are_errors_not_runs(root):
         assert list(service.stream(messages))[0]["type"] == "error"
     assert runner.prompt is None
     nobody = ChatService(None, notes, GitClient(root), root)
-    assert not nobody.available and "not available" in list(nobody.stream([{"role": "user", "content": "x"}]))[0]["message"]
+    assert not nobody.available and "not found" in list(nobody.stream([{"role": "user", "content": "x"}]))[0]["message"]
 
 
 SESSION = "01a1fe57-662c-77f0-bf0c-d522d9b8d05b"
@@ -130,3 +130,23 @@ def test_the_server_keeps_the_session_and_new_chat_forgets_it(root, tmp_path):
     chat.reset()
     list(chat.stream(ask))
     assert runner.runs[2][0] is None
+
+
+def test_each_agent_keeps_its_own_session_and_new_chat_clears_both(root, tmp_path):
+    from src.infrastructure.agents.sessions import SessionStore
+    SID, OTHER = "01a1fe57-662c-77f0-bf0c-d522d9b8d05b", "11111111-2222-3333-4444-555555555555"
+    notes = NoteService(FileNoteRepository(root))
+    notes.create("Alpha", "first")
+    store = SessionStore(tmp_path / "sessions.json")
+    store.set("chat", OTHER)  # Codex's session must not be resumed by Antigravity
+    runner = Scripted(notes, events=[{"type": "session", "id": SID}])
+    runner.session_key = "chat-agy"
+    chat = ChatService(runner, notes, GitClient(root), root, store, missing="Antigravity (agy) was not found.")
+    ask = [{"role": "user", "content": "hi"}]
+    list(chat.stream(ask))
+    assert runner.runs[0][0] is None and store.get("chat-agy") == SID and store.get("chat") == OTHER
+    list(chat.stream(ask))
+    assert runner.runs[1][0] == SID
+    chat.reset()
+    assert store.get("chat-agy") is None and store.get("chat") is None
+    assert "Antigravity" in list(ChatService(None, notes, GitClient(root), root, missing="Antigravity (agy) was not found.").stream(ask))[0]["message"]

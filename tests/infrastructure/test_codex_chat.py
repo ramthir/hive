@@ -80,3 +80,42 @@ def test_every_run_works_in_the_notes_folder(tmp_path):
     chat = CodexChat(program, notes)
     for session in (None, SESSION):
         assert Path([e for e in chat.run("q", session) if e["type"] == "message"][0]["text"]).resolve() == notes.resolve()
+
+
+def agy_fake(tmp_path: Path, body: str) -> str:
+    path = tmp_path / "agy"
+    path.write_text(f"#!{sys.executable}\nimport sys, json, os\nargs = sys.argv[1:]\n{body}\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    return str(path)
+
+
+def test_agy_chat_runs_in_the_notes_with_the_prompt_as_an_argument_and_resumes(tmp_path):
+    from src.infrastructure.agents.agy import AgyChat
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    body = ("print(json.dumps({'event': 'init', 'conversation_id': 'conv-1'}))\n"
+            "print(json.dumps({'event': 'step_update', 'step_update': {'step_index': 1, 'state': 'DONE', 'step_type': 'agent_response', 'text_delta': json.dumps(args) + ' ' + os.getcwd()}}))\n"
+            "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', 'usage': {}}}))")
+    chat = AgyChat(agy_fake(tmp_path, body), notes, model="m", effort="low")
+    events = list(chat.run("Question?"))
+    assert [e["type"] for e in events] == ["session", "message", "done"] and events[0]["id"] == "conv-1"
+    args, cwd = json.loads(events[1]["text"].rsplit(" ", 1)[0]), events[1]["text"].rsplit(" ", 1)[1]
+    assert args[0] == "--print=Question?" and "--dangerously-skip-permissions" in args and "--conversation" not in args
+    assert args[args.index("--output-format") + 1] == "stream-json" and args[args.index("--model") + 1] == "m" and args[args.index("--effort") + 1] == "low"
+    assert Path(cwd).resolve() == notes.resolve()
+    resumed = json.loads(list(chat.run("again", "conv-1"))[1]["text"].rsplit(" ", 1)[0])
+    assert resumed[resumed.index("--conversation") + 1] == "conv-1"
+    assert chat.session_key == "chat-agy" and "Antigravity" in chat.missing
+
+
+def test_agy_chat_cuts_a_prompt_too_long_for_an_argument(tmp_path):
+    from src.infrastructure.agents.agy import MAX_PROMPT_CHARS, fit
+    assert fit("short") == "short"
+    cut = fit("a" * 200_000)
+    assert len(cut) < MAX_PROMPT_CHARS + 20 and "[…cut…]" in cut
+
+
+def test_agy_not_finishing_is_an_error_naming_antigravity(tmp_path):
+    from src.infrastructure.agents.agy import AgyChat
+    events = list(AgyChat(agy_fake(tmp_path, "print('nothing')"), tmp_path).run("q"))
+    assert events == [{"type": "error", "message": "Antigravity stopped before answering."}]

@@ -71,13 +71,23 @@ def thread_id(stdout: bytes) -> str | None:
 
 class CodexCommitMessages:
     SESSION = "commit"
+    env_names = ("CODEX_HOME", "OPENAI_API_KEY")
 
     def __init__(self, program: str, model: str | None = None, timeout: float = 90, effort: str | None = None,
                  notes_dir: Path | None = None, sessions: SessionStore | None = None, today: Callable[[], date] = date.today):
         self.program, self.model, self.timeout, self.effort = program, model, timeout, effort
         self.notes_dir, self.sessions, self.today = (Path(notes_dir) if notes_dir else None), sessions, today
 
-    def _args(self, cwd: str, answer: Path, session: str | None) -> list[str]:
+    def _stdin(self, prompt: str) -> bytes:
+        return prompt.encode()
+
+    def _session_of(self, stdout: bytes) -> str | None:
+        return thread_id(stdout)
+
+    def _answer_of(self, stdout: bytes, answer: Path) -> str | None:
+        return clean_subject(answer.read_text(encoding="utf-8", errors="replace")) if answer.is_file() else None
+
+    def _args(self, cwd: str, answer: Path, session: str | None, prompt: str = "") -> list[str]:
         common = ["--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--disable", "shell_tool", "--disable", "unified_exec", "-o", str(answer),
                   *(["--model", self.model] if self.model else []),
                   *(["-c", f'model_reasoning_effort="{self.effort}"'] if self.effort else [])]
@@ -96,7 +106,7 @@ class CodexCommitMessages:
             diff = diff[:MAX_DIFF_CHARS] + "\n[diff cut]"
         prompt = PROMPT.format(title=title, subject=subject, diff=diff)
         env = {"PATH": f"{os.path.dirname(self.program)}:/usr/local/bin:/usr/bin:/bin", "HOME": os.path.expanduser("~"), "LANG": "C.UTF-8"}
-        env.update({name: os.environ[name] for name in ("CODEX_HOME", "OPENAI_API_KEY") if name in os.environ})
+        env.update({name: os.environ[name] for name in self.env_names if name in os.environ})
         scratch = tempfile.mkdtemp(prefix="hive-codex-")  # the answer file lives here
         cwd = str(self.notes_dir) if self.sessions and self.notes_dir else scratch
         try:
@@ -107,7 +117,7 @@ class CodexCommitMessages:
                 session = None  # a new session every month: it would otherwise grow for ever
             for attempt in (0, 1):
                 answer.unlink(missing_ok=True)
-                result = subprocess.run(self._args(cwd, answer, session), input=prompt.encode(), capture_output=True, env=env, timeout=self.timeout, cwd=cwd)
+                result = subprocess.run(self._args(cwd, answer, session, prompt), input=self._stdin(prompt), capture_output=True, env=env, timeout=self.timeout, cwd=cwd)
                 if result.returncode == 0:
                     break
                 log.warning("codex failed (%s): %s", result.returncode, result.stderr.decode("utf-8", "replace")[-300:].strip())
@@ -115,9 +125,9 @@ class CodexCommitMessages:
                     return None
                 session = None  # the saved session cannot be resumed (its file is gone): start a new one
                 self.sessions.clear(self.SESSION)
-            if self.sessions and (new := thread_id(result.stdout)):
+            if self.sessions and (new := self._session_of(result.stdout)):
                 self.sessions.set(self.SESSION, new, month)
-            return clean_subject(answer.read_text(encoding="utf-8", errors="replace")) if answer.is_file() else None
+            return self._answer_of(result.stdout, answer)
         except (OSError, subprocess.TimeoutExpired) as error:
             log.warning("codex could not run: %s", error)
             return None

@@ -1,6 +1,6 @@
 import json
 
-from src.domain.chat import command_label, parse_line
+from src.domain.chat import AgyEvents, command_label, parse_line
 
 
 def line(kind, **item):
@@ -55,3 +55,50 @@ def test_log_lines_and_other_events_are_ignored():
 def test_the_thread_start_is_the_session_to_resume():
     assert parse_line(json.dumps({"type": "thread.started", "thread_id": "abc"})) == {"type": "session", "id": "abc"}
     assert parse_line(json.dumps({"type": "thread.started"})) is None
+
+
+def agy(*events):
+    parser = AgyEvents()
+    out = []
+    for event in events:
+        out += parser.feed(json.dumps(event))
+    return out
+
+
+def update(index, state, step_type, **extra):
+    return {"event": "step_update", "step_update": {"conversation_id": "c1", "step_index": index, "state": state, "step_type": step_type, **extra}}
+
+
+def test_agy_session_message_and_done():
+    events = agy({"event": "init", "conversation_id": "c1", "init": {"cwd": "/x"}}, update(0, "DONE", "user_input"),
+                 update(1, "ACTIVE", "agent_response", text_delta="o"), update(1, "ACTIVE", "agent_response", text_delta="k"),
+                 update(1, "DONE", "agent_response", text_delta="\n"),
+                 {"event": "result", "result": {"status": "SUCCESS", "response": "ok", "usage": {"input_tokens": 5, "output_tokens": 2, "total_tokens": 7}}})
+    assert events == [{"type": "session", "id": "c1"}, {"type": "message", "text": "ok"}, {"type": "done", "usage": {"input_tokens": 5, "output_tokens": 2}}]
+
+
+def test_agy_replies_without_text_are_not_messages():
+    assert agy(update(1, "DONE", "agent_response", duration_seconds=1.0), update(2, "DONE", "system_message")) == []
+
+
+def test_agy_commands_are_steps_that_fail_on_a_bad_exit():
+    run = lambda state, command, output="": update(2, state, "tool", tool_name="run_command", tool_info={"name": "run_command", "parameters": {"CommandLine": command}, **({"output": output} if output else {})})
+    steps = agy(run("ACTIVE", "ls -la"), run("DONE", "ls -la", "Command exited with code 0.\n\nCommand output:\nx"),
+                run("DONE", "cat nope", "Command exited with code 1."), run("DONE", "ls", "Command failed to run: fork/exec: operation not permitted."),
+                run("DONE", "git commit -m x", "Command exited with code 0."))
+    assert [(s["status"], s["write"], s["label"]) for s in steps] == [("running", False, "ls -la"), ("done", False, "ls -la"), ("failed", False, "cat nope"),
+                                                                       ("failed", False, "ls"), ("done", True, "git commit -m x")]
+    assert steps[0]["id"] == steps[1]["id"] == "c1:2" and steps[0]["tool"] == "shell"
+
+
+def test_agy_other_tools_name_their_target_and_edits_are_writes():
+    view = update(3, "DONE", "tool", tool_name="view_file", tool_info={"parameters": {"AbsolutePath": "/n/home.md"}})
+    edit = update(4, "DONE", "tool", tool_name="replace_file_content", tool_info={"parameters": {"TargetFile": "/n/home.md"}})
+    got = agy(view, edit)
+    assert [(s["label"], s["write"]) for s in got] == [("View file /n/home.md", False), ("Replace file content /n/home.md", True)]
+
+
+def test_agy_failures_and_junk():
+    assert agy({"event": "result", "result": {"status": "ERROR", "error": "quota"}}) == [{"type": "error", "message": "quota"}]
+    assert agy({"event": "error", "message": "boom"}) == [{"type": "error", "message": "boom"}]
+    assert AgyEvents().feed("not json") == [] and AgyEvents().feed("[1]") == [] and agy({"event": "init"}) == []

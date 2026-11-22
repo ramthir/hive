@@ -198,3 +198,32 @@ def test_codex_is_found_in_local_bin_when_path_has_no_codex(tmp_path, monkeypatc
     assert codex_program(str(tmp_path / "missing")) == str(program)  # a bad HIVE_CODEX falls back
     program.unlink()
     assert codex_program() is None
+
+
+def test_the_app_picks_the_agent_for_the_chat_and_the_commit_messages(root, monkeypatch, tmp_path):
+    from src.api.main import chat_codex, chat_missing, commit_rewriter
+    from src.infrastructure.agents.agy import AgyChat, AgyCommitMessages
+    agy = tmp_path / "agy"
+    agy.write_text("#!/bin/sh\n")
+    agy.chmod(0o755)
+    for name in ("HIVE_AGY_MODEL", "HIVE_AGY_EFFORT", "HIVE_AGY_CHAT_MODEL", "HIVE_AGY_CHAT_EFFORT", "HIVE_AGY_COMMIT_MODEL", "HIVE_AGY_COMMIT_EFFORT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HIVE_CODEX", fake_codex(tmp_path, "true"))
+    monkeypatch.setenv("HIVE_AGY", str(agy))
+    monkeypatch.delenv("HIVE_CHAT_AGENT", raising=False)
+    assert type(chat_codex(root)).__name__ == "CodexChat" and "Codex" in chat_missing()
+    monkeypatch.setenv("HIVE_CHAT_AGENT", "agy")
+    monkeypatch.setenv("HIVE_AGY_MODEL", "shared")
+    monkeypatch.setenv("HIVE_AGY_CHAT_EFFORT", "high")
+    chat = chat_codex(root)
+    assert isinstance(chat, AgyChat) and (chat.program, chat.model, chat.effort) == (str(agy), "shared", "high") and "Antigravity" in chat_missing()
+    monkeypatch.setenv("HIVE_COMMIT_MESSAGES", "agy")
+    monkeypatch.setenv("HIVE_AGY_COMMIT_MODEL", "small")
+    rewriter = commit_rewriter(GitClient(root), None, root)
+    assert isinstance(rewriter.writer, AgyCommitMessages) and rewriter.writer.model == "small" and rewriter.writer.SESSION == "commit-agy"
+    rewriter.stop()
+    monkeypatch.setenv("HIVE_AGY", str(tmp_path / "missing"))
+    monkeypatch.setenv("AGY_BIN", str(tmp_path / "missing"))
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert chat_codex(root) is None and commit_rewriter(GitClient(root), None, root) is None

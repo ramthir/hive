@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
 def status(request: Request) -> dict:
     chat = request.app.state.chat
     return {"available": chat.available,
-            "reason": None if chat.available else "Codex was not found. Install it or set HIVE_CODEX."}
+            "reason": None if chat.available else chat.missing}
 
 
 @router.delete("/chat/session", status_code=204)

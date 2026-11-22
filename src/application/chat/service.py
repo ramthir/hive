@@ -53,13 +53,20 @@ def build_prompt(messages: list[dict], today: date | None = None) -> str:
 
 
 class ChatService:
-    def __init__(self, runner: Runner | None, notes: NoteService, git: GitClient, root: Path, sessions: SessionStore | None = None):
-        self.runner, self.notes, self.git, self.root, self.sessions = runner, notes, git, Path(root), sessions
+    def __init__(self, runner: Runner | None, notes: NoteService, git: GitClient, root: Path, sessions: SessionStore | None = None,
+                 missing: str = "Codex was not found. Install it or set HIVE_CODEX."):
+        self.runner, self.notes, self.git, self.root, self.sessions, self.missing = runner, notes, git, Path(root), sessions, missing
 
     def reset(self) -> None:
         """Forget the chat's Codex session: the next question starts a new one ("New chat")."""
         if self.sessions:
-            self.sessions.clear("chat")
+            for key in ("chat", "chat-agy"):  # whichever agent the chat uses
+                self.sessions.clear(key)
+
+    @property
+    def key(self) -> str:
+        """The name the server keeps the chat's session under (each agent has its own: ids do not carry over)."""
+        return getattr(self.runner, "session_key", "chat")
 
     @property
     def available(self) -> bool:
@@ -88,7 +95,7 @@ class ChatService:
         a new session with the recent turns replayed; its `session` event then replaces the id."""
         today = self.notes.today()
         if self.sessions:
-            session = self.sessions.get("chat") or session  # the server's session wins; the page's is only a first migration
+            session = self.sessions.get(self.key) or session  # the server's session wins; the page's is only a first migration
         if session:
             for event in self.runner.run(build_resume_prompt(messages, today), session):
                 if event["type"] == "error":
@@ -101,13 +108,13 @@ class ChatService:
 
     def _remember(self, event: dict) -> dict:
         if event["type"] == "session" and self.sessions:
-            self.sessions.set("chat", event["id"])
+            self.sessions.set(self.key, event["id"])
         return event
 
     def stream(self, messages: list[dict], session: str | None = None) -> Iterator[dict]:
         """Codex's events for the question (the last message), then `changed` (notes it saved) when it ends."""
         if self.runner is None:
-            yield {"type": "error", "message": "Codex is not available (set HIVE_CODEX or put codex on PATH)."}
+            yield {"type": "error", "message": self.missing}
             return
         if not messages or messages[-1].get("role") != "user" or not str(messages[-1].get("content") or "").strip():
             yield {"type": "error", "message": "Ask a question first."}
