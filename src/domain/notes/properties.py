@@ -84,10 +84,10 @@ CONTACT = Form(
     "Contact",
     groups={"context": "Project & Team"},
     fields=(
-        Field("role", "Role", "id-badge", "values", multiple=True, placeholder="Select or add roles..."),
-        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, multiple=True, wide=True,
+        Field("role", "Role", "id-badge", "values", multiple=True, wide=True, placeholder="Select or add roles..."),
+        Field("project", "Project", "hammer", "note", group="context", note_types=PROJECT_TYPES, multiple=True,
               placeholder="Select projects..."),
-        Field("team", "Team", "users", "values", group="context", multiple=True, wide=True, placeholder="Select or add teams..."),
+        Field("team", "Team", "users", "values", group="context", multiple=True, placeholder="Select or add teams..."),
         Field("billing", "Billing", "money-bill-wave", "select", group="context", choices=_choices(*BILLING, "Shadowed"),
               placeholder="Not set"),
         Field("acting_for", "Acting for", "user-group", "note", group="context", note_types=("contact",), required=True,
