@@ -118,4 +118,4 @@ chat-app[compact] .chat-context span { flex: 1; min-width: 0; overflow: hidden; 
 chat-app[compact] .chat-composer--dock { align-items: center; padding: .5rem 1rem; }
 /* The answer borrows the note preview's text styles (`notes-preview-pane`), which also paint the note's background and pad it like a page:
    in the dock that showed as a lighter block on the panel. */
-chat-app[compact] .chat-answer.notes-preview-pane { background: transparent; padding: 0; height: auto; flex: none; overflow: visible; }
+chat-app[compact] .chat-answer.notes-preview-pane { background: transparent; padding: 0; height: auto; flex: none; overflow: visible; font-family: var(--font-family); line-height: 1.6; } /* the note page's serif is for the note, not the chat */
