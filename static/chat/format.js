@@ -13,7 +13,7 @@ export function parseSse(buffer) {
   return { events, rest };
 }
 
-export const newTurn = () => ({ steps: [], narration: [], answer: '', changed: [], status: 'running', error: '' });
+export const newTurn = () => ({ steps: [], narration: [], answer: '', changed: [], status: 'running', error: '', startedAt: 0, endedAt: 0 });
 
 /** The turn after one event (a new object). `message` events are Codex's text: the newest is the answer and the one it
  *  replaces becomes a line of narration ("Let me look that up."), since only the last message answers. */
@@ -92,6 +92,7 @@ export function restoreTurns(raw) {
       turns.push({ role: 'assistant', ...base, status, error: String(turn.error || ''), answer: String(turn.answer || ''),
         narration: Array.isArray(turn.narration) ? turn.narration.map(String) : [],
         steps: Array.isArray(turn.steps) ? turn.steps.filter((s) => s && typeof s.label === 'string').map((s) => ({ ...s, status: s.status === 'running' ? 'failed' : s.status })) : [],
+        startedAt: Number(turn.startedAt) || 0, endedAt: Number(turn.endedAt) || 0,
         changed: Array.isArray(turn.changed) ? turn.changed.filter((n) => n && typeof n.slug === 'string') : [] });
     }
   }

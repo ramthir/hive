@@ -1849,8 +1849,15 @@ def test_chat_answers_with_steps_links_and_follow_ups_that_remember_the_conversa
     answer = page.locator(".chat-message.assistant .chat-answer")
     expect(answer).to_contain_text("Alpha links to")
     expect(answer.locator("strong")).to_have_text("code")
-    expect(page.locator(".chat-steps li").first).to_have_text("Let me look.")  # earlier text is narration, not the answer
-    expect(page.locator(".chat-steps li", has_text="Reading alpha")).to_be_visible()
+    work = page.locator(".chat-message.assistant .chat-work")
+    expect(work.locator("summary")).to_contain_text("Worked")  # the finished work folds into one line
+    expect(work.locator("summary")).to_contain_text("1 step")
+    expect(work.locator(".chat-steps li").first).not_to_be_visible()
+    work.locator("summary").click()
+    expect(work.locator(".chat-steps li").first).to_have_text("Let me look.")  # earlier text is narration, not the answer
+    expect(work.locator(".chat-steps li", has_text="Reading alpha")).to_be_visible()
+    work.locator("summary").click()
+    expect(work.locator(".chat-steps li").first).not_to_be_visible()
     expect(answer.locator("a.notes-wikilink")).to_have_attribute("href", "/notes/beta")  # [[beta]] resolved to the note
     page.locator("#chat-input").fill("and the second?")
     page.locator("#chat-input").press("Enter")
@@ -1886,6 +1893,9 @@ def test_chat_edits_are_reported_as_changed_notes_that_open(page, chat_server):
     expect(changed).to_have_text("Beta Note")
     assert "Tidied." in (chat_server.root / "beta.md").read_text()
     assert git(chat_server.root, "log", "-1", "--format=%s").strip() == "doc: update Beta Note"
+    expect(page.locator(".chat-work summary .chat-work-wrote")).to_be_visible()  # a run that saved something says so on the closed line
+    expect(page.locator(".chat-work summary")).to_contain_text("changed 1 note")
+    page.locator(".chat-work summary").click()
     expect(page.locator(".chat-steps li.write")).to_have_text("Adding to beta")
     changed.click()
     expect(page).to_have_url(f"{chat_server.url}/notes/beta")
@@ -1935,6 +1945,8 @@ def test_chat_left_mid_answer_comes_back_stopped_with_what_it_had(page, chat_ser
     expect(page.locator(".chat-message.user .chat-user-text")).to_have_text("slow one")
     expect(page.locator(".chat-stopped")).to_be_visible()
     expect(page.locator("#chat-send")).to_have_class("chat-send")  # ready for the next question
+    expect(page.locator(".chat-work summary")).to_contain_text("1 step")  # the finished step is folded away
+    expect(page.locator(".chat-work[open]")).to_have_count(0)
 
 
 def test_a_diagram_can_be_downloaded_as_a_png(page, diagram_note, tmp_path):

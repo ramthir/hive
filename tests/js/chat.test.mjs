@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyEvent, finishTurn, historyFor, newTurn, parseSse, sessionId, stepIcon } from '../../static/chat/format.js';
+import { friendlyLabel, workSummary, words, LIVE_STEPS } from '../../static/chat/steps.js';
+import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, stepIcon } from '../../static/chat/format.js';
 
 test('parseSse returns whole events and keeps the unfinished tail', () => {
   const first = parseSse('data: {"type":"step","id":"1"}\n\ndata: {"type":"mess');
@@ -72,7 +73,6 @@ test('step icons', () => {
   assert.match(stepIcon({ status: 'done', write: false }), /check/);
 });
 
-import { restoreTurns, serializeTurns } from '../../static/chat/format.js';
 
 test('a saved conversation comes back as it was', () => {
   const turns = [{ role: 'user', content: 'q' }, { role: 'assistant', ...newTurn(), status: 'done', answer: 'a', narration: ['hm'],
@@ -105,4 +105,52 @@ test('only a UUID is kept as the Codex session, and the turn ignores the event',
   for (const bad of ['', null, undefined, '--last', 'abc', '01a1fe57-662c-77f0-bf0c-d522d9b8d05b --x']) assert.equal(sessionId(bad), '');
   const turn = newTurn();
   assert.equal(applyEvent(turn, { type: 'session', id: '01a1fe57-662c-77f0-bf0c-d522d9b8d05b' }), turn);
+});
+
+
+const step = (label, extra = {}) => ({ id: label, tool: 'shell', label, write: false, status: 'done', ...extra });
+
+test('words honours quotes and keeps a quoted pattern as one word', () => {
+  assert.deepEqual(words(`rg -n 'a b' "c d" e`), ['rg', '-n', 'a b', 'c d', 'e']);
+  assert.deepEqual(words(''), []);
+});
+
+test('commands get a readable label and anything unknown keeps its command', () => {
+  assert.equal(friendlyLabel(step("rg -il --glob '*.md' --glob '!AGENTS.md' '\\bendowus\\b' | head -100")), 'Searched notes for “endowus”');
+  assert.equal(friendlyLabel(step('rg --files | rg -i endowus')), 'Listed notes');
+  assert.equal(friendlyLabel(step('cat endowus.md endowus-invest.md')), 'Read endowus.md and 1 more');
+  assert.equal(friendlyLabel(step("sed -n '45,86p' limark-project-allocation.md")), 'Read limark-project-allocation.md');
+  assert.equal(friendlyLabel(step("sed -i 's/a/b/' home.md")), 'Edited home.md');
+  assert.equal(friendlyLabel(step('git add -- x.md && git commit -m "doc: add storage" -- x.md', { write: true })), 'Committed: doc: add storage');
+  assert.equal(friendlyLabel(step('git mv a.md b.md')), 'Renamed a.md to b.md');
+  assert.equal(friendlyLabel(step('git status --short')), 'Checked what changed');
+  assert.equal(friendlyLabel(step('ls -la')), 'Listed files');
+  assert.equal(friendlyLabel(step('if [ -f AGENTS.md ]; then cat AGENTS.md; fi')), 'Read AGENTS.md');
+  assert.equal(friendlyLabel(step('python3 weird.py')), 'python3 weird.py');
+  assert.equal(friendlyLabel({ tool: 'file_change', label: 'Editing a.md, b.md' }), 'Edited a.md, b.md');
+});
+
+test('the summary is one line for a finished turn and nothing while it runs or when it did no work', () => {
+  const done = { ...newTurn(), status: 'done', startedAt: 1000, endedAt: 15400, answer: 'x', steps: [step('cat a.md'), step('git commit -m x', { write: true })], changed: [{ slug: 'a', title: 'A' }] };
+  assert.deepEqual(workSummary(done), { text: 'Worked for 14s · 2 steps · changed 1 note', wrote: true, failed: 0, open: false });
+  assert.equal(workSummary({ ...done, status: 'running' }), null);
+  assert.equal(workSummary({ ...newTurn(), status: 'done', answer: 'hi' }), null);
+  assert.equal(workSummary({ ...done, startedAt: 0, changed: [], steps: [step('cat a.md')] }).text, 'Worked · 1 step');
+  assert.equal(workSummary({ ...done, startedAt: 0, endedAt: 0, steps: [step('sed -i x a.md', { write: true })], changed: [] }).text, 'Worked · 1 step · edited files');
+  assert.equal(workSummary({ ...done, startedAt: 0, endedAt: 125000 + 0, changed: [], steps: [step('cat a')] }).text, 'Worked · 1 step');
+});
+
+test('a failed step or an error opens the work by itself and long runs read as minutes', () => {
+  const failed = { ...newTurn(), status: 'done', startedAt: 0, endedAt: 0, steps: [step('cat a'), step('cat b', { status: 'failed' })] };
+  assert.deepEqual([workSummary(failed).open, workSummary(failed).failed, workSummary(failed).text], [true, 1, 'Worked · 2 steps · 1 failed']);
+  assert.equal(workSummary({ ...newTurn(), status: 'error', steps: [step('cat a')] }).open, true);
+  assert.match(workSummary({ ...newTurn(), status: 'done', startedAt: 1000, endedAt: 126000, steps: [step('cat a')] }).text, /^Worked for 2m 5s/);
+  assert.ok(LIVE_STEPS >= 3);
+});
+
+test('start and end times survive saving the conversation', () => {
+  const saved = serializeTurns([{ role: 'user', content: 'q' }, { role: 'assistant', ...newTurn(), status: 'done', startedAt: 5, endedAt: 9, answer: 'a' }]);
+  const [, turn] = restoreTurns(saved);
+  assert.deepEqual([turn.startedAt, turn.endedAt], [5, 9]);
+  assert.deepEqual([restoreTurns('[{"role":"user","content":"q"},{"role":"assistant","startedAt":"x"}]')[1].startedAt], [0]);
 });

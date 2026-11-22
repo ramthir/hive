@@ -34,8 +34,8 @@ def test_a_file_change_is_an_edit_step():
 
 
 def test_long_commands_are_cut_to_one_line():
-    label = command_label("bash -lc 'rg -n " + "x" * 200 + "\n  more'")
-    assert len(label) <= 90 and label.endswith("…") and "\n" not in label
+    label = command_label("bash -lc 'rg -n " + "x" * 400 + "\n  more'")
+    assert len(label) <= 240 and label.endswith("…") and "\n" not in label
 
 
 def test_messages_done_and_errors():

@@ -5,6 +5,7 @@ import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { showToast } from '/static/toast.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
 import { applyEvent, finishTurn, historyFor, newTurn, parseSse, restoreTurns, serializeTurns, sessionId, SESSION_KEY, stepIcon, STORAGE_KEY, SUGGESTIONS } from '/static/chat/format.js';
+import { friendlyLabel, LIVE_STEPS, workSummary } from '/static/chat/steps.js';
 
 /* Chat with the notes. The answers come from Codex (server side) in the notes folder with its own shell. A chat is one Codex session: the
    server tells us its id, we keep it with the turns in this browser and send it back so follow-ups resume it. "New chat" forgets both. */
@@ -125,7 +126,7 @@ class ChatApp extends HTMLElement {
     this.input.value = '';
     this.grow();
     this.turns.push({ role: 'user', content: question });
-    let turn = { role: 'assistant', ...newTurn() };
+    let turn = { role: 'assistant', ...newTurn(), startedAt: Date.now() };
     this.turns.push(turn);
     this.save();
     const body = JSON.stringify({ messages: historyFor(this.turns.slice(0, -1)), ...(this.session ? { session: this.session } : {}) });
@@ -153,6 +154,7 @@ class ChatApp extends HTMLElement {
     } catch (error) {
       set(finishTurn(turn, error.name === 'AbortError' || this.leaving ? { stopped: true } : { failure: error.message }));
     } finally {
+      turn.endedAt = Date.now();
       this.abort = null;
       this.updateControls();
       this.renderLast();
@@ -191,18 +193,40 @@ class ChatApp extends HTMLElement {
       return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar" title="${esc(CURRENT_USER.name)}">${esc(initialsOf(CURRENT_USER.name))}</div>
         <div class="chat-body"><div class="chat-sender">Ramesh</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
     }
-    const steps = [...turn.narration.map((text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`),
-      ...turn.steps.map((s) => `<li class="${s.write ? 'write ' : ''}${s.status}"><i class="${stepIcon(s)}"></i><span title="${esc(s.label)}">${esc(s.label)}</span></li>`)];
+    const noteItem = (text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`;
+    const stepItem = (s) => {
+      const label = friendlyLabel(s);
+      const raw = label !== s.label ? `<code title="${esc(s.label)}">${esc(s.label)}</code>` : '';
+      return `<li class="${s.write ? 'write ' : ''}${s.status}"><i class="${stepIcon(s)}"></i><span title="${esc(s.label)}">${esc(label)}</span>${raw}</li>`;
+    };
     const running = turn.status === 'running';
     return `<div class="chat-message assistant" data-index="${index}"><div class="chat-avatar"><i class="fa-solid fa-robot"></i></div>
       <div class="chat-body"><div class="chat-sender">Hive</div>
-        ${steps.length ? `<ul class="chat-steps">${steps.join('')}</ul>` : ''}
+        ${this.workHtml(turn, noteItem, stepItem)}
         ${turn.answer ? `<div class="chat-answer notes-preview-pane text-flow">${renderMarkdownPreview(turn.answer, { isRoute: (path) => path.startsWith('/notes') })}</div>`
           : running ? '<div class="chat-thinking">Thinking…</div>' : ''}
         ${turn.status === 'error' ? `<div class="chat-error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(turn.error)}</div>` : ''}
         ${turn.status === 'stopped' ? '<div class="chat-stopped">Stopped. Anything already saved stays saved (see History on the note).</div>' : ''}
         ${turn.changed.length ? `<div class="chat-changed"><span><i class="fa-solid fa-pen"></i> Changed</span>${turn.changed.map((n) => `<a href="/notes/${encodeURIComponent(n.slug)}">${esc(n.title)}</a>`).join('')}</div>` : ''}
       </div></div>`;
+  }
+
+  /** The work behind an answer. While Codex runs: the newest few steps. Finished: one summary line that opens the whole list
+   *  (open by itself when a step failed, so a problem is never hidden). */
+  workHtml(turn, noteItem, stepItem) {
+    if (turn.status === 'running') {
+      const steps = turn.steps.slice(-LIVE_STEPS);
+      const earlier = turn.steps.length - steps.length;
+      const last = turn.narration.at(-1);
+      const items = [...(last ? [noteItem(last)] : []), ...(earlier > 0 ? [`<li class="earlier"><span>+${earlier} earlier</span></li>`] : []), ...steps.map(stepItem)];
+      return items.length ? `<ul class="chat-steps">${items.join('')}</ul>` : '';
+    }
+    const summary = workSummary(turn);
+    if (!summary) return '';
+    const items = [...turn.narration.map(noteItem), ...turn.steps.map(stepItem)];
+    return `<details class="chat-work${summary.failed ? ' failed' : ''}"${summary.open ? ' open' : ''}>
+      <summary><i class="fa-solid fa-chevron-right chat-work-chevron"></i><span>${esc(summary.text)}</span>${summary.wrote ? '<i class="fa-solid fa-pen chat-work-wrote" title="Saved changes"></i>' : ''}</summary>
+      <ul class="chat-steps">${items.join('')}</ul></details>`;
   }
 
   /** Link [[wiki links]] in an answer to the notes they name (the same lookup the note page uses). */

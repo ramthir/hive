@@ -7,7 +7,7 @@ import re
 # A shell command that changes files or history; everything else only reads.
 WRITE_COMMAND = re.compile(r"(^|[\s;&|(])(git\s+(commit|mv|rm|add|restore|checkout|reset|merge|rebase|stash|apply|am)|sed\s+(-\w*i|--in-place)|perl\s+-\w*i|mv|cp|rm|tee|touch|mkdir|truncate|patch|ed|ex)\b|>>?\s*[^\s&|]")
 SHELL_WRAPPER = re.compile(r"^(?:/\S*/)?(?:ba|z)?sh\s+-\w*c\s+(['\"])(.*)\1$", re.DOTALL)
-MAX_LABEL = 90
+MAX_LABEL = 240
 
 
 def command_label(command: str) -> str:
