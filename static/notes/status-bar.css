@@ -118,7 +118,8 @@
   flex-shrink: 0;
 }
 
-.tool-button.notes-edit-toggle[aria-pressed="true"] {
+.tool-button.notes-edit-toggle[aria-pressed="true"],
+.tool-button#note-chat-btn[aria-pressed="true"] {
   color: var(--color-accent5);
   background: color-mix(in srgb, var(--color-accent5) 16%, transparent);
 }

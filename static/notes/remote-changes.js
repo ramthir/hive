@@ -36,6 +36,8 @@ export class RemoteChanges {
     const action = remoteAction({ heldRevision: this.selectedNote.revision, fresh, unsaved: this.saveStatus === 'dirty' });
     if (action === 'none') return;
     if (action === 'gone') {
+      // The chat beside the note is renaming it: leaving now would stop its run. It tells us when it ends (chatFinished).
+      if (this.chatDock.holdsNote(slug)) return;
       if (this.saveStatus === 'dirty') return this.showRemoteBanner('This note was deleted or renamed outside this page. Your unsaved text is still here; saving writes it back.');
       showToast('This note was renamed or deleted elsewhere.', 'info');
       notesRouter.navigate('/notes', { replace: true });

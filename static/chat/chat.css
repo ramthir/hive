@@ -11,7 +11,7 @@ chat-app .chat-empty h2 { margin: 0; font-size: 1.25rem; color: var(--color-text
 chat-app .chat-empty p { margin: 0; font-size: .88rem; line-height: 1.5; }
 chat-app .chat-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: .5rem; }
 chat-app .chat-suggestion { font: inherit; font-size: .8rem; color: var(--color-dimmed2); background: var(--color-dark2); border: 1px solid var(--color-dimmed5);
-  border-radius: 999px; padding: .35rem .8rem; cursor: pointer; }
+  border-radius: var(--chip-radius, var(--radius-sm, 6px)); padding: .35rem .8rem; cursor: pointer; }
 chat-app .chat-suggestion:hover, chat-app .chat-suggestion:focus-visible { color: var(--color-text); border-color: var(--color-accent5); outline: none; }
 
 chat-app .chat-notice { margin: 0 0 1rem; width: 100%; box-sizing: border-box; padding: .6rem .9rem; border: 1px solid var(--color-dimmed5); border-left: 3px solid var(--color-accent3, #fc9867);
@@ -74,3 +74,48 @@ chat-app .chat-send.stop { background: var(--color-accent1); color: var(--color-
 
 /* The header bleeds over the page padding to the window's edges, like the bar below it (Pandora's chat header does the same). */
 chat-app app-header { width: calc(100% + 2 * var(--page-inline-padding, 1.5rem)); margin-inline: calc(-1 * var(--page-inline-padding, 1.5rem)); box-sizing: border-box; }
+
+/* --- The chat beside a note (`<chat-app compact>` in the note page's dock) --------------------------------------------------------
+   A panel next to the note, not an overlay: the note shrinks to make room, so edits show as the agent makes them. The footer bar is
+   fixed over the bottom of the page, so the dock leaves room for it. */
+.notes-chat-dock { --dock-width: min(26rem, 45vw); flex: 0 0 var(--dock-width); width: var(--dock-width); min-width: 0; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;
+  border-left: 1px solid var(--color-dimmed5); background: var(--color-dark1); }
+/* The footer bar stops at the dock, whose composer is the bottom strip beside it (same height, same top line). */
+notes-app.chat-docked .notes-action-bar,
+tables-app.chat-docked .notes-action-bar,
+timelines-app.chat-docked .notes-action-bar { right: min(26rem, 45vw); }
+/* The pages of table and timeline notes scroll with the window, so their dock is a column fixed to its right edge and the page makes room. */
+.notes-chat-dock--fixed { position: fixed; top: 0; right: 0; bottom: 0; height: auto; z-index: 25; }
+tables-app.chat-docked, timelines-app.chat-docked { padding-right: min(26rem, 45vw); }
+.notes-chat-dock[hidden] { display: none; }
+
+chat-app[compact] { margin: 0; height: 100%; min-height: 0; }
+chat-app[compact] .chat-dock-header { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; padding: .55rem .6rem .55rem 1rem; border-bottom: 1px solid var(--color-dimmed5);
+  font-size: .85rem; color: var(--color-dimmed2); }
+chat-app[compact] .chat-dock-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--color-text); }
+chat-app[compact] .chat-dock-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; padding: 0; border: none; border-radius: 6px;
+  background: transparent; color: var(--color-dimmed2); cursor: pointer; font-size: .8rem; }
+chat-app[compact] .chat-dock-btn:hover, chat-app[compact] .chat-dock-btn:focus-visible { color: var(--color-text); background: var(--color-dark2); outline: none; }
+
+chat-app[compact] .chat-scroll { width: auto; margin-inline: 0; padding: .9rem 1rem; }
+chat-app[compact] .chat-column { gap: 1.1rem; }
+chat-app[compact] .chat-message { gap: .6rem; font-size: .85rem; }
+chat-app[compact] .chat-avatar { width: 1.6rem; height: 1.6rem; font-size: .75rem; }
+chat-app[compact] .chat-empty { margin: 2rem auto 0; gap: .6rem; }
+chat-app[compact] .chat-empty i.chat-empty-icon { font-size: 1.6rem; }
+chat-app[compact] .chat-empty p { font-size: .8rem; }
+chat-app[compact] .chat-notice { margin-bottom: .75rem; }
+chat-app[compact] .chat-changed-history { font: inherit; font-size: .78rem; color: var(--color-text); cursor: pointer; border: 1px solid var(--color-dimmed5); border-radius: 6px;
+  padding: .1rem .6rem; background: var(--color-dark2); }
+chat-app[compact] .chat-changed-history:hover, chat-app[compact] .chat-changed-history:focus-visible { border-color: var(--color-accent5); outline: none; }
+
+chat-app[compact] .chat-dock-foot { flex-shrink: 0; border-top: 1px solid var(--color-dimmed5); min-height: var(--footer-bar-height, 3.75rem); box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
+  background: var(--color-dark1); cursor: text; }
+chat-app[compact] .chat-context { display: flex; align-items: center; gap: .5rem; min-width: 0; margin: .5rem 1rem 0; padding: .2rem .2rem .2rem .6rem; font-size: .78rem; color: var(--color-dimmed2);
+  border: 1px solid var(--color-dimmed5); border-left: 3px solid var(--color-accent5); border-radius: 6px; background: var(--color-dark2); }
+chat-app[compact] .chat-context[hidden] { display: none; }
+chat-app[compact] .chat-context span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: italic; }
+chat-app[compact] .chat-composer--dock { align-items: center; padding: .5rem 1rem; }
+/* The answer borrows the note preview's text styles (`notes-preview-pane`), which also paint the note's background and pad it like a page:
+   in the dock that showed as a lighter block on the panel. */
+chat-app[compact] .chat-answer.notes-preview-pane { background: transparent; padding: 0; height: auto; flex: none; overflow: visible; font-family: var(--font-family); line-height: 1.6; } /* the note page's serif is for the note, not the chat */

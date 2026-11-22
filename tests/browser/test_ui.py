@@ -1812,9 +1812,23 @@ class ChatRunner:
         yield {"type": "step", "id": "1", "tool": "read_note", "label": "Reading alpha", "write": False, "status": "running"}
         yield {"type": "step", "id": "1", "tool": "read_note", "label": "Reading alpha", "write": False, "status": "done"}
         self.gate.wait(10)
-        if "tidy" in prompt.rsplit("Question from the user", 1)[1]:
+        question = prompt.rsplit("Question from the user", 1)[1]
+        if "tidy" in question:
             NotesTools(self.service).call("append_to_note", {"slug": "beta", "text": "Tidied."})
             yield {"type": "step", "id": "2", "tool": "append_to_note", "label": "Adding to beta", "write": True, "status": "done"}
+        if "polish" in question:  # the note the chat sits beside
+            NotesTools(self.service).call("append_to_note", {"slug": "alpha", "text": "Polished."})
+            yield {"type": "step", "id": "2", "tool": "append_to_note", "label": "Adding to alpha", "write": True, "status": "done"}
+        if "addrow" in question:  # a table note gets a row
+            note = self.service.get("inventory")
+            self.service.update("inventory", content=note.content.replace("| Bo Kim | HP |", "| Bo Kim | HP |\n| Cy Doe | Apple |", 1))
+            yield {"type": "step", "id": "2", "tool": "edit_note", "label": "Editing inventory", "write": True, "status": "done"}
+        if "addphase" in question:  # a timeline note gets a phase
+            NotesTools(self.service).call("append_to_note", {"slug": "roadmap", "text": "## September 2025 — Ship\n\nShipped."})
+            yield {"type": "step", "id": "2", "tool": "append_to_note", "label": "Adding to roadmap", "write": True, "status": "done"}
+        if "retitle" in question:  # a new heading renames the file
+            self.service.update("alpha", content=self.service.get("alpha").content.replace("# Alpha", "# Alpha Two", 1))
+            yield {"type": "step", "id": "2", "tool": "edit_note", "label": "Editing alpha", "write": True, "status": "done"}
         yield {"type": "message", "text": "Alpha links to [[beta]] and has **code**."}
         yield {"type": "done", "usage": {}}
 
@@ -2115,4 +2129,179 @@ def test_timeline_note_opens_as_phases_and_the_pencil_returns_to_the_editor(page
     expect(page.locator("button.timeline-phase-head, #timeline-toggle-all")).to_have_count(0)  # nothing collapses
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/roadmap?mode=edit")
+    assert page.errors == []
+
+
+# --- Chat beside a note --------------------------------------------------------------------------------------------------
+
+def open_note_chat(page, chat_server, slug="alpha"):
+    page.goto(f"{chat_server.url}/notes/{slug}")
+    expect(page.locator("#notes-md")).to_be_visible()
+    expect(page.locator(".notes-chat-dock")).to_have_count(0)  # closed until asked for
+    page.locator("#note-chat-btn").click()
+    expect(page.locator(".notes-chat-dock chat-app[compact]")).to_be_visible()
+
+
+def test_the_note_chat_sits_beside_the_note_and_edits_show_in_it_live(page, chat_server):
+    open_note_chat(page, chat_server)
+    note, dock = page.locator("#notes-preview").bounding_box(), page.locator(".notes-chat-dock").bounding_box()
+    assert note["x"] + note["width"] <= dock["x"] + 1  # beside it, not over it
+    bar, foot = page.locator(".notes-action-bar").bounding_box(), page.locator(".chat-dock-foot").bounding_box()
+    assert bar["x"] + bar["width"] <= dock["x"] + 1  # the footer bar stops at the dock...
+    assert abs(foot["y"] - bar["y"]) < 1.5 and abs(foot["x"] - dock["x"]) < 2 and foot["x"] + foot["width"] >= dock["x"] + dock["width"] - 1  # ...and the composer is the strip beside it, edge to edge
+    expect(page.locator("#note-chat-btn")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator(".chat-dock-title")).to_have_text("Chat")
+    page.locator("#chat-input").fill("polish this note")
+    page.locator("#chat-send").click()
+    expect(page.locator("#notes-md")).to_contain_text("Polished.")  # the note redrew in place under the running chat
+    answer = page.locator(".chat-message.assistant .chat-answer")
+    expect(answer).to_contain_text("Alpha links to")  # and the redraw did not cut the run
+    expect(answer).to_have_css("background-color", "rgba(0, 0, 0, 0)")  # the reply sits on the panel, not on a block of its own
+    expect(page.locator(".chat-message.assistant .chat-stopped")).to_have_count(0)
+    prompt = chat_server.runner.prompts[-1]
+    assert "`alpha.md`" in prompt and prompt.endswith("polish this note")
+    page.locator(".chat-changed-history").click()  # the changed note is this one: review or undo it from its history
+    expect(page.get_by_role("heading", name="History")).to_be_visible()
+    assert page.errors == []
+
+
+def test_the_note_chat_is_remembered_per_note_and_stays_open(page, chat_server):
+    open_note_chat(page, chat_server)
+    page.locator("#chat-input").fill("what is this")
+    page.locator("#chat-input").press("Enter")
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_have_count(1)
+    page.reload()
+    expect(page.locator(".notes-chat-dock chat-app")).to_be_visible()  # the panel stays open
+    expect(page.locator(".chat-message")).to_have_count(2)  # with this note's conversation
+    page.goto(f"{chat_server.url}/notes/beta")
+    expect(page.locator(".notes-chat-dock chat-app")).to_be_visible()
+    expect(page.locator(".chat-message")).to_have_count(0)  # another note, another chat
+    expect(page.locator(".chat-dock-title")).to_have_text("Chat")
+    page.locator("#chat-close").click()
+    expect(page.locator(".notes-chat-dock")).to_be_hidden()
+    expect(page.locator("#note-chat-btn")).to_have_attribute("aria-pressed", "false")
+    page.keyboard.press("Control+Shift+L")  # the shortcut opens it again
+    expect(page.locator(".notes-chat-dock")).to_be_visible()
+
+
+def test_the_note_chat_saves_unsaved_text_first_and_sends_the_selection(page, chat_server):
+    open_note_chat(page, chat_server)
+    page.locator("#edit-note-btn").click()
+    editor = page.locator(".cm-content")
+    editor.click()
+    page.keyboard.press("Control+End")
+    page.keyboard.type("\nTyped before asking.")
+    expect(page.locator("#save-note-btn")).not_to_be_disabled()
+    expect(page.locator("#notes-md")).to_contain_text("Typed before asking.")  # the preview has redrawn: a selection made earlier would be lost
+    page.locator("#notes-md p", has_text="Typed before asking.").click(click_count=3)  # select a paragraph of the preview
+    expect(page.locator("#chat-context")).to_be_visible()
+    expect(page.locator("#chat-context-text")).to_contain_text("Typed before asking.")
+    page.locator("#chat-input").fill("what did I type")
+    page.locator("#chat-send").click()
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_contain_text("Alpha links to")
+    assert "Typed before asking." in (chat_server.root / "alpha.md").read_text()  # saved before the agent was asked
+    assert "<<<\nTyped before asking." in chat_server.runner.prompts[-1]  # the selection is quoted before the question
+    expect(page.locator("#chat-context")).to_be_hidden()  # the selection belonged to that question
+
+
+def test_the_note_chat_follows_a_rename_and_keeps_its_conversation(page, chat_server):
+    open_note_chat(page, chat_server)
+    page.locator("#chat-input").fill("retitle this")
+    page.locator("#chat-send").click()
+    expect(page).to_have_url(f"{chat_server.url}/notes/alpha-two")  # the page follows the new file name once the run is over
+    expect(page.locator(".chat-dock-title")).to_have_text("Chat")
+    expect(page.locator(".chat-message")).to_have_count(2)  # the conversation came along
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_contain_text("Alpha links to")
+    assert page.errors == []
+
+
+# --- Live refresh and chat on the pages of table and timeline notes ------------------------------------------------------------
+
+def seed_read_notes(root):
+    (root / "inventory.md").write_text(
+        "---\ntitle: Inventory\ntype: table\nupdated: 2026-03-03\n---\n\n# Inventory\n\n"
+        "| Employee | Make |\n| --- | --- |\n| Ann Lee | Lenovo |\n| Bo Kim | HP |\n")
+    (root / "roadmap.md").write_text(
+        "---\ntitle: Roadmap\ntype: timeline\nupdated: 2026-03-03\n---\n\n# Roadmap\n\n"
+        "## July 2025 — Kickoff\n\nAligned scope.\n\n- Wrote requirements.\n\n"
+        "## August 2025 — Build\n\nBuilt it.\n\n- Shipped ANPN-1.\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "read notes")
+
+
+def test_a_table_page_follows_outside_changes_and_keeps_its_filter(page, chat_server):
+    seed_read_notes(chat_server.root)
+    page.goto(f"{chat_server.url}/tables/inventory")
+    rows = page.locator("app-table tbody tr")
+    expect(rows).to_have_count(2)
+    page.locator(".notes-table-filter").fill("HP")
+    expect(rows).to_have_count(1)
+    path = chat_server.root / "inventory.md"
+    path.write_text(path.read_text() + "| Cy Doe | HP |\n")  # an editor, or git pull, changes the file
+    git(chat_server.root, "add", "-A")
+    git(chat_server.root, "commit", "-qm", "outside edit")
+    expect(rows).to_have_count(2)  # the new row is there without a reload...
+    expect(page.locator(".notes-table-filter")).to_have_value("HP")  # ...and the filter was kept
+    expect(rows.filter(has_text="Cy Doe")).to_have_count(1)
+    assert page.errors == []
+
+
+def test_a_table_page_waits_for_the_row_being_edited_before_showing_a_change(page, chat_server):
+    seed_read_notes(chat_server.root)
+    page.goto(f"{chat_server.url}/tables/inventory")
+    page.locator("app-table tbody tr", has_text="Ann Lee").click()
+    drawer = page.locator("app-dialog:not(.is-hidden)")
+    expect(drawer).to_be_visible()
+    path = chat_server.root / "inventory.md"
+    path.write_text(path.read_text() + "| Cy Doe | HP |\n")
+    git(chat_server.root, "add", "-A")
+    git(chat_server.root, "commit", "-qm", "outside edit")
+    expect(page.locator("toast-region, .toast, [role=status]").filter(has_text="changed elsewhere").first).to_be_visible()  # said, not redrawn
+    expect(drawer).to_be_visible()  # the open row is not thrown away
+    expect(page.locator("app-table tbody tr")).to_have_count(2)
+    drawer.locator("[data-dialog-close]").first.click()
+    expect(page.locator("app-table tbody tr")).to_have_count(3)  # drawn once the row is closed
+    assert page.errors == []
+
+
+def test_the_table_chat_sits_beside_the_page_and_a_row_it_adds_shows_live(page, chat_server):
+    seed_read_notes(chat_server.root)
+    page.goto(f"{chat_server.url}/tables/inventory")
+    expect(page.locator("app-table tbody tr")).to_have_count(2)
+    expect(page.locator(".notes-chat-dock")).to_have_count(0)  # closed until asked for
+    page.locator("#note-chat-btn").click()
+    dock = page.locator(".notes-chat-dock chat-app[compact]")
+    expect(dock).to_be_visible()
+    box, bar = page.locator(".notes-chat-dock").bounding_box(), page.locator(".notes-action-bar").bounding_box()
+    assert bar["x"] + bar["width"] <= box["x"] + 1  # the footer bar stops at the dock
+    assert page.locator(".notes-table-card").bounding_box()["x"] + page.locator(".notes-table-card").bounding_box()["width"] <= box["x"] + 1  # the page made room
+    page.locator("#chat-input").fill("addrow please")
+    page.locator("#chat-send").click()
+    expect(page.locator("app-table tbody tr", has_text="Cy Doe")).to_have_count(1)  # the table redrew under the running chat
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_contain_text("Alpha links to")
+    expect(page.locator(".chat-message.assistant .chat-stopped")).to_have_count(0)  # and the redraw did not cut the run
+    expect(page.locator(".chat-changed-history")).to_be_visible()
+    assert "`inventory.md`" in chat_server.runner.prompts[-1]
+    page.reload()
+    expect(page.locator(".notes-chat-dock chat-app")).to_be_visible()  # open stays open...
+    expect(page.locator(".chat-message")).to_have_count(2)  # ...with this note's conversation
+    page.keyboard.press("Control+Shift+L")
+    expect(page.locator(".notes-chat-dock")).to_be_hidden()
+    assert page.errors == []
+
+
+def test_the_timeline_chat_works_and_its_phases_follow_the_note(page, chat_server):
+    seed_read_notes(chat_server.root)
+    page.goto(f"{chat_server.url}/timelines/roadmap")
+    expect(page.locator(".timeline-phase")).to_have_count(2)
+    page.locator("#note-chat-btn").click()
+    expect(page.locator(".notes-chat-dock chat-app[compact]")).to_be_visible()
+    page.locator(".timeline-phase-title").first.click(click_count=3)  # the selection goes with the next question
+    expect(page.locator("#chat-context-text")).to_contain_text("Kickoff")
+    page.locator("#chat-input").fill("addphase please")
+    page.locator("#chat-send").click()
+    expect(page.locator(".timeline-phase")).to_have_count(3)
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_contain_text("Alpha links to")
+    prompt = chat_server.runner.prompts[-1]
+    assert "`roadmap.md`" in prompt and "<<<\nKickoff" in prompt
     assert page.errors == []
