@@ -8,7 +8,7 @@ const percent = (value) => `<span style="color:${processColor(value)}">${(Number
 export function processColumns({ threads = false, status = false } = {}) {
   return [
     { key: 'name', label: 'Process', className: 'proc-cell',
-      render: (_v, p) => `<span class="proc-label" title="${esc(processTitle(p))}"><span class="proc-name">${esc(p.name)}</span>${p.cmdline ? `<span class="proc-cmd">${esc(p.cmdline)}</span>` : ''}</span>` },
+      render: (_v, p) => `<span class="proc-label" title="${esc(processTitle(p))}"><span class="proc-name">${esc(p.name)}</span>${p.project ? `<span class="proc-project">(${esc(p.project)})</span>` : ''}${p.cmdline ? `<span class="proc-cmd">${esc(p.cmdline)}</span>` : ''}</span>` },
     { key: 'pid', label: 'PID', className: 'muted tabular', width: '5.5rem', render: (v) => esc(v) },
     ...(threads ? [{ key: 'threads', label: 'Threads', className: 'muted tabular', width: '6rem', render: (v) => esc(v) }] : []),
     ...(status ? [{ key: 'status', label: 'Status', className: 'tabular', width: '7rem', render: (v) => `<span style="color:${statusColor(v)}">${esc(v || '--')}</span>` }] : []),

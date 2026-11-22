@@ -216,8 +216,8 @@ class ContainerMonitor:
             try:
                 cpu = 0.0 if pid in primed else proc.cpu_percent(interval=None)
                 mem = proc.memory_percent()
-                name, full_cmd = _identity(proc)
-                rows.append((cpu, mem, pid, proc, name, full_cmd))
+                name, full_cmd, project = _identity(proc)
+                rows.append((cpu, mem, pid, proc, name, full_cmd, project))
             except psutil.Error:
                 continue
         return rows
@@ -237,9 +237,9 @@ class ContainerMonitor:
             total_pages = max(1, -(-total // page_size))
             current = min(page, total_pages)
             out, gone = [], set()
-            for cpu, mem, pid, proc, name, full_cmd in rows[(current - 1) * page_size:current * page_size]:
+            for cpu, mem, pid, proc, name, full_cmd, project in rows[(current - 1) * page_size:current * page_size]:
                 try:
-                    out.append(describe(cpu, mem, pid, proc, name=name, command=full_cmd))
+                    out.append(describe(cpu, mem, pid, proc, name=name, command=full_cmd, project=project))
                 except psutil.Error:  # exited since the sweep: drop it and re-cut the page
                     gone.add(pid)
             if not gone:
@@ -291,16 +291,62 @@ def _command(name: str, args: list[str]) -> str:
     return " ".join(args[1:] if args and os.path.basename(args[0]) in (name, "") else args)
 
 
-def _identity(proc: psutil.Process) -> tuple[str, str]:
-    """Process name and displayed command line, cached in the snapshot so filtering avoids re-reading /proc."""
+VIRTUALENV_DIRS = ("venv", ".venv", "env")
+# Coding agents run from the project they work on, so with no repository above their folder the folder names it.
+AGENT_PROGRAMS = frozenset({"claude", "codex", "agy", "copilot", "grok"})
+
+
+def _repository_name(folder: str) -> str | None:
+    """Name of the nearest repository (a folder holding `.git`) at or above `folder`. `~` and `/` name nothing, so a
+    dotfiles repository in the home folder does not name every project."""
+    home = os.path.expanduser("~")
+    current = folder
+    for _ in range(8):
+        if not current or current in ("/", home):
+            return None
+        if os.path.exists(os.path.join(current, ".git")):
+            return os.path.basename(current)
+        current = os.path.dirname(current)
+    return None
+
+
+def project_from_cmdline(args: list[str]) -> str | None:
+    """The project a command runs from, taken from a virtual environment in its leading path arguments (the
+    interpreter, and a shebang script after it): the repository holding it, else the folder it sits in."""
+    for arg in args:
+        if not arg.startswith(("/", "./")):
+            break
+        parts = arg.split("/")
+        for i in range(1, len(parts) - 1):
+            if parts[i] in VIRTUALENV_DIRS and parts[i + 1] == "bin" and parts[i - 1] not in ("", "."):
+                return _repository_name("/".join(parts[:i])) or parts[i - 1]
+    return None
+
+
+def project_from_cwd(folder: str, name_folder: bool = False) -> str | None:
+    """The project a process works in, from its working folder: the repository holding it, or with `name_folder`
+    (coding agents) the folder's own name."""
+    if not folder or folder in ("/", os.path.expanduser("~")):
+        return None
+    return _repository_name(folder) or (os.path.basename(folder) if name_folder else None)
+
+
+def _identity(proc: psutil.Process) -> tuple[str, str, str | None]:
+    """Process name, displayed command line and project, cached in the snapshot so filtering avoids re-reading /proc."""
     if not hasattr(proc, "name"):
-        return "", ""
+        return "", "", None
     name = proc.name()
     try:
         args = proc.cmdline()
     except psutil.AccessDenied:
         args = []
-    return name, _command(name, args)
+    project = project_from_cmdline(args)
+    if project is None:
+        try:
+            project = project_from_cwd(proc.cwd(), name in AGENT_PROGRAMS)
+        except (psutil.Error, OSError):
+            pass
+    return name, _command(name, args), project
 
 
 def _count(fn) -> int | None:
@@ -310,12 +356,12 @@ def _count(fn) -> int | None:
         return None
 
 
-def describe(cpu: float, mem: float, pid: int, proc: psutil.Process, *, name: str | None = None, command: str | None = None) -> dict:
+def describe(cpu: float, mem: float, pid: int, proc: psutil.Process, *, name: str | None = None, command: str | None = None, project: str | None = None) -> dict:
     with proc.oneshot():
         if name is None or command is None:
-            name, command = _identity(proc)
+            name, command, project = _identity(proc)
         if len(command) > MAX_COMMAND:
             command = command[:MAX_COMMAND - 1] + "…"
-        return {"pid": pid, "name": name, "cmdline": command, "status": proc.status(),
+        return {"pid": pid, "name": name, "cmdline": command, "project": project, "status": proc.status(),
                 "cpu_percent": round(cpu, 1), "mem_percent": round(mem, 1), "mem": human_bytes(proc.memory_info().rss),
                 "threads": proc.num_threads(), "running_for": human_duration(time.time() - proc.create_time())}

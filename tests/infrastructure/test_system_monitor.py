@@ -173,3 +173,35 @@ def test_the_disk_is_the_filesystem_the_home_folder_is_on(tmp_path):
     assert disk["total_bytes"] > 0 and 0 <= disk["percent_used"] <= 100
     assert disk["free"] == human_bytes(disk["free_bytes"])
     assert ContainerMonitor(tmp_path, tmp_path / "none", home=tmp_path / "missing").disk() is None
+
+
+@pytest.mark.parametrize("args,expected", [
+    (["/home/r/Workspace/hive/.venv/bin/python", "main.py"], "hive"),
+    (["/srv/app/env/bin/python", "run.py"], "app"),
+    (["/usr/bin/python3", "/opt/tools/venv/bin/tool"], "tools"),
+    (["/usr/bin/python3", "script.py"], None),
+    (["python", "main.py"], None),
+    (["/usr/bin/python3", "-c", "/home/x/venv/bin/y"], None),
+    ([], None),
+])
+def test_the_project_comes_from_the_virtual_environment_in_the_command(args, expected):
+    from src.infrastructure.system.monitor import project_from_cmdline
+    assert project_from_cmdline(args) == expected
+
+
+def test_the_project_falls_back_to_the_working_folder(tmp_path):
+    from src.infrastructure.system.monitor import project_from_cwd
+    repo = tmp_path / "work" / "acme"
+    (repo / "src").mkdir(parents=True)
+    (repo / ".git").mkdir()
+    loose = tmp_path / "scratch"
+    loose.mkdir()
+    assert project_from_cwd(str(repo / "src")) == "acme"
+    assert project_from_cwd(str(loose)) is None
+    assert project_from_cwd(str(loose), name_folder=True) == "scratch"  # a coding agent's folder names its project
+    assert project_from_cwd("/") is None
+
+
+def test_process_rows_carry_a_project_key(tmp_path):
+    page = ContainerMonitor(tmp_path).process_page(page_size=100)
+    assert all("project" in p for p in page["processes"])

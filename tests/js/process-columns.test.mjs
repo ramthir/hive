@@ -21,3 +21,10 @@ test('a process is drawn with its name escaped, its percentage coloured and its 
   assert.match(cell(columns, 'running_for'), /muted">1h 5m</);
   assert.match(cell(columns, 'running_for', { running_for: '' }), />--</);
 });
+
+test('a process with a project shows it, escaped, between its name and command', () => {
+  const columns = processColumns();
+  const html = cell(columns, 'name', { ...proc, project: 'a<b' });
+  assert.match(html, /proc-name">&lt;python&gt;<\/span><span class="proc-project">\(a&lt;b\)<\/span><span class="proc-cmd">/);
+  assert.equal(cell(columns, 'name').includes('proc-project'), false);
+});
