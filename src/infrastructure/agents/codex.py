@@ -38,9 +38,12 @@ Diff:
 
 
 def codex_program(configured: str | None = None) -> str | None:
-    """The absolute path of the Codex program (HIVE_CODEX, else the one on PATH), or None."""
-    program = configured or shutil.which("codex")
-    return program if program and os.path.isabs(program) and os.access(program, os.X_OK) else None
+    """The absolute path of the Codex program: HIVE_CODEX, else the one on PATH, else ~/.local/bin/codex (a service started
+    by the container's entrypoint has a short PATH without it), or None."""
+    for program in (configured, shutil.which("codex"), os.path.expanduser("~/.local/bin/codex")):
+        if program and os.path.isabs(program) and os.access(program, os.X_OK):
+            return program
+    return None
 
 
 def clean_subject(text: str) -> str | None:

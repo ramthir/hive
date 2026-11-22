@@ -157,6 +157,7 @@ def test_the_app_only_rewrites_messages_when_asked(root, monkeypatch, tmp_path):
     monkeypatch.setenv("HIVE_COMMIT_MESSAGES", "codex")
     monkeypatch.setenv("HIVE_CODEX", str(tmp_path / "missing"))
     monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setenv("HOME", str(tmp_path))  # no ~/.local/bin/codex either
     assert commit_rewriter(client, None) is None  # asked for, but there is no codex
     monkeypatch.setenv("HIVE_CODEX", fake_codex(tmp_path, "true"))
     rewriter = commit_rewriter(client, None)
@@ -182,3 +183,18 @@ def test_commit_messages_and_chat_can_use_different_models(root, monkeypatch, tm
     assert (rewriter.writer.model, rewriter.writer.effort) == ("luna", "medium")  # effort still the shared one
     assert (chat_codex(root).model, chat_codex(root).effort) == ("sol", "high")
     rewriter.stop()
+
+
+def test_codex_is_found_in_local_bin_when_path_has_no_codex(tmp_path, monkeypatch):
+    from src.infrastructure.agents.codex import codex_program
+    (tmp_path / ".local/bin").mkdir(parents=True)
+    program = tmp_path / ".local/bin/codex"
+    program.write_text("#!/bin/sh\n")
+    program.chmod(0o755)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    assert codex_program() == str(program)
+    assert codex_program(str(tmp_path / "missing")) == str(program)  # a bad HIVE_CODEX falls back
+    program.unlink()
+    assert codex_program() is None
