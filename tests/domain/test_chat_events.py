@@ -1,6 +1,6 @@
 import json
 
-from src.domain.chat import AgyEvents, command_label, parse_line
+from src.domain.chat import AgyEvents, ClaudeEvents, command_label, parse_line
 
 
 def line(kind, **item):
@@ -102,3 +102,46 @@ def test_agy_failures_and_junk():
     assert agy({"event": "result", "result": {"status": "ERROR", "error": "quota"}}) == [{"type": "error", "message": "quota"}]
     assert agy({"event": "error", "message": "boom"}) == [{"type": "error", "message": "boom"}]
     assert AgyEvents().feed("not json") == [] and AgyEvents().feed("[1]") == [] and agy({"event": "init"}) == []
+
+
+def claude(*events):
+    parser = ClaudeEvents()
+    return [out for event in events for out in parser.feed(json.dumps(event))]
+
+
+def assistant(*blocks, parent=None):
+    return {"type": "assistant", "parent_tool_use_id": parent, "message": {"role": "assistant", "content": list(blocks)}}
+
+
+def tool_use(id, name, **params):
+    return {"type": "tool_use", "id": id, "name": name, "input": params}
+
+
+def tool_result(id, error=False):
+    return {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": id, "content": "x", "is_error": error}]}}
+
+
+def test_claude_session_message_and_done():
+    events = claude({"type": "system", "subtype": "init", "session_id": "s1"}, assistant({"type": "text", "text": " Hello \n"}),
+                    {"type": "result", "subtype": "success", "is_error": False, "usage": {"input_tokens": 3, "output_tokens": 4}})
+    assert events == [{"type": "session", "id": "s1"}, {"type": "message", "text": "Hello"}, {"type": "done", "usage": {"input_tokens": 3, "output_tokens": 4}}]
+
+
+def test_claude_commands_are_steps_that_the_tool_result_finishes():
+    got = claude(assistant(tool_use("t1", "Bash", command="rg -i wifi")), tool_result("t1"),
+                 assistant(tool_use("t2", "Bash", command="sed -i s/a/b/ x.md")), tool_result("t2", error=True))
+    assert [(e["id"], e["status"], e["write"], e["tool"]) for e in got] == [("t1", "running", False, "shell"), ("t1", "done", False, "shell"),
+                                                                           ("t2", "running", True, "shell"), ("t2", "failed", True, "shell")]
+    assert got[0]["label"] == command_label("rg -i wifi")
+
+
+def test_claude_other_tools_name_their_target_and_edits_are_writes():
+    got = claude(assistant(tool_use("a", "Read", file_path="/n/home.md"), tool_use("b", "Edit", file_path="/n/home.md", old_string="x")))
+    assert [(e["label"], e["write"]) for e in got] == [("Read /n/home.md", False), ("Edit /n/home.md", True)]
+
+
+def test_claude_errors_subagents_and_junk():
+    assert claude({"type": "result", "subtype": "error_during_execution", "is_error": True, "result": "No conversation found"}) == [{"type": "error", "message": "No conversation found"}]
+    assert claude(assistant({"type": "text", "text": "inner"}, parent="t9")) == []  # a sub-agent's own talk is not the answer
+    assert claude(tool_result("unknown")) == [] and claude(assistant({"type": "thinking", "thinking": "hm"})) == []
+    assert ClaudeEvents().feed("not json") == [] and ClaudeEvents().feed("[1]") == [] and claude({"type": "system", "subtype": "init"}) == []

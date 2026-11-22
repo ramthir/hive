@@ -119,3 +119,36 @@ def test_agy_not_finishing_is_an_error_naming_antigravity(tmp_path):
     from src.infrastructure.agents.agy import AgyChat
     events = list(AgyChat(agy_fake(tmp_path, "print('nothing')"), tmp_path).run("q"))
     assert events == [{"type": "error", "message": "Antigravity stopped before answering."}]
+
+
+def claude_fake(tmp_path: Path, body: str) -> str:
+    path = tmp_path / "claude"
+    path.write_text(f"#!{sys.executable}\nimport sys, json, os\nargs = sys.argv[1:]\nprompt = sys.stdin.read()\n{body}\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    return str(path)
+
+
+def test_claude_chat_runs_in_the_notes_with_the_prompt_on_stdin_and_resumes(tmp_path):
+    from src.infrastructure.agents.claude import ClaudeChat
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    body = ("print(json.dumps({'type': 'system', 'subtype': 'init', 'session_id': 'sess-1'}))\n"
+            "print(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': json.dumps(args) + ' ' + os.getcwd() + ' ' + prompt}]}}))\n"
+            "print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'usage': {}}))")
+    chat = ClaudeChat(claude_fake(tmp_path, body), notes, model="m", effort="low")
+    events = list(chat.run("Question?"))
+    assert [e["type"] for e in events] == ["session", "message", "done"] and events[0]["id"] == "sess-1"
+    args, cwd, prompt = events[1]["text"].rsplit(" ", 2)[0], events[1]["text"].rsplit(" ", 2)[1], events[1]["text"].rsplit(" ", 2)[2]
+    args = json.loads(args)
+    assert "--dangerously-skip-permissions" in args and "--resume" not in args and prompt == "Question?" and "Question?" not in args
+    assert args[args.index("--output-format") + 1] == "stream-json" and "--verbose" in args
+    assert args[args.index("--model") + 1] == "m" and args[args.index("--effort") + 1] == "low"
+    assert Path(cwd).resolve() == notes.resolve()
+    resumed = json.loads(list(chat.run("again", "sess-1"))[1]["text"].rsplit(" ", 2)[0])
+    assert resumed[resumed.index("--resume") + 1] == "sess-1"
+    assert chat.session_key == "chat-claude" and "Claude" in chat.missing
+
+
+def test_claude_not_finishing_is_an_error_naming_claude(tmp_path):
+    from src.infrastructure.agents.claude import ClaudeChat
+    assert list(ClaudeChat(claude_fake(tmp_path, "print('nothing')"), tmp_path).run("q")) == [{"type": "error", "message": "Claude stopped before answering."}]

@@ -60,7 +60,7 @@ class ChatService:
     def reset(self) -> None:
         """Forget the chat's Codex session: the next question starts a new one ("New chat")."""
         if self.sessions:
-            for key in ("chat", "chat-agy"):  # whichever agent the chat uses
+            for key in ("chat", "chat-agy", "chat-claude"):  # whichever agent the chat uses
                 self.sessions.clear(key)
 
     @property

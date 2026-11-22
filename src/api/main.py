@@ -27,6 +27,7 @@ from src.infrastructure.fs_notes.repository import FileNoteRepository
 from src.infrastructure.agents.codex import CodexCommitMessages, codex_program
 from src.infrastructure.agents.codex_chat import CodexChat
 from src.infrastructure.agents.agy import AgyChat, AgyCommitMessages, agy_program
+from src.infrastructure.agents.claude import ClaudeChat, ClaudeCommitMessages, claude_program
 from src.infrastructure.agents.sessions import SessionStore
 from src.domain.agents.quota import QuotaError, parse_snapshot
 from src.infrastructure.agents.quota_sources import QuotaCollector
@@ -40,7 +41,7 @@ from src.infrastructure.watcher import NotesWatcher
 
 
 def codex_setting(feature: str, name: str, agent: str = "CODEX") -> str | None:
-    """HIVE_<agent>_<feature>_<name> (agent CODEX or AGY, feature COMMIT or CHAT), else HIVE_<agent>_<name>, else None (the
+    """HIVE_<agent>_<feature>_<name> (agent CODEX, AGY or CLAUDE, feature COMMIT or CHAT), else HIVE_<agent>_<name>, else None (the
     agent's own default)."""
     return os.environ.get(f"HIVE_{agent}_{feature}_{name}") or os.environ.get(f"HIVE_{agent}_{name}") or None
 
@@ -58,11 +59,17 @@ def commit_rewriter(git: GitClient, metrics: Metrics, root: Path | None = None) 
     """HIVE_COMMIT_MESSAGES=codex or agy: after each save, that agent reads the diff and replaces "doc: update Title" with a
     message about the change. Off by default because the diff of the note is sent to the model."""
     agent = os.environ.get("HIVE_COMMIT_MESSAGES", "").strip().lower()
-    if agent not in ("codex", "agy"):
+    if agent not in ("codex", "agy", "claude"):
         return None
     log = logging.getLogger("hive.commit_messages")
     sessions = codex_sessions() if root else None
-    if agent == "agy":
+    if agent == "claude":
+        program = claude_program(os.environ.get("HIVE_CLAUDE"))
+        if not program:
+            log.warning("HIVE_COMMIT_MESSAGES=claude but claude was not found (set HIVE_CLAUDE)")
+            return None
+        writer = ClaudeCommitMessages(program, codex_setting("COMMIT", "MODEL", "CLAUDE"), effort=codex_setting("COMMIT", "EFFORT", "CLAUDE"), notes_dir=root, sessions=sessions)
+    elif agent == "agy":
         program = agy_program(os.environ.get("HIVE_AGY"))
         if not program:
             log.warning("HIVE_COMMIT_MESSAGES=agy but agy was not found (set HIVE_AGY)")
@@ -79,13 +86,17 @@ def commit_rewriter(git: GitClient, metrics: Metrics, root: Path | None = None) 
 
 def chat_missing() -> str:
     """What the chat page says when the agent it is set to use was not found."""
-    return AgyChat.missing if os.environ.get("HIVE_CHAT_AGENT", "").strip().lower() == "agy" else CodexChat.missing
+    return {"agy": AgyChat, "claude": ClaudeChat}.get(os.environ.get("HIVE_CHAT_AGENT", "").strip().lower(), CodexChat).missing
 
 
 def chat_codex(root: Path) -> CodexChat | None:
-    """The chat runs Codex (HIVE_CODEX, else the one on PATH), or Antigravity with HIVE_CHAT_AGENT=agy (HIVE_AGY); without
+    """The chat runs Codex (HIVE_CODEX, else the one on PATH), Antigravity with HIVE_CHAT_AGENT=agy (HIVE_AGY) or Claude with HIVE_CHAT_AGENT=claude (HIVE_CLAUDE); without
     the program the chat page says so."""
-    if os.environ.get("HIVE_CHAT_AGENT", "").strip().lower() == "agy":
+    agent = os.environ.get("HIVE_CHAT_AGENT", "").strip().lower()
+    if agent == "claude":
+        program = claude_program(os.environ.get("HIVE_CLAUDE"))
+        return ClaudeChat(program, root, codex_setting("CHAT", "MODEL", "CLAUDE"), codex_setting("CHAT", "EFFORT", "CLAUDE")) if program else None
+    if agent == "agy":
         program = agy_program(os.environ.get("HIVE_AGY"))
         return AgyChat(program, root, codex_setting("CHAT", "MODEL", "AGY"), codex_setting("CHAT", "EFFORT", "AGY")) if program else None
     program = codex_program(os.environ.get("HIVE_CODEX"))

@@ -109,3 +109,61 @@ class AgyEvents:
         status = "running" if state == "ACTIVE" else "failed" if failed else "done"
         return [{"type": "step", "id": f"{step.get('conversation_id', '')}:{index}", "tool": "shell" if tool == "run_command" else tool,
                  "label": label, "write": write, "status": status}]
+
+
+CLAUDE_PATH_KEYS = ("file_path", "path", "notebook_path", "pattern", "url", "query")
+CLAUDE_WRITE_TOOLS = re.compile(r"^(Edit|Write|MultiEdit|NotebookEdit)$")
+
+
+class ClaudeEvents:
+    """Turns the lines of one `claude -p --output-format stream-json --verbose` run into the page's events (see `parse_line`).
+    Each line is a whole message: the first is `system`/`init` (the session id), an `assistant` one holds text and `tool_use`
+    blocks, the `user` one after it holds the `tool_result`s, and `result` ends the run. It keeps what each tool call looked like
+    so its result can finish the same step."""
+
+    def __init__(self):
+        self.steps: dict[str, dict] = {}
+
+    def feed(self, line: str) -> list[dict]:
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(event, dict):
+            return []
+        kind = event.get("type")
+        if kind == "system" and event.get("subtype") == "init" and event.get("session_id"):
+            return [{"type": "session", "id": str(event["session_id"])}]
+        message = event.get("message") if isinstance(event.get("message"), dict) else {}
+        blocks = message.get("content") if isinstance(message.get("content"), list) else []
+        if kind == "assistant" and not event.get("parent_tool_use_id"):
+            return [out for block in blocks if isinstance(block, dict) for out in self._block(block)]
+        if kind == "user":
+            return [self._result(block) for block in blocks if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("tool_use_id") in self.steps]
+        if kind == "result":
+            if event.get("is_error") or event.get("subtype") not in (None, "success"):
+                return [{"type": "error", "message": str(event.get("result") or f"Claude ended with {event.get('subtype') or 'an error'}")}]
+            usage = event.get("usage") if isinstance(event.get("usage"), dict) else {}
+            return [{"type": "done", "usage": {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}}]
+        return []
+
+    def _block(self, block: dict) -> list[dict]:
+        if block.get("type") == "text":
+            text = str(block.get("text") or "").strip()
+            return [{"type": "message", "text": text}] if text else []
+        if block.get("type") != "tool_use":
+            return []
+        tool = str(block.get("name") or "tool")
+        params = block.get("input") if isinstance(block.get("input"), dict) else {}
+        if tool == "Bash":
+            command = str(params.get("command") or "")
+            label, write = command_label(command) or "Running a command", bool(WRITE_COMMAND.search(command))
+        else:
+            target = next((str(params[k]) for k in CLAUDE_PATH_KEYS if params.get(k)), "")
+            label, write = f"{tool} {target}".strip(), bool(CLAUDE_WRITE_TOOLS.match(tool))
+        step = {"type": "step", "id": str(block.get("id") or label), "tool": "shell" if tool == "Bash" else tool, "label": label, "write": write, "status": "running"}
+        self.steps[step["id"]] = step
+        return [step]
+
+    def _result(self, block: dict) -> dict:
+        return {**self.steps[block["tool_use_id"]], "status": "failed" if block.get("is_error") else "done"}

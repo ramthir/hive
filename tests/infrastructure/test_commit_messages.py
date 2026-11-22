@@ -227,3 +227,29 @@ def test_the_app_picks_the_agent_for_the_chat_and_the_commit_messages(root, monk
     monkeypatch.setattr("shutil.which", lambda name: None)
     monkeypatch.setenv("HOME", str(tmp_path))
     assert chat_codex(root) is None and commit_rewriter(GitClient(root), None, root) is None
+
+
+def test_the_app_can_pick_claude_for_the_chat_and_the_commit_messages(root, monkeypatch, tmp_path):
+    from src.api.main import chat_codex, chat_missing, commit_rewriter
+    from src.infrastructure.agents.claude import ClaudeChat, ClaudeCommitMessages
+    claude = tmp_path / "claude"
+    claude.write_text("#!/bin/sh\n")
+    claude.chmod(0o755)
+    for name in ("HIVE_CLAUDE_MODEL", "HIVE_CLAUDE_EFFORT", "HIVE_CLAUDE_CHAT_MODEL", "HIVE_CLAUDE_CHAT_EFFORT", "HIVE_CLAUDE_COMMIT_MODEL", "HIVE_CLAUDE_COMMIT_EFFORT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HIVE_CLAUDE", str(claude))
+    monkeypatch.setenv("HIVE_CHAT_AGENT", "claude")
+    monkeypatch.setenv("HIVE_CLAUDE_MODEL", "sonnet")
+    monkeypatch.setenv("HIVE_CLAUDE_CHAT_EFFORT", "low")
+    chat = chat_codex(root)
+    assert isinstance(chat, ClaudeChat) and (chat.program, chat.model, chat.effort) == (str(claude), "sonnet", "low") and "Claude" in chat_missing()
+    monkeypatch.setenv("HIVE_COMMIT_MESSAGES", "claude")
+    monkeypatch.setenv("HIVE_CLAUDE_COMMIT_MODEL", "haiku")
+    rewriter = commit_rewriter(GitClient(root), None, root)
+    assert isinstance(rewriter.writer, ClaudeCommitMessages) and rewriter.writer.model == "haiku" and rewriter.writer.SESSION == "commit-claude"
+    rewriter.stop()
+    monkeypatch.setenv("HIVE_CLAUDE", str(tmp_path / "missing"))
+    monkeypatch.setenv("CLAUDE_BIN", str(tmp_path / "missing"))
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert chat_codex(root) is None and commit_rewriter(GitClient(root), None, root) is None

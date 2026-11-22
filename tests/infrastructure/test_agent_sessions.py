@@ -126,3 +126,42 @@ def test_agy_commit_messages_ignore_a_failed_run(tmp_path):
     notes.mkdir()
     bad = agy_commit_fake(tmp_path, "print(json.dumps({'status': 'ERROR', 'response': 'doc: x'}))")
     assert AgyCommitMessages(bad, notes_dir=notes, sessions=SessionStore(tmp_path / "s.json")).describe("T", "s", "+x\n") is None
+
+
+def claude_commit_fake(tmp_path, body):
+    path = tmp_path / "claude"
+    path.write_text(f"#!{sys.executable}\nimport sys, json, os\nargs = sys.argv[1:]\nprompt = sys.stdin.read()\n{body}\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    return str(path)
+
+
+def test_claude_commit_messages_continue_one_session_per_month(tmp_path):
+    from datetime import date
+    from src.infrastructure.agents.claude import ClaudeCommitMessages
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    log = tmp_path / "calls.jsonl"
+    program = claude_commit_fake(tmp_path, f"open({str(log)!r}, 'a').write(json.dumps({{'args': args, 'cwd': os.getcwd(), 'prompt': prompt}}) + '\\n')\n"
+                                           f"print(json.dumps({{'type': 'result', 'session_id': {A!r}, 'is_error': False, 'result': 'add storage options\\n'}}))")
+    sessions = SessionStore(tmp_path / "s.json")
+    day = [date(2026, 11, 20)]
+    writer = ClaudeCommitMessages(program, model="m", notes_dir=notes, sessions=sessions, today=lambda: day[0])
+    assert writer.describe("T", "doc: update T", "+x\n") == "doc: add storage options"
+    assert sessions.get("commit-claude") == A and sessions.get("commit") is None and sessions.tag("commit-claude") == "2026-11"
+    day[0] = date(2026, 11, 30)
+    writer.describe("T", "doc: update T", "+y\n")
+    day[0] = date(2026, 12, 1)
+    writer.describe("T", "doc: update T", "+z\n")
+    first, second, third = [json.loads(l) for l in log.read_text().splitlines()]
+    assert "+x" in first["prompt"] and "--resume" not in first["args"] and first["args"][first["args"].index("--tools") + 1] == ""
+    assert "--dangerously-skip-permissions" not in first["args"] and first["args"][first["args"].index("--model") + 1] == "m" and first["cwd"] == str(notes.resolve())
+    assert second["args"][second["args"].index("--resume") + 1] == A  # same month: resumed
+    assert "--resume" not in third["args"]  # a new month: a new session
+
+
+def test_claude_commit_messages_ignore_an_error_result(tmp_path):
+    from src.infrastructure.agents.claude import ClaudeCommitMessages
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    bad = claude_commit_fake(tmp_path, "print(json.dumps({'type': 'result', 'is_error': True, 'result': 'doc: x'}))")
+    assert ClaudeCommitMessages(bad, notes_dir=notes, sessions=SessionStore(tmp_path / "s.json")).describe("T", "s", "+x\n") is None
