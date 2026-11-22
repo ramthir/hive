@@ -49,6 +49,10 @@ class ChatApp extends HTMLElement {
       const suggestion = event.target.closest('[data-suggestion]');
       if (suggestion) this.submit(suggestion.dataset.suggestion);
     });
+    this.stick = true;  // follow the newest text until the reader scrolls up
+    this.scroller.addEventListener('scroll', () => {
+      this.stick = this.scroller.scrollHeight - this.scroller.scrollTop - this.scroller.clientHeight < 80;
+    });
     this.leaving = false;
     this._persist = () => { this.leaving = true; this.save(); };
     window.addEventListener('pagehide', this._persist);  // a full navigation away: keep the chat for when we come back
@@ -133,6 +137,8 @@ class ChatApp extends HTMLElement {
     this.abort = new AbortController();
     this.updateControls();
     this.render();
+    this.stick = true;
+    this.scroller.scrollTop = this.scroller.scrollHeight;
     const set = (next) => { turn = Object.assign(turn, next); this.renderLast(); };
     try {
       const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: this.abort.signal });
@@ -182,10 +188,9 @@ class ChatApp extends HTMLElement {
   renderLast() {
     const last = this.log.lastElementChild;
     if (!last || !last.classList.contains('assistant')) return;
-    const atBottom = this.scroller.scrollHeight - this.scroller.scrollTop - this.scroller.clientHeight < 80;
     last.outerHTML = this.messageHtml(this.turns[this.turns.length - 1], this.turns.length - 1);
     this.afterRender(this.log.lastElementChild);
-    if (atBottom) this.scroller.scrollTop = this.scroller.scrollHeight;
+    if (this.stick) this.scroller.scrollTop = this.scroller.scrollHeight;
   }
 
   messageHtml(turn, index) {

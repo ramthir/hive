@@ -1885,6 +1885,24 @@ def test_chat_answers_with_steps_links_and_follow_ups_that_remember_the_conversa
     expect(page.locator(".chat-message")).to_have_count(0)
 
 
+def test_chat_follows_the_newest_message_to_the_bottom(page, chat_server):
+    page.set_viewport_size({"width": 1100, "height": 420})
+    page.goto(f"{chat_server.url}/chat")
+    box = page.locator("#chat-input")
+    for i in range(5):
+        box.fill(f"question number {i}")
+        box.press("Enter")
+        expect(page.locator(".chat-message.assistant .chat-answer")).to_have_count(i + 1)
+    gap = "() => { const s = document.querySelector('#chat-scroll'); return s.scrollHeight - s.scrollTop - s.clientHeight; }"
+    assert page.evaluate("() => { const s = document.querySelector('#chat-scroll'); return s.scrollHeight > s.clientHeight; }")
+    assert page.evaluate(gap) < 5
+    page.evaluate("() => { document.querySelector('#chat-scroll').scrollTop = 0; }")  # reading older text: do not drag back down
+    box.fill("one more")
+    box.press("Enter")  # sending is the reader's own move, so it goes to the bottom again
+    expect(page.locator(".chat-message.assistant .chat-answer")).to_have_count(6)
+    assert page.evaluate(gap) < 5
+
+
 def test_chat_edits_are_reported_as_changed_notes_that_open(page, chat_server):
     page.goto(f"{chat_server.url}/chat")
     page.locator("#chat-input").fill("please tidy beta")

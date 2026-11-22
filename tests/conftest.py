@@ -9,6 +9,11 @@ import os
 
 os.environ["HIVE_ALLOWED_HOSTS"] = "testserver"
 
+# A developer's .env may pick an agent for the chat and the commit messages; tests must never start a real one.
+# (Set, not removed: load_dotenv inside create_app does not override a variable that exists.)
+os.environ["HIVE_CHAT_AGENT"] = ""
+os.environ["HIVE_COMMIT_MESSAGES"] = ""
+
 # Never touch the real ~/.local/state/hive (Codex session ids, agent reports) from a test.
 import tempfile
 
