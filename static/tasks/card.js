@@ -69,6 +69,17 @@ export const sortByPriority = (tasks) =>
     .sort(([a, i], [b, j]) => (taskPriority(a)?.rank ?? 4) - (taskPriority(b)?.rank ?? 4) || i - j)
     .map(([task]) => task);
 
+function renderTicketChip(task) {
+  const ticket = String(task.ticket ?? '').trim();
+  if (!ticket) return '';
+  const project = String(task.project ?? '').trim().toLowerCase();
+  const content = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
+  if ((project === 'creatoriq' || project === '[[creatoriq]]') && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket)) {
+    return `<a class="board-chip board-chip--ticket board-chip--link" href="https://socialedge.atlassian.net/browse/${ticket.toUpperCase()}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${content}</a>`;
+  }
+  return `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}">${content}</span>`;
+}
+
 export function renderCard(task) {
   const priority = taskPriority(task);
   const priorityChip = priority
@@ -82,15 +93,11 @@ export function renderCard(task) {
   const weekChip = week
     ? `<span class="board-chip board-chip--week" title="${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}"><i class="fa-regular fa-calendar" aria-hidden="true"></i>W${week.week}</span>`
     : '';
-  const ticket = String(task.ticket ?? '').trim();
-  const ticketChip = ticket
-    ? `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}"><i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}</span>`
-    : '';
   return `<div class="board-card-heading">
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
-    <div class="board-card-chips">${ticketChip}${priorityChip}${weekChip}${tags}</div>`;
+    <div class="board-card-chips">${renderTicketChip(task)}${priorityChip}${weekChip}${tags}</div>`;
 }
 
 /** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */

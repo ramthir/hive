@@ -250,8 +250,18 @@ class TaskOut(NoteSummary):
     week_key: str | None = None
     week_stored: bool = False
     ticket: str | None = None
+    project: str | None = None
 
     @classmethod
     def from_task(cls, n: Note) -> "TaskOut":
         week_key, week_stored = task_week(n)
-        return cls(**{**NoteSummary.of(n).model_dump(), "status": task_status(n), "tags": list(without_priority(n.tags)), "priority": task_priority(n), "week_key": week_key, "week_stored": week_stored, "ticket": str(n.extra.get("ticket") or "").strip() or None})
+        return cls(**{
+            **NoteSummary.of(n).model_dump(),
+            "status": task_status(n),
+            "tags": list(without_priority(n.tags)),
+            "priority": task_priority(n),
+            "week_key": week_key,
+            "week_stored": week_stored,
+            "ticket": str(n.extra.get("ticket") or "").strip() or None,
+            "project": str(n.extra.get("project") or "").strip() or None,
+        })

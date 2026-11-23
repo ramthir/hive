@@ -96,3 +96,14 @@ test('a card shows its ticket id, escaped, and nothing without one', () => {
   assert.ok(renderCard({ slug: 'x', title: 'X', tags: [], ticket: '<b>' }).includes('&lt;b&gt;'));
   assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--ticket'));
 });
+
+test('CreatorIQ ticket chips link directly to Jira in a new tab', () => {
+  const task = { slug: 'x', title: 'X', ticket: 'APIM-66' };
+  for (const project of ['CreatorIQ', '[[CreatorIQ]]']) {
+    const html = renderCard({ ...task, project });
+    assert.match(html, /<a class="board-chip board-chip--ticket board-chip--link" href="https:\/\/socialedge\.atlassian\.net\/browse\/APIM-66" target="_blank"/);
+  }
+  assert.doesNotMatch(renderCard({ ...task, project: 'Arrcus' }), /socialedge\.atlassian\.net/);
+  assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '../APIM-66' }), /socialedge\.atlassian\.net/);
+  assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '' }), /board-chip--ticket/);
+});

@@ -167,11 +167,13 @@ def test_saving_the_body_keeps_properties(client, root):
     assert "project: Acme" in (root / "job.md").read_text()
 
 
-def test_tasks_board_carries_the_ticket_id(client):
+def test_tasks_board_carries_the_ticket_id_and_project(client):
     slug = make(client, "Job", "task")
     assert client.get("/api/tasks").json()[0]["ticket"] is None
-    client.put(f"/api/notes/{slug}", json={"properties": {"ticket": "PROJ-12"}})
-    assert client.get("/api/tasks").json()[0]["ticket"] == "PROJ-12"
+    client.put(f"/api/notes/{slug}", json={"properties": {"ticket": "APIM-66", "project": "CreatorIQ"}})
+    task = client.get("/api/tasks").json()[0]
+    assert task["ticket"] == "APIM-66"
+    assert task["project"] == "CreatorIQ"
 
 
 def test_task_tags_are_saved_with_the_priority_in_one_request(client, root):
