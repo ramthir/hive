@@ -43,8 +43,6 @@ tables-app {
 .table-stats-grid { grid-template-columns: repeat(var(--stats-count, 4), minmax(0, 1fr)); }
 .notes-table-pagination { display: block; }
 .notes-table-pagination[hidden] { display: none; }
-.notes-table-drawer-fields { display: grid; gap: var(--space-4); }
-
 .notes-table-card a.notes-wikilink,
 .notes-table-card span.notes-wikilink {
   color: var(--color-accent5);

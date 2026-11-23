@@ -28,7 +28,7 @@ export function openLogTime(note, { onLogged, onRemoved }) {
     ${dialogHeader('Log time')}
     <form class="modal-body crud-drawer-form" autocomplete="off">
       <p class="log-time-title">${esc(note.title)}</p>
-      <div class="time-form-row">
+      <div class="form-row">
         <label class="field">Date<app-datepicker name="day" required value="${esc(today())}"></app-datepicker></label>
         <label class="field">Duration<app-durationpicker name="minutes" required value="60"></app-durationpicker></label>
       </div>

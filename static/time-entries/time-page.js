@@ -135,7 +135,7 @@ class TimeEntriesApp extends HTMLElement {
       singularLabel: 'Time Entry',
       initialFocus: '[name="slug"] .combobox-input',
       fieldsHtml: `<label class="field">Task or meeting<app-combobox name="slug" required placeholder="Search tasks and meetings"></app-combobox></label>
-        <div class="time-form-row">
+        <div class="form-row">
           <label class="field">Date<app-datepicker name="day" required></app-datepicker></label>
           <label class="field">Duration<app-durationpicker name="minutes" required></app-durationpicker></label>
         </div>

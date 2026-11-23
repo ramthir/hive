@@ -247,9 +247,9 @@ export class TableView {
 
   createDrawer() {
     const { columns } = this.parsed;
-    const fieldsHtml = `<div class="notes-table-drawer-fields">${columns.map((col) => (col.isWikilink
+    const fieldsHtml = `${columns.map((col) => (col.isWikilink
       ? `<label class="field"><span>${esc(col.label)}</span><app-combobox multiple creatable name="${esc(col.key)}" placeholder="Select ${esc(col.label.toLowerCase())}…"></app-combobox></label>`
-      : `<label class="field"><span>${esc(col.label)}</span><input type="text" name="${esc(col.key)}" /></label>`)).join('')}</div>`;
+      : `<label class="field"><span>${esc(col.label)}</span><input type="text" name="${esc(col.key)}" /></label>`)).join('')}`;
     const first = columns[0];
     return createCrudDrawer({
       host: this.host.querySelector('#notes-table-drawer-host'),
