@@ -46,6 +46,11 @@ tasks-app {
 }
 .board-chip--week { font-variant-numeric: tabular-nums; }
 .board-chip--ticket { font-variant-numeric: tabular-nums; }
+.board-chip--ticket.board-chip--link:hover,
+.board-chip--ticket.board-chip--link:focus-visible {
+  border-color: var(--color-accent5);
+  color: var(--color-accent5);
+}
 
 /* The Done column's week filter (from Pandora): a pill the height of the count badge beside it. */
 .work-done-filter {

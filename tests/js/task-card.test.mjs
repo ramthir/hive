@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
 
 test('the board has the three Pandora columns in order', () => {
@@ -116,4 +117,9 @@ test('cards show priority, project, ticket, week and remaining tags in order', (
   const chips = [...html.matchAll(/<\/i>([^<]+)<\/span>/g)].map((match) => match[1]);
   assert.deepEqual(chips, ['Must', 'A &amp; B', 'PROJ-12', 'W47', 'work']);
   assert.doesNotMatch(renderCard({ slug: 'x', title: 'X', project: ' ' }), /board-chip--project/);
+});
+
+test('linked ticket text and border use the cyan accent on hover and keyboard focus', async () => {
+  const css = await readFile(new URL('../../static/tasks/tasks.css', import.meta.url), 'utf8');
+  assert.match(css, /\.board-chip--ticket\.board-chip--link:hover,\s*\.board-chip--ticket\.board-chip--link:focus-visible\s*\{[^}]*border-color: var\(--color-accent5\);[^}]*color: var\(--color-accent5\);/);
 });
