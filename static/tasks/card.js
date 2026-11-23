@@ -109,7 +109,7 @@ export function renderCard(task) {
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
-    <div class="board-card-chips">${priorityChip}${renderTicketChip(task)}${projectChip}${weekChip}${tags}</div>`;
+    <div class="board-card-chips">${priorityChip}${projectChip}${renderTicketChip(task)}${weekChip}${tags}</div>`;
 }
 
 /** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */
