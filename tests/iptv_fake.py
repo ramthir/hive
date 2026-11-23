@@ -19,10 +19,17 @@ STREAMS = {
         {"stream_id": 20, "name": "Heat", "category_id": "2", "container_extension": "mkv", "stream_icon": "http://prov.example:8080/x.png"},
         {"stream_id": 21, "name": "Ronin 100%", "category_id": "2", "container_extension": "bad ext!"},
     ],
-    "get_series": [{"series_id": 30, "name": "The Wire", "category_id": "3", "cover": "http://img.example/w.jpg"}],
+    "get_series": [{"series_id": 30, "name": "The Wire", "category_id": "3", "cover": "http://img.example/w.jpg"},
+                   {"series_id": 31, "name": "Long Show", "category_id": "3"}],
 }
-EPISODES = {"episodes": {"1": [
-    {"id": "301", "season": 1, "episode_num": 2, "title": "Two", "container_extension": "mp4", "info": {"duration_secs": 3000}},
+EPISODES = {
+    "info": {"plot": "Baltimore, told from every side.", "genre": "Crime, Drama", "cast": "Dominic West", "director": "David Simon",
+             "releasedate": "2002-06-02", "rating": "9.3", "cover": "http://img.example/wire-cover.jpg", "backdrop_path": ["http://prov.example:8080/x.jpg"],
+             "youtube_trailer": "dQw4w9WgXcQ"},
+    "seasons": [{"season_number": 1, "name": "The Buy"}],
+    "episodes": {"1": [
+    {"id": "301", "season": 1, "episode_num": 2, "title": "Two", "container_extension": "mp4",
+     "info": {"duration_secs": 3000, "plot": "The second.", "movie_image": "http://img.example/e2.jpg"}},
     {"id": "300", "season": 1, "episode_num": 1, "title": "One", "container_extension": "mkv"},
 ], "2": [{"id": "310", "season": 2, "episode_num": 1}]}}
 
@@ -36,6 +43,9 @@ def handler(request: httpx.Request) -> httpx.Response:
     if action in STREAMS:
         return httpx.Response(200, json=STREAMS[action])
     if action == "get_series_info":
+        if request.url.params.get("series_id") == "31":  # many episodes, with the playlist junk some providers send as the title
+            junk = '" group-title="Long Show" series-name="Long Show" season-number="1" episode-number="%d",Long Show S01 E%02d'
+            return httpx.Response(200, json={"episodes": {"1": [{"id": str(400 + n), "season": 1, "episode_num": n, "title": junk % (n, n)} for n in range(1, 21)]}})
         return httpx.Response(200, json=EPISODES)
     return httpx.Response(404)
 

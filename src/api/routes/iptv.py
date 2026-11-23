@@ -1,6 +1,7 @@
 """IPTV: the provider's catalogue (cached in SQLite) and the stream URL of a channel, to copy into a player such as VLC."""
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -53,17 +54,24 @@ def groups(request: Request, type: StreamType) -> list[dict]:
     return _catalog(request).store.groups(type)
 
 
-@router.get("/series/{series_id}/episodes")
-def episodes(request: Request, series_id: str) -> list[dict]:
+@router.get("/series/{series_id}")
+def series(request: Request, series_id: str) -> dict:
+    """A series for its page: the provider's facts and its episodes by season."""
     try:
-        found = _catalog(request).episodes(series_id)
+        channel, details = _catalog(request).series(series_id)
     except NotFound:
         raise HTTPException(404, "Series not found") from None
     except NotConfigured:
         raise HTTPException(409, "The IPTV provider is not configured") from None
     except ProviderError as error:
         raise HTTPException(502, str(error)) from None
-    return [{"id": e.id, "season": e.season, "number": e.number, "title": e.title, "duration": e.duration} for e in found]
+    seasons: dict[int, list[dict]] = {}
+    for e in details.episodes:
+        seasons.setdefault(e.season, []).append(
+            {"id": e.id, "number": e.number, "title": e.title, "plot": e.plot, "duration": e.duration, "image": e.image})
+    names = details.season_names or {}
+    return {**_out(channel), "info": asdict(details.info),
+            "seasons": [{"number": n, "name": names.get(n) or f"Season {n}", "episodes": eps} for n, eps in seasons.items()]}
 
 
 @router.get("/stream-url")

@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-from src.domain.iptv.entities import Channel, Episode, StreamType
+from src.domain.iptv.entities import Channel, SeriesDetails, StreamType
 from src.infrastructure.iptv.store import IptvStore
 from src.infrastructure.iptv.xtream import ProviderError, XtreamClient
 
@@ -35,7 +35,7 @@ class IptvCatalog:
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._status = {"running": False, "progress": "", "error": None}
-        self._episodes: dict[str, tuple[float, list[Episode]]] = {}
+        self._series: dict[str, tuple[float, SeriesDetails]] = {}
 
     @property
     def configured(self) -> bool:
@@ -83,21 +83,23 @@ class IptvCatalog:
             self._status["running"] = False
             client.close()
 
-    def episodes(self, series_id: str) -> list[Episode]:
-        if self.store.get(StreamType.SERIES, series_id) is None:
+    def series(self, series_id: str) -> tuple[Channel, SeriesDetails]:
+        """A series and what the provider says about it and its episodes (cached for a day)."""
+        channel = self.store.get(StreamType.SERIES, series_id)
+        if channel is None:
             raise NotFound()
-        cached = self._episodes.get(series_id)
+        cached = self._series.get(series_id)
         if cached and self._clock() - cached[0] < EPISODES_TTL:
-            return cached[1]
+            return channel, cached[1]
         client = self._factory()
         if client is None:
             raise NotConfigured()
         try:
-            found = client.episodes(series_id)
+            details = client.series_details(series_id)
         finally:
             client.close()
-        self._episodes[series_id] = (self._clock(), found)
-        return found
+        self._series[series_id] = (self._clock(), details)
+        return channel, details
 
     def stream_url(self, type: StreamType, provider_id: str, episode_id: str | None = None) -> tuple[str, str]:
         """(title, stream URL) of one live channel, movie or episode, to paste into a player. The URL holds the account's password, so it is
@@ -110,7 +112,7 @@ class IptvCatalog:
             raise NotConfigured()
         try:
             if type == StreamType.SERIES:
-                episode = next((e for e in self.episodes(provider_id) if e.id == episode_id), None)
+                episode = next((e for e in self.series(provider_id)[1].episodes if e.id == episode_id), None)
                 if episode is None:
                     raise NotFound()
                 title = f"{channel.name} S{episode.season:02d}E{episode.number:02d}" + (f" {episode.title}" if episode.title else "")

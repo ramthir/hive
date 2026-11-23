@@ -48,20 +48,50 @@ export function cardParts(item) {
   return { title, quality, subtitle: [year ? String(year) : '', prettyGroup(item.group)].filter(Boolean).join(' \u00b7 ') };
 }
 
-export function episodeLabel(e) {
-  const code = `E${String(e.number).padStart(2, '0')}`;
-  return e.title ? `${code} · ${e.title}` : code;
+/**
+ * An episode's own title. Some providers send a playlist line instead of a title (`" group-title="X" series-name="X" season-number="2"
+ * episode-number="1",X S02 E01`), and many repeat the series name and the S02 E01 code: all of that goes, so what is left is the title
+ * or nothing.
+ */
+export function episodeTitle(title, seriesName = '') {
+  let text = String(title ?? '');
+  const embedded = text.match(/\bseries-name="([^"]*)"/i)?.[1] || '';
+  text = text.replace(/^.*?\bepisode-number="\d+",\s*/i, '');
+  for (const name of [embedded, seriesName]) {
+    const clean = String(name).trim();
+    if (clean) text = text.replace(new RegExp(`^\\s*${clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-:–,]?\\s*`, 'i'), '');
+  }
+  return text.replace(/\bS\d{1,3}\s*E\d{1,4}\b/gi, '').replace(/^[\s\-–:,]+|[\s\-–:,]+$/g, '').replace(/\s{2,}/g, ' ');
 }
 
-/** Episodes (already sorted by the server) -> [{ season, episodes }]. */
-export function bySeason(episodes) {
-  const seasons = [];
-  for (const e of episodes) {
-    let s = seasons.find((x) => x.season === e.season);
-    if (!s) seasons.push((s = { season: e.season, episodes: [] }));
-    s.episodes.push(e);
-  }
-  return seasons;
+export function episodeLabel(e, seriesName = '') {
+  const code = `E${String(e.number).padStart(2, '0')}`;
+  const title = episodeTitle(e.title, seriesName);
+  return title ? `${code} · ${title}` : code;
+}
+
+/** "50m", "1h 5m" for a length in seconds; empty when unknown. */
+export function durationLabel(seconds) {
+  const minutes = Math.round(Number(seconds) / 60);
+  if (!Number.isFinite(minutes) || minutes <= 0) return '';
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}`;
+}
+
+/** The facts line of a series: year, age rating, score and country (whatever the provider gave). */
+export function seriesFacts(info) {
+  const i = info || {};
+  return [i.year ? String(i.year) : '', i.age || '', i.rating ? `\u2605 ${i.rating}` : '', i.country || ''].filter(Boolean);
+}
+
+/** `?season=2` -> the season to show, or null for the first. */
+export function seasonFromSearch(search) {
+  const n = Number.parseInt(new URLSearchParams(search).get('season') ?? '', 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** The season to show: the one asked for if the series has it, else the first. */
+export function pickSeason(seasons, wanted) {
+  return (seasons || []).find((s) => s.number === wanted) || (seasons || [])[0] || null;
 }
 
 export function syncLabel(status) {

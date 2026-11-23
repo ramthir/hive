@@ -31,7 +31,7 @@ def synced(tmp_path):
 def test_sync_fills_the_catalogue_and_reports_status(synced):
     status = synced.get("/api/iptv/status").json()
     assert status["configured"] and not status["running"] and status["error"] is None and status["synced_at"]
-    assert status["counts"] == {"live": 1, "vod": 2, "series": 1}
+    assert status["counts"] == {"live": 1, "vod": 2, "series": 2}
 
 
 def test_listings_never_carry_a_stream_url_or_the_account(synced):
@@ -56,12 +56,13 @@ def test_stream_url_is_given_one_at_a_time_and_not_cached(synced):
 
 
 def test_an_episode_url_uses_its_own_id_and_extension(synced):
-    assert [(e["season"], e["number"]) for e in synced.get("/api/iptv/series/30/episodes").json()] == [(1, 1), (1, 2), (2, 1)]
+    body = synced.get("/api/iptv/series/30").json()
+    assert [(s["number"], [e["number"] for e in s["episodes"]]) for s in body["seasons"]] == [(1, [1, 2]), (2, [1])]
     r = synced.get("/api/iptv/stream-url", params={"type": "series", "id": "30", "episode": "301"}).json()
     assert r == {"title": "The Wire S01E02 Two", "url": "http://prov.example:8080/series/alice/s3cret%2Fpw/301.mp4"}
     assert synced.get("/api/iptv/stream-url", params={"type": "series", "id": "30", "episode": "nope"}).status_code == 404
     assert synced.get("/api/iptv/stream-url", params={"type": "series", "id": "30"}).status_code == 404
-    assert synced.get("/api/iptv/series/999/episodes").status_code == 404
+    assert synced.get("/api/iptv/series/999").status_code == 404
 
 
 def test_unknown_channel_is_404_and_a_title_stays_on_one_line(synced):
@@ -119,3 +120,14 @@ def test_search_filters_by_category_with_group(synced):
     assert [c["name"] for c in synced.get("/api/iptv/channels", params={"type": "vod", "q": "group:action"}).json()["items"]] == ["Heat", "Ronin 100%"]
     assert [c["name"] for c in synced.get("/api/iptv/channels", params={"type": "vod", "q": "ronin group:act"}).json()["items"]] == ["Ronin 100%"]
     assert synced.get("/api/iptv/channels", params={"type": "vod", "q": "group:drama"}).json()["total"] == 0
+
+
+def test_series_page_data_has_the_facts_seasons_and_episodes_but_no_stream_urls(synced):
+    body = synced.get("/api/iptv/series/30").json()
+    assert (body["name"], body["group"], body["type"]) == ("The Wire", "Drama", "series")
+    assert body["info"]["plot"] == "Baltimore, told from every side." and body["info"]["year"] == 2002 and body["info"]["rating"] == 9.3
+    assert [s["name"] for s in body["seasons"]] == ["The Buy", "Season 2"]
+    two = body["seasons"][0]["episodes"][1]
+    assert two == {"id": "301", "number": 2, "title": "Two", "plot": "The second.", "duration": 3000, "image": "http://img.example/e2.jpg"}
+    text = synced.get("/api/iptv/series/30").text
+    assert "s3cret" not in text and "alice" not in text and "prov.example" not in text

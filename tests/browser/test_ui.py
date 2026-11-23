@@ -1272,7 +1272,7 @@ def test_log_time_dialog_lists_logged_days_and_removes_one_in_a_commit(page, ser
     expect(days).to_have_count(2)
     expect(days.first).to_contain_text("Nov 20")  # newest day first
     expect(days.last).to_contain_text("1h 30m")
-    assert page.evaluate("document.activeElement.classList.contains('combobox-input')")  # focus is on the fields, not on Log time
+    page.wait_for_function("document.activeElement.classList.contains('combobox-input')")  # focus ends up on the fields, not on Log time (the dialog moves it as it opens)
 
     page.click('[data-remove="2026-11-19"]')
     expect(days).to_have_count(1)
@@ -2385,18 +2385,52 @@ def test_copy_icon_copies_the_stream_url_and_a_toast_says_so(library_server):
         p.stop()
 
 
-def test_the_toast_is_visible_above_the_episodes_dialog(library_server):
+def test_a_series_card_opens_a_drawer_with_facts_seasons_and_episodes_to_copy(library_server):
     p, browser, page = library_page(library_server)
     try:
         page.goto(f"{library_server}/library?type=series")
         page.locator(".iptv-card", has_text="The Wire").click()
-        page.locator(".iptv-episodes li button", has_text="Two").click()
-        toast = page.locator(".app-toast")
-        expect(toast).to_have_text("Stream URL copied. Open in VLC Network Stream.")
-        box = toast.bounding_box()
-        top = page.evaluate("([x, y]) => document.elementFromPoint(x, y)?.closest('.app-toast') !== null", [box["x"] + 10, box["y"] + box["height"] / 2])
-        assert top, "the toast is hidden behind the modal dialog"
-        assert page.evaluate("navigator.clipboard.readText()").endswith("/series/alice/s3cret%2Fpw/301.mp4")
+        drawer = page.locator(".iptv-series-drawer")
+        expect(drawer.locator(".modal-title")).to_have_text("The Wire")
+        expect(drawer.locator(".iptv-plot")).to_have_text("Baltimore, told from every side.")
+        expect(drawer.locator(".iptv-facts")).to_have_text("2002★ 9.3")
+        expect(drawer.locator(".iptv-trailer")).to_have_attribute("href", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        assert page.url.endswith("/library?type=series")  # no page change: the list stays behind the drawer
+        expect(drawer.locator(".iptv-seasons .tab-bar-item")).to_have_text(["The Buy", "Season 2"])
+        episodes = drawer.locator(".iptv-episode")
+        expect(episodes).to_have_count(2)
+        expect(episodes.nth(1)).to_contain_text("E02 · Two")
+        expect(episodes.nth(1)).to_contain_text("50m")
+        expect(episodes.nth(1)).to_contain_text("The second.")
+        drawer.locator(".iptv-seasons .tab-bar-item", has_text="Season 2").click()
+        expect(episodes).to_have_count(1)
+        drawer.locator(".iptv-seasons .tab-bar-item", has_text="The Buy").click()
+        episodes.nth(1).locator(".iptv-episode-copy").click()
+        expect(page.locator(".app-toast")).to_have_text("Stream URL copied. Open in VLC Network Stream.")
+        assert page.evaluate("navigator.clipboard.readText()") == "http://prov.example:8080/series/alice/s3cret%2Fpw/301.mp4"
+        box = page.locator(".app-toast").bounding_box()
+        assert page.evaluate("([x, y]) => document.elementFromPoint(x, y)?.closest('.app-toast') !== null", [box["x"] + 10, box["y"] + box["height"] / 2]), "the toast is behind the drawer"
+        page.screenshot(path="/tmp/claude-501/-home-ramesh-Workspace-hive/87a59954-02fa-4dce-8d54-5dc9484ad38a/scratchpad/drawer.png")
+        page.keyboard.press("Escape")
+        expect(drawer).to_have_count(0)
+        expect(page.locator(".iptv-card", has_text="The Wire")).to_be_visible()
+    finally:
+        browser.close()
+        p.stop()
+
+
+def test_a_long_episode_list_scrolls_in_the_drawer_and_leaves_the_season_tabs_whole(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/library?type=series")
+        page.locator(".iptv-card", has_text="Long Show").click()
+        drawer = page.locator(".iptv-series-drawer")
+        expect(drawer.locator(".iptv-episode")).to_have_count(20)
+        expect(drawer.locator(".iptv-seasons .tab-bar-item")).to_have_text(["Season 1"])
+        assert drawer.locator(".iptv-seasons").bounding_box()["height"] >= 30  # not squashed by the list below it
+        assert drawer.locator(".iptv-drawer-body").evaluate("e => e.scrollHeight > e.clientHeight")  # the list scrolls instead
+        expect(drawer.locator(".iptv-episode-title").first).to_have_text("E01")  # the playlist junk is gone
+        expect(drawer.locator(".iptv-episode-title").nth(11)).to_have_text("E12")
     finally:
         browser.close()
         p.stop()

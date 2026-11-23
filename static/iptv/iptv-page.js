@@ -1,11 +1,12 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
-import { copyTextToClipboard } from '/static/clipboard.js';
+import { copyStreamUrl } from '/static/iptv/copy.js';
+import { openSeriesDrawer } from '/static/iptv/series-drawer.js';
 import '/static/components/autocomplete.js';
 import { groupSuggestions, insertTerm } from '/static/iptv/search.js';
 import {
-  TYPES, bySeason, cardParts, channelsQuery, episodeLabel, initials, parseTitle, readState, stateSearch, streamUrlPath, syncLabel, titleHue,
+  TYPES, cardParts, channelsQuery, initials, readState, stateSearch, syncLabel, titleHue,
 } from '/static/iptv/format.js';
 
 /* Library (IPTV): browse the provider's catalogue (kept in SQLite on the server) and copy a stream's URL to open in a player such as VLC
@@ -35,11 +36,9 @@ class IptvApp extends HTMLElement {
           <div class="iptv-grid" aria-live="polite"></div>
           <div class="iptv-more" role="status"></div>
         </div>
-        <dialog class="iptv-episodes"></dialog>
       </section>`;
     this.grid = this.querySelector('.iptv-grid');
     this.more = this.querySelector('.iptv-more');
-    this.dialog = this.querySelector('dialog');
     const autocomplete = this.querySelector('#iptv-search');
     const search = autocomplete.input;
     this.groups = [];
@@ -64,15 +63,12 @@ class IptvApp extends HTMLElement {
     this.observer = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) this.loadMore(); }, { rootMargin: '800px 0px' });
     this.observer.observe(this.more);
     this.querySelector('[data-sync]').addEventListener('click', () => this.sync());
-    const onClick = (e) => {
-      const open = e.target.closest('[data-series]');
-      if (open) { e.preventDefault(); this.openSeries(open.dataset.series, open.dataset.name); return; }
+    this.grid.addEventListener('click', (e) => {
+      const series = e.target.closest('[data-series]');
+      if (series) { e.preventDefault(); openSeriesDrawer({ id: series.dataset.series, name: series.dataset.name }); return; }
       const copy = e.target.closest('[data-copy]');
-      if (copy) { e.preventDefault(); this.copyUrl(copy); }
-    };
-    this.grid.addEventListener('click', onClick);
-    this.dialog.addEventListener('click', onClick);
-    this.dialog.addEventListener('click', (e) => { if (e.target === this.dialog || e.target.closest('[data-close]')) this.dialog.close(); });
+      if (copy) { e.preventDefault(); copyStreamUrl(copy); }
+    });
     window.addEventListener('popstate', this.onPop = () => { this.state = readState(window.location.search); this.refresh(); });
     this.refresh();
     this.loadStatus();
@@ -140,45 +136,11 @@ class IptvApp extends HTMLElement {
     const art = `<span class="iptv-art" style="--hue:${titleHue(title)}"><span class="iptv-initials" aria-hidden="true">${esc(initials(title))}</span>${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ''}${quality ? `<span class="iptv-quality">${esc(quality)}</span>` : ''}</span>`;
     const label = `<span class="iptv-name">${esc(title)}</span><span class="iptv-group-name">${esc(subtitle)}</span>`;
     const cls = `iptv-card iptv-card--${c.type}`;
-    // A series has no stream of its own: its card opens the episodes, and each episode has the copy button.
+    // A series has no stream of its own: its card opens a drawer, where each episode has the copy button.
     if (c.type === 'series') {
       return `<button type="button" class="${cls}" data-series="${esc(c.id)}" data-name="${esc(c.name)}" title="${esc(c.name)}">${art}${label}</button>`;
     }
     return `<div class="${cls}" title="${esc(c.name)}">${art}${label}<button type="button" class="iptv-copy" data-copy data-type="${c.type}" data-id="${esc(c.id)}" aria-label="Copy the stream URL of ${esc(c.name)}" title="Copy stream URL"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></div>`;
-  }
-
-  async openSeries(id, name) {
-    this.dialog.innerHTML = `<header><h2>${esc(parseTitle(name).title)}</h2><button type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></header><div class="iptv-episodes-body">Loading episodes…</div>`;
-    this.dialog.showModal();
-    const body = this.dialog.querySelector('.iptv-episodes-body');
-    try {
-      const seasons = bySeason(await api(`/iptv/series/${encodeURIComponent(id)}/episodes`));
-      body.innerHTML = seasons.length ? seasons.map((s) => `<h3>Season ${s.season}</h3><ul>${s.episodes.map((e) => `<li><button type="button" data-copy data-type="series" data-id="${esc(id)}" data-episode="${esc(e.id)}" data-name="${esc(name)}" title="Copy the URL of this episode"><span>${esc(episodeLabel(e))}</span><span class="iptv-copy-label"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy URL</span></button></li>`).join('')}</ul>`).join('') : 'No episodes.';
-    } catch (error) {
-      body.textContent = error.message || 'Could not load the episodes';
-    }
-  }
-
-  /** A tick in place of the copy icon for a moment. */
-  flash(button) {
-    const icon = button.querySelector('i');
-    if (!icon) return;
-    icon.className = 'fa-solid fa-check';
-    button.classList.add('is-copied');
-    setTimeout(() => { icon.className = 'fa-regular fa-copy'; button.classList.remove('is-copied'); }, 1500);
-  }
-
-  /** Ask the server for the stream URL (it holds the account's password, so it is not in the page) and put it on the clipboard. */
-  async copyUrl(button) {
-    const { type, id, episode } = button.dataset;
-    try {
-      const { url } = await api(streamUrlPath(type, id, episode));
-      await copyTextToClipboard(url);
-      this.flash(button);
-      showToast('Stream URL copied. Open in VLC Network Stream.');
-    } catch (error) {
-      showToast(error.message || 'Could not copy the URL');
-    }
   }
 
   async loadStatus() {

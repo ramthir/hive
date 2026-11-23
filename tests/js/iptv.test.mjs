@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bySeason, cardParts, channelsQuery, episodeLabel, initials, liveSubtitle, parseTitle, prettyGroup, stripPrefix, readState, stateSearch, streamUrlPath, syncLabel } from '../../static/iptv/format.js';
+import { cardParts, durationLabel, episodeTitle, pickSeason, seasonFromSearch, seriesFacts, channelsQuery, episodeLabel, initials, liveSubtitle, parseTitle, prettyGroup, stripPrefix, readState, stateSearch, streamUrlPath, syncLabel } from '../../static/iptv/format.js';
 
 test('the address holds the kind and the search, not a page', () => {
   assert.deepEqual(readState(''), { type: 'vod', q: '' });
@@ -53,10 +53,17 @@ test('a card shows the clean title and the line beneath it', () => {
   assert.equal(initials('BBC One'), 'BO');
 });
 
-test('episodes are grouped by season', () => {
-  const seasons = bySeason([{ season: 1, number: 1 }, { season: 1, number: 2 }, { season: 2, number: 1 }]);
-  assert.deepEqual(seasons.map((s) => [s.season, s.episodes.length]), [[1, 2], [2, 1]]);
-  assert.equal(episodeLabel({ number: 3, title: 'Pilot' }), 'E03 · Pilot');
+test('a series page shows its facts, episode lengths and the season asked for', () => {
+  assert.deepEqual(seriesFacts({ year: 2002, age: '16', rating: 9.3, country: 'USA' }), ['2002', '16', '\u2605 9.3', 'USA']);
+  assert.deepEqual(seriesFacts({}), []);
+  assert.deepEqual([50 * 60, 65 * 60, 120 * 60, 0, null].map(durationLabel), ['50m', '1h 5m', '2h', '', '']);
+  const seasons = [{ number: 1 }, { number: 2 }];
+  assert.equal(pickSeason(seasons, 2).number, 2);
+  assert.equal(pickSeason(seasons, 9).number, 1);
+  assert.equal(pickSeason([], 1), null);
+  assert.equal(seasonFromSearch('?season=3'), 3);
+  assert.equal(seasonFromSearch('?season=x'), null);
+  assert.equal(episodeLabel({ number: 3, title: 'Pilot' }), 'E03 \u00b7 Pilot');
   assert.equal(episodeLabel({ number: 3 }), 'E03');
 });
 
@@ -83,4 +90,16 @@ test('typing group: offers the categories, best matches first, and picking one r
   assert.equal(groupTerm('IN | TAMIL'), 'group:"IN | TAMIL"');
   assert.deepEqual(insertTerm('raja group:ta later', 12, 'group:Tamil'), { value: 'raja group:Tamil later', cursor: 17 });
   assert.deepEqual(searchToken('a bc', 3), { start: 2, end: 4, prefix: 'b' });
+});
+
+test('an episode title loses the provider\'s playlist attributes, the series name and the S02 E01 code', () => {
+  const junk = '" group-title="Love Is Blind, Habibi (English)" series-name="Love Is Blind, Habibi (English)" season-number="2" episode-number="1",Love Is Blind, Habibi (English) S02 E01';
+  assert.equal(episodeTitle(junk, 'Habibi (English)'), '');
+  assert.equal(episodeLabel({ number: 1, title: junk }, 'Habibi (English)'), 'E01');
+  assert.equal(episodeTitle('The Wire - S01E02 - The Detail', 'The Wire'), 'The Detail');
+  assert.equal(episodeTitle('Pilot', 'The Wire'), 'Pilot');
+  assert.equal(episodeTitle('The Wire: Pilot', 'The Wire'), 'Pilot');
+  assert.equal(episodeTitle(null), '');
+  assert.equal(episodeTitle('A.B (x): Price (Part 1)', 'A.B (x)'), 'Price (Part 1)');  // a series name with regex characters is matched as text
+  assert.equal(episodeLabel({ number: 3, title: 'Pilot' }), 'E03 \u00b7 Pilot');
 });

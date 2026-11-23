@@ -14,12 +14,21 @@ def test_fetch_drops_adult_categories_provider_hosted_logos_and_bad_extensions()
     assert client().fetch(StreamType.SERIES)[0].name == "The Wire"
 
 
-def test_episodes_are_sorted_with_their_own_extension():
-    found = client().episodes("30")
+def test_episodes_are_sorted_with_their_own_extension_and_details():
+    details = client().series_details("30")
+    found = details.episodes
     assert [(e.season, e.number, e.id, e.ext) for e in found] == [(1, 1, "300", "mkv"), (1, 2, "301", "mp4"), (2, 1, "310", "mp4")]
-    assert found[1].duration == 3000
+    assert (found[1].duration, found[1].plot, found[1].image) == (3000, "The second.", "http://img.example/e2.jpg")
+    assert details.season_names == {1: "The Buy"}
     with pytest.raises(ProviderError):
-        client().episodes("../x")
+        client().series_details("../x")
+
+
+def test_series_facts_leave_out_provider_hosted_images_and_make_a_trailer_link():
+    info = client().series_details("30").info
+    assert (info.plot, info.genre, info.year, info.rating, info.director) == ("Baltimore, told from every side.", "Crime, Drama", 2002, 9.3, "David Simon")
+    assert info.poster == "http://img.example/wire-cover.jpg" and info.backdrop is None  # the backdrop is on the provider's own host
+    assert info.trailer_url == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 
 def test_stream_urls_encode_the_account_and_redact_removes_it():

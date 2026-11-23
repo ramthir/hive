@@ -12,7 +12,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
-from src.domain.iptv.entities import Channel, Episode, StreamType
+from src.domain.iptv.entities import Channel, Episode, SeriesDetails, SeriesInfo, StreamType
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 _SAFE_EXT = re.compile(r"^[a-z0-9]{1,10}$")
@@ -82,6 +82,38 @@ def _text(value: object, limit: int = 200) -> str | None:
     return text[:limit] if text and text.upper() not in ("N/A", "NONE", "NULL") else None
 
 
+def _number(value: object) -> float | None:
+    try:
+        number = float(str(value).strip())
+        return number if number == number and number != float("inf") else None
+    except ValueError:
+        return None
+
+
+def _runtime(info: dict) -> int | None:
+    seconds = _number(info.get("duration_secs"))
+    if seconds and 0 < seconds < 24 * 3600:
+        return int(seconds)
+    parts = str(info.get("duration") or "").split(":")
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        total = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        return total if 0 < total < 24 * 3600 else None
+    return None
+
+
+_YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+
+
+def _trailer_url(value: object) -> str | None:
+    """A YouTube link for the provider's trailer: it sends a video id, sometimes a whole address."""
+    text = str(value or "").strip()
+    if _YOUTUBE_ID.match(text):
+        return f"https://www.youtube.com/watch?v={text}"
+    parts = urlsplit(text)
+    return parts.geturl() if parts.scheme in ("http", "https") and parts.hostname in _YOUTUBE_HOSTS and not parts.username else None
+
+
 class XtreamClient:
     def __init__(self, config: XtreamConfig, transport: httpx.BaseTransport | None = None) -> None:
         self.config = config
@@ -138,11 +170,20 @@ class XtreamClient:
             ))
         return out
 
-    def episodes(self, series_id: str) -> list[Episode]:
+    def series_details(self, series_id: str) -> SeriesDetails:
+        """A series' facts and its episodes. Images hosted by the provider itself are left out."""
         if not _SAFE_ID.match(series_id):
             raise ProviderError("That series cannot be looked up")
         body = self._get("get_series_info", series_id=series_id)
-        grouped = body.get("episodes") if isinstance(body, dict) else None
+        body = body if isinstance(body, dict) else {}
+        info = body.get("info") if isinstance(body.get("info"), dict) else {}
+        host = urlsplit(self.config.server).hostname or ""
+        names = {}
+        for season in body.get("seasons") if isinstance(body.get("seasons"), list) else []:
+            number = _whole(season.get("season_number")) if isinstance(season, dict) else None
+            if number is not None and _text(season.get("name"), 80):
+                names[number] = _text(season.get("name"), 80)
+        grouped = body.get("episodes")
         lists = grouped.values() if isinstance(grouped, dict) else [grouped] if isinstance(grouped, list) else []
         found = []
         for items in lists:
@@ -152,9 +193,25 @@ class XtreamClient:
                 eid, season, number = str(item.get("id", "")), _whole(item.get("season")), _whole(item.get("episode_num"))
                 if not _SAFE_ID.match(eid) or season is None or number is None or season < 0 or number < 0:
                     continue
-                info = item.get("info") if isinstance(item.get("info"), dict) else {}
+                details = item.get("info") if isinstance(item.get("info"), dict) else {}
                 ext = str(item.get("container_extension") or "").lower()
-                secs = _whole(info.get("duration_secs"))
                 found.append(Episode(eid, season, number, _text(item.get("title")), ext if _SAFE_EXT.match(ext) else "mp4",
-                                     secs if secs and 0 < secs < 86400 else None))
-        return sorted(found, key=lambda e: (e.season, e.number, e.id))
+                                     _runtime(details), _text(details.get("plot"), 1500), _public(details.get("movie_image"), host)))
+        found.sort(key=lambda e: (e.season, e.number, e.id))
+        return SeriesDetails(self._facts(info, host), tuple(found), names)
+
+    @staticmethod
+    def _facts(info: dict, host: str) -> SeriesInfo:
+        release = _text(info.get("releasedate") or info.get("release_date") or info.get("releaseDate"), 10)
+        release = release if release and re.match(r"^\d{4}-\d{2}-\d{2}$", release) else None
+        year = int(release[:4]) if release else None
+        rating = _number(info.get("rating"))
+        backdrop = info.get("backdrop_path")
+        backdrop = backdrop[0] if isinstance(backdrop, list) and backdrop else backdrop
+        return SeriesInfo(
+            plot=_text(info.get("plot") or info.get("description"), 3000), genre=_text(info.get("genre")), director=_text(info.get("director")),
+            cast=_text(info.get("cast") or info.get("actors"), 600), release_date=release, year=year if year and 1880 <= year <= 2100 else None,
+            rating=round(rating, 1) if rating is not None and 0 < rating <= 10 else None, country=_text(info.get("country")),
+            age=_text(info.get("age"), 20), poster=_public(info.get("cover") or info.get("cover_big") or info.get("movie_image"), host),
+            backdrop=_public(backdrop, host), trailer_url=_trailer_url(info.get("youtube_trailer")),
+        )
