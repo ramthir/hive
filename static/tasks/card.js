@@ -69,12 +69,17 @@ export const sortByPriority = (tasks) =>
     .sort(([a, i], [b, j]) => (taskPriority(a)?.rank ?? 4) - (taskPriority(b)?.rank ?? 4) || i - j)
     .map(([task]) => task);
 
+function projectName(task) {
+  const project = String(task.project ?? '').trim();
+  return (project.startsWith('[[') && project.endsWith(']]') ? project.slice(2, -2) : project).trim();
+}
+
 function renderTicketChip(task) {
   const ticket = String(task.ticket ?? '').trim();
   if (!ticket) return '';
-  const project = String(task.project ?? '').trim().toLowerCase();
+  const project = projectName(task).toLowerCase();
   const content = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
-  if ((project === 'creatoriq' || project === '[[creatoriq]]') && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket)) {
+  if (project === 'creatoriq' && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket)) {
     return `<a class="board-chip board-chip--ticket board-chip--link" href="https://socialedge.atlassian.net/browse/${ticket.toUpperCase()}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${content}</a>`;
   }
   return `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}">${content}</span>`;
@@ -85,8 +90,15 @@ export function renderCard(task) {
   const priorityChip = priority
     ? `<span class="board-chip board-chip--priority board-chip--${priority.cls}" title="Priority ${priority.rank}: ${priority.label}"><i class="${priority.icon}" aria-hidden="true"></i>${priority.label}</span>`
     : '';
+  const project = projectName(task);
+  const projectChip = project
+    ? `<span class="board-chip board-chip--project"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>${esc(project)}</span>`
+    : '';
   const tags = (task.tags || [])
-    .filter((tag) => !REDUNDANT_TAGS.includes(String(tag).toLowerCase()))
+    .filter((tag) => {
+      const key = String(tag).trim().replace(/^#/, '').toLowerCase();
+      return !REDUNDANT_TAGS.includes(key) && key !== project.toLowerCase();
+    })
     .map((tag) => `<span class="board-chip"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`)
     .join('');
   const week = taskWeek(task);
@@ -97,7 +109,7 @@ export function renderCard(task) {
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
-    <div class="board-card-chips">${renderTicketChip(task)}${priorityChip}${weekChip}${tags}</div>`;
+    <div class="board-card-chips">${priorityChip}${renderTicketChip(task)}${projectChip}${weekChip}${tags}</div>`;
 }
 
 /** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */

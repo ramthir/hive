@@ -107,3 +107,13 @@ test('CreatorIQ ticket chips link directly to Jira in a new tab', () => {
   assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '../APIM-66' }), /socialedge\.atlassian\.net/);
   assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '' }), /board-chip--ticket/);
 });
+
+test('cards show priority, ticket, project, week and remaining tags in order', () => {
+  const html = renderCard({
+    slug: 'x', title: 'X', priority: 'must', ticket: 'PROJ-12', project: '[[A & B]]',
+    week_key: '2026-W47', tags: ['a & b', 'work'], total_tokens: 1234,
+  });
+  const chips = [...html.matchAll(/<\/i>([^<]+)<\/span>/g)].map((match) => match[1]);
+  assert.deepEqual(chips, ['Must', 'PROJ-12', 'A &amp; B', 'W47', 'work']);
+  assert.doesNotMatch(renderCard({ slug: 'x', title: 'X', project: ' ' }), /board-chip--project/);
+});
