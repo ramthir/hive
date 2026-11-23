@@ -2149,7 +2149,8 @@ def test_the_note_chat_sits_beside_the_note_and_edits_show_in_it_live(page, chat
     bar, foot = page.locator(".notes-action-bar").bounding_box(), page.locator(".chat-dock-foot").bounding_box()
     assert bar["x"] + bar["width"] <= dock["x"] + 1  # the footer bar stops at the dock...
     assert abs(foot["y"] - bar["y"]) < 1.5 and abs(foot["x"] - dock["x"]) < 2 and foot["x"] + foot["width"] >= dock["x"] + dock["width"] - 1  # ...and the composer is the strip beside it, edge to edge
-    expect(page.locator("#note-chat-btn")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator(".notes-footer-actions")).to_be_hidden()
+    expect(page.locator("#note-chat-btn")).to_be_hidden()
     expect(page.locator(".chat-dock-title")).to_have_text("Chat")
     page.locator("#chat-input").fill("polish this note")
     page.locator("#chat-send").click()
@@ -2179,14 +2180,21 @@ def test_the_note_chat_is_remembered_per_note_and_stays_open(page, chat_server):
     expect(page.locator(".chat-dock-title")).to_have_text("Chat")
     page.locator("#chat-close").click()
     expect(page.locator(".notes-chat-dock")).to_be_hidden()
+    expect(page.locator(".notes-footer-actions")).to_be_visible()
+    expect(page.locator("#note-chat-btn")).to_be_visible()
     expect(page.locator("#note-chat-btn")).to_have_attribute("aria-pressed", "false")
     page.keyboard.press("Control+Shift+L")  # the shortcut opens it again
     expect(page.locator(".notes-chat-dock")).to_be_visible()
+    expect(page.locator(".notes-footer-actions")).to_be_hidden()
 
 
 def test_the_note_chat_saves_unsaved_text_first_and_sends_the_selection(page, chat_server):
-    open_note_chat(page, chat_server)
+    page.goto(f"{chat_server.url}/notes/alpha")
+    expect(page.locator("#notes-md")).to_be_visible()
     page.locator("#edit-note-btn").click()
+    page.locator("#note-chat-btn").click()
+    expect(page.locator(".notes-chat-dock chat-app[compact]")).to_be_visible()
+    expect(page.locator(".notes-footer-actions")).to_be_hidden()
     editor = page.locator(".cm-content")
     editor.click()
     page.keyboard.press("Control+End")
@@ -2272,6 +2280,7 @@ def test_the_table_chat_sits_beside_the_page_and_a_row_it_adds_shows_live(page, 
     page.locator("#note-chat-btn").click()
     dock = page.locator(".notes-chat-dock chat-app[compact]")
     expect(dock).to_be_visible()
+    expect(page.locator(".notes-footer-actions")).to_be_hidden()
     box, bar = page.locator(".notes-chat-dock").bounding_box(), page.locator(".notes-action-bar").bounding_box()
     assert bar["x"] + bar["width"] <= box["x"] + 1  # the footer bar stops at the dock
     assert page.locator(".notes-table-card").bounding_box()["x"] + page.locator(".notes-table-card").bounding_box()["width"] <= box["x"] + 1  # the page made room
@@ -2287,6 +2296,7 @@ def test_the_table_chat_sits_beside_the_page_and_a_row_it_adds_shows_live(page, 
     expect(page.locator(".chat-message")).to_have_count(2)  # ...with this note's conversation
     page.keyboard.press("Control+Shift+L")
     expect(page.locator(".notes-chat-dock")).to_be_hidden()
+    expect(page.locator(".notes-footer-actions")).to_be_visible()
     assert page.errors == []
 
 
@@ -2296,6 +2306,7 @@ def test_the_timeline_chat_works_and_its_phases_follow_the_note(page, chat_serve
     expect(page.locator(".timeline-phase")).to_have_count(2)
     page.locator("#note-chat-btn").click()
     expect(page.locator(".notes-chat-dock chat-app[compact]")).to_be_visible()
+    expect(page.locator(".notes-footer-actions")).to_be_hidden()
     page.locator(".timeline-phase-title").first.click(click_count=3)  # the selection goes with the next question
     expect(page.locator("#chat-context-text")).to_contain_text("Kickoff")
     page.locator("#chat-input").fill("addphase please")
@@ -2304,4 +2315,7 @@ def test_the_timeline_chat_works_and_its_phases_follow_the_note(page, chat_serve
     expect(page.locator(".chat-message.assistant .chat-answer")).to_contain_text("Alpha links to")
     prompt = chat_server.runner.prompts[-1]
     assert "`roadmap.md`" in prompt and "<<<\nKickoff" in prompt
+    page.locator("#chat-close").click()
+    expect(page.locator(".notes-chat-dock")).to_be_hidden()
+    expect(page.locator(".notes-footer-actions")).to_be_visible()
     assert page.errors == []

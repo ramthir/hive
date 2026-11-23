@@ -86,6 +86,10 @@ chat-app app-header { width: calc(100% + 2 * var(--page-inline-padding, 1.5rem))
 notes-app.chat-docked .notes-action-bar,
 tables-app.chat-docked .notes-action-bar,
 timelines-app.chat-docked .notes-action-bar { right: min(26rem, 45vw); }
+/* Hide the bottom action buttons (including the chat toggle) while the chat side pane is open; close it from the pane's header. */
+notes-app.chat-docked .notes-footer-actions,
+tables-app.chat-docked .notes-footer-actions,
+timelines-app.chat-docked .notes-footer-actions { display: none; }
 /* The pages of table and timeline notes scroll with the window, so their dock is a column fixed to its right edge and the page makes room. */
 .notes-chat-dock--fixed { position: fixed; top: 0; right: 0; bottom: 0; height: auto; z-index: 25; }
 tables-app.chat-docked, timelines-app.chat-docked { padding-right: min(26rem, 45vw); }
