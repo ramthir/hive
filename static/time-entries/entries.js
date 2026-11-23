@@ -1,5 +1,5 @@
 /** Pure logic of the time entries page: the table, the search address, the save plan. No DOM, so it is unit-tested. */
-import { MAX_MINUTES, formatDay, formatDuration, isDay } from './format.js';
+import { MAX_MINUTES, formatDuration, isDay } from './format.js';
 
 export const PAGE_SIZE = 10;
 export const SEARCH_HELP =
@@ -72,13 +72,21 @@ export const deleteCall = (record) => ({ method: 'DELETE', path: noteTime(record
 /** Table columns; `render` returns trusted markup, so every value goes through `esc`. */
 export function tableColumns(esc) {
   return [
-    { key: 'day', label: 'Date', width: '11rem', render: (day) => esc(formatDay(day)) },
+    { key: 'day', label: 'Date', width: '11rem', render: (day) => esc(day) },
     {
       key: 'title',
       label: 'Task or meeting',
       render: (title, row) => `<i class="fa-solid ${typeIcon(row.type)} time-type" title="${esc(TYPE_TITLES[row.type] || row.type)}" aria-hidden="true"></i><span class="time-title">${esc(title)}</span> <a class="time-note-link" href="/notes/${encodeURIComponent(row.slug)}" title="Open note" aria-label="Open note: ${esc(title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`,
     },
-    { key: 'project', label: 'Project', render: (project) => (project ? esc(project) : '<span class="time-none">—</span>') },
+    {
+      key: 'project',
+      label: 'Project',
+      render: (project, row = {}) => {
+        const label = esc(row.project_label ?? project);
+        if (row.project_slug) return `<a href="/notes/${encodeURIComponent(row.project_slug)}">${label}</a>`;
+        return label || '<span class="time-none">—</span>';
+      },
+    },
     { key: 'minutes', label: 'Duration', width: '8rem', className: 'time-duration', render: (minutes) => esc(formatDuration(minutes)) },
   ];
 }

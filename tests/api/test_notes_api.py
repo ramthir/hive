@@ -408,6 +408,21 @@ def test_time_entries_lists_rows_with_the_month_totals(client):
         (this_month, 105, ["Fix login", "Standup"])]
 
 
+@pytest.mark.parametrize(("project", "label", "slug"), [
+    ("Acme", "Acme", "acme"),
+    ("[[Acme|Client]]", "Client", "acme"),
+    ("[[Missing]]", "Missing", None),
+])
+def test_time_entries_resolves_project_links(client, root, project, label, slug):
+    make(client, "Acme", types=["company"])
+    (root / "fix-login.md").write_text(
+        f"---\ntype: task\nproject: '{project}'\ntime: {{2026-11-20: 30}}\n---\n# Fix login\n"
+    )
+    client.post("/api/reindex")
+    [entry] = client.get("/api/time-entries").json()["items"]
+    assert (entry["project"], entry["project_label"], entry["project_slug"]) == (project, label, slug)
+
+
 def test_time_entries_filters_and_pages(client):
     make(client, "Fix login", types=["task"])
     make(client, "Standup", types=["meeting"])

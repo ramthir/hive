@@ -7,11 +7,12 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
-                             PropertiesOut, PropertyChangeOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
+                             PropertiesOut, PropertyChangeOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryListItemOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.changes import KINDS, property_changes
 from src.domain.notes.errors import NoteNotFound
+from src.domain.notes.wiki_links import LINK
 
 router = APIRouter()
 VersionKind = Literal[(*KINDS, "deleted")]
@@ -68,7 +69,17 @@ def time_entries(request: Request, q: str = "", start: date | None = None, end: 
     s = svc(request)
     rows = s.time_rows(query=q, start=start and start.isoformat(), end=end and end.isoformat(), slug=note)
     shown = rows[page * page_size:(page + 1) * page_size]
-    return TimeEntriesOut(items=[TimeEntryOut.of(r) for r in shown], total=len(rows), page=page, page_size=page_size,
+    index = s.index
+    items = []
+    for row in shown:
+        link = LINK.fullmatch(row.project)
+        target = link[1] if link else row.project
+        label = (link[2] or target).strip() if link else target
+        items.append(TimeEntryListItemOut(
+            **TimeEntryOut.of(row).model_dump(), project_label=label,
+            project_slug=index.resolve(target) if target else None,
+        ))
+    return TimeEntriesOut(items=items, total=len(rows), page=page, page_size=page_size,
                           total_pages=max(1, -(-len(rows) // page_size)), **s.time_summary(rows))
 
 

@@ -74,6 +74,11 @@ class TimeEntryOut(BaseModel):
         return cls(id=r.id, slug=r.slug, title=r.title, type=r.type, project=r.project, day=r.day, minutes=r.minutes)
 
 
+class TimeEntryListItemOut(TimeEntryOut):
+    project_label: str
+    project_slug: str | None
+
+
 class TimeItemOut(BaseModel):
     title: str
     project: str
@@ -89,7 +94,7 @@ class TimeDayOut(BaseModel):
 class TimeEntriesOut(BaseModel):
     """A page of entries plus the current month (by the server's clock) over everything the search matched:
     totals, today's minutes and, per day with time, what it was spent on (the cards' sparkline)."""
-    items: list[TimeEntryOut]
+    items: list[TimeEntryListItemOut]
     total: int
     month: str
     today: str

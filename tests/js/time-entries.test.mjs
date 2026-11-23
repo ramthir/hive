@@ -87,7 +87,7 @@ test('input the server would refuse is refused before any call', () => {
 test('table cells escape what comes from notes', () => {
   const esc = (v) => String(v).replace(/</g, '&lt;');
   const [day, title, project, minutes] = tableColumns(esc);
-  assert.equal(day.render('2026-11-20'), 'Fri, Nov 20, 2026');
+  assert.equal(day.render('2026-11-20'), '2026-11-20');
   const cell = title.render('<b>x</b>', { type: 'meeting', slug: 'a/b' });
   assert.match(cell, /&lt;b>x&lt;\/b>/);
   assert.match(cell, /fa-calendar-check/);
@@ -95,6 +95,8 @@ test('table cells escape what comes from notes', () => {
   assert.doesNotMatch(cell, /<b>/);
   assert.match(project.render(''), /—/);
   assert.equal(project.render('Acme'), 'Acme');
+  assert.equal(project.render('[[Acme|<Client>]]', { project_label: '<Client>', project_slug: 'acme' }),
+    '<a href="/notes/acme">&lt;Client></a>');
   assert.equal(minutes.render(90), '1h 30m');
 });
 
