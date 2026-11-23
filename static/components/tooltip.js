@@ -96,7 +96,7 @@ class AppTooltip extends HTMLElement {
           grid-area: details;
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
-          gap: 5px 18px;
+          gap: 5px 0;
           margin-top: 10px;
           color: var(--color-dimmed1, #c1c0c0);
           font-size: 0.76rem;
@@ -112,7 +112,7 @@ class AppTooltip extends HTMLElement {
         .detail-dot { display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 7px; border-radius: var(--radius-full, 9999px); background: var(--detail-dot, var(--color-dimmed3, #727072)); vertical-align: baseline; }
         .detail-note { color: var(--color-dimmed2, #939293); }
         .detail-value {
-          justify-self: end;
+          padding-left: 18px;
           color: var(--color-text, #fcfcfa);
           font-variant-numeric: tabular-nums;
           text-align: right;

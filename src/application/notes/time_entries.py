@@ -9,6 +9,7 @@ from typing import Any, Iterable
 from src.domain.notes.entities import Note
 from src.domain.notes.tasks import week_label
 from src.domain.notes.time import accepts_time, time_type
+from src.domain.notes.wiki_links import parse_link
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,6 @@ def month_summary(rows: Iterable[TimeRow], today: date) -> dict[str, Any]:
         "total_entries": len(mine), "total_minutes": sum(r.minutes for r in mine),
         "task_minutes": by("task"), "meeting_minutes": by("meeting"),
         "days": [{"day": day, "minutes": sum(r.minutes for r in items),
-                  "items": [{"title": r.title, "project": r.project, "minutes": r.minutes} for r in items]}
+                  "items": [{"title": r.title, "project": parse_link(r.project)[1], "minutes": r.minutes} for r in items]}
                  for day, items in days.items()],
     }

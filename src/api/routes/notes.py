@@ -12,7 +12,7 @@ from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, Note
 from src.application.notes.service import NoteService
 from src.domain.notes.changes import KINDS, property_changes
 from src.domain.notes.errors import NoteNotFound
-from src.domain.notes.wiki_links import LINK
+from src.domain.notes.wiki_links import parse_link
 
 router = APIRouter()
 VersionKind = Literal[(*KINDS, "deleted")]
@@ -72,9 +72,7 @@ def time_entries(request: Request, q: str = "", start: date | None = None, end: 
     index = s.index
     items = []
     for row in shown:
-        link = LINK.fullmatch(row.project)
-        target = link[1] if link else row.project
-        label = (link[2] or target).strip() if link else target
+        target, label = parse_link(row.project)
         items.append(TimeEntryListItemOut(
             **TimeEntryOut.of(row).model_dump(), project_label=label,
             project_slug=index.resolve(target) if target else None,

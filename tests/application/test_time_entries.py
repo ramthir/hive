@@ -79,6 +79,18 @@ def test_month_summary_of_nothing_is_zero():
     assert (s["total_entries"], s["total_minutes"], s["today_minutes"], s["days"]) == (0, 0, 0, [])
 
 
+def test_month_summary_formats_wiki_link_projects_as_labels():
+    rows = [
+        row("Sync", "2026-11-20", 15, "meeting", "[[Arrcus]]"),
+        row("Fix", "2026-11-20", 30, "task", "[[Acme|Client]]"),
+    ]
+    [day] = month_summary(rows, TODAY)["days"]
+    assert day["items"] == [
+        {"title": "Fix", "project": "Client", "minutes": 30},
+        {"title": "Sync", "project": "Arrcus", "minutes": 15},
+    ]
+
+
 def test_order_time_notes_puts_the_weeks_first_and_skips_other_types():
     def n(slug, kind, updated, time=None):
         return Note(slug=slug, title=slug.title(), content="", types=(kind,), updated=updated, time=time or {})

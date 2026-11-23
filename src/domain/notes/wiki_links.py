@@ -50,6 +50,16 @@ def extract_targets(content: str) -> list[str]:
     return _scan(content, None)[0]
 
 
+def parse_link(value: str) -> tuple[str, str]:
+    """For a wiki link ``[[target]]`` or ``[[target|label]]`` return ``(target, label)``; else ``(value, value)``."""
+    text = (value or "").strip()
+    m = LINK.fullmatch(text)
+    if not m:
+        return text, text
+    target = m[1].strip()
+    return target, (m[2] or target).strip()
+
+
 def rewrite_targets(content: str, mapping: Callable[[str], str | None]) -> str:
     """Replace each link target using ``mapping(target)`` (None keeps it); labels are preserved."""
 

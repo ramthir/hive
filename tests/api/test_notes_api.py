@@ -414,13 +414,16 @@ def test_time_entries_lists_rows_with_the_month_totals(client):
     ("[[Missing]]", "Missing", None),
 ])
 def test_time_entries_resolves_project_links(client, root, project, label, slug):
+    today = date.today().isoformat()
     make(client, "Acme", types=["company"])
     (root / "fix-login.md").write_text(
-        f"---\ntype: task\nproject: '{project}'\ntime: {{2026-11-20: 30}}\n---\n# Fix login\n"
+        f"---\ntype: task\nproject: '{project}'\ntime: {{{today}: 30}}\n---\n# Fix login\n"
     )
     client.post("/api/reindex")
-    [entry] = client.get("/api/time-entries").json()["items"]
+    body = client.get("/api/time-entries").json()
+    [entry] = body["items"]
     assert (entry["project"], entry["project_label"], entry["project_slug"]) == (project, label, slug)
+    assert body["days"][0]["items"][0]["project"] == label
 
 
 def test_time_entries_filters_and_pages(client):
