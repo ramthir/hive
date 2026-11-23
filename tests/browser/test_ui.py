@@ -685,6 +685,17 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
 
 # --- Pandora's shell: header and sidebar --------------------------------------------------------------------------------
 
+def test_library_is_its_own_app_with_only_its_three_links(page, server):
+    page.goto(f"{server}/library?type=series")
+    expect(page.locator("app-sidebar .logo-text")).to_have_text("Media Library")
+    links = page.locator("app-sidebar .nav-link")
+    expect(links).to_have_text(["Movies", "Series", "Television"])
+    expect(links.nth(1)).to_have_class("nav-link active")
+    page.goto(f"{server}/notes/alpha")
+    expect(page.locator("app-sidebar .logo-text")).to_have_text("Note Hive")
+    expect(page.locator("app-sidebar .nav-link", has_text="Media Library")).to_have_count(0)
+
+
 def test_sidebar_has_dashboard_notes_tasks_time_chat_and_the_hardcoded_user(page, server):
     page.goto(f"{server}/notes/alpha")
     links = page.locator("app-sidebar .nav-link")
@@ -2319,3 +2330,163 @@ def test_the_timeline_chat_works_and_its_phases_follow_the_note(page, chat_serve
     expect(page.locator(".notes-chat-dock")).to_be_hidden()
     expect(page.locator(".notes-footer-actions")).to_be_visible()
     assert page.errors == []
+
+
+# --- Library (IPTV): copy the stream URL ------------------------------------------------------------------------------
+
+@pytest.fixture
+def library_server(notes_dir, tmp_path):
+    from src.application.iptv.catalog import IptvCatalog
+    from src.infrastructure.iptv.store import IptvStore
+    from tests.iptv_fake import client as fake_client
+
+    catalog = IptvCatalog(IptvStore(tmp_path / "iptv.db"), lambda: fake_client())
+    catalog.start_sync()
+    catalog.wait(10)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, watch=False, iptv=catalog), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}"
+    srv.should_exit = True
+    thread.join(5)
+
+
+def library_page(server):
+    p = sync_playwright().start()
+    try:
+        browser = p.chromium.launch()
+    except Exception as exc:
+        p.stop()
+        pytest.skip(f"chromium unavailable: {exc}")
+    context = browser.new_context(viewport={"width": 1400, "height": 900}, permissions=["clipboard-read", "clipboard-write"])
+    return p, browser, context.new_page()
+
+
+def test_copy_icon_copies_the_stream_url_and_a_toast_says_so(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/library?type=vod")
+        card = page.locator(".iptv-card", has_text="Heat")
+        expect(card.locator(".iptv-copy")).to_have_css("opacity", "0")  # shown only on hover
+        card.hover()
+        expect(card.locator(".iptv-copy")).to_have_css("opacity", "1")
+        card.locator(".iptv-copy").click()
+        expect(page.locator(".app-toast")).to_have_text("Stream URL copied. Open in VLC Network Stream.")
+        expect(page.locator(".app-toast")).to_be_visible()
+        assert page.evaluate("navigator.clipboard.readText()") == "http://prov.example:8080/movie/alice/s3cret%2Fpw/20.mkv"
+        expect(card.locator(".iptv-copy i")).to_have_class("fa-solid fa-check")
+    finally:
+        browser.close()
+        p.stop()
+
+
+def test_the_toast_is_visible_above_the_episodes_dialog(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/library?type=series")
+        page.locator(".iptv-card", has_text="The Wire").click()
+        page.locator(".iptv-episodes li button", has_text="Two").click()
+        toast = page.locator(".app-toast")
+        expect(toast).to_have_text("Stream URL copied. Open in VLC Network Stream.")
+        box = toast.bounding_box()
+        top = page.evaluate("([x, y]) => document.elementFromPoint(x, y)?.closest('.app-toast') !== null", [box["x"] + 10, box["y"] + box["height"] / 2])
+        assert top, "the toast is hidden behind the modal dialog"
+        assert page.evaluate("navigator.clipboard.readText()").endswith("/series/alice/s3cret%2Fpw/301.mp4")
+    finally:
+        browser.close()
+        p.stop()
+
+
+def test_library_search_is_the_autocomplete_and_slash_focuses_it(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/library")
+        field = page.locator("#iptv-search-input")
+        expect(field).to_have_attribute("placeholder", "Search movies…")
+        page.keyboard.press("/")
+        expect(field).to_be_focused()
+        field.fill("heat")
+        expect(page.locator(".iptv-card")).to_have_count(1)
+        expect(page.locator(".iptv-card")).to_contain_text("Heat")
+    finally:
+        browser.close()
+        p.stop()
+
+
+def test_typing_group_suggests_categories_and_picking_one_filters(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/library")
+        expect(page.locator(".iptv-card")).to_have_count(2)
+        field = page.locator("#iptv-search-input")
+        field.click()
+        field.type("group:ac")
+        option = page.locator(".autocomplete-option")
+        expect(option).to_have_count(1)
+        expect(option).to_contain_text("Action")
+        option.click()
+        expect(field).to_have_value("group:Action ")
+        expect(page.locator(".iptv-card")).to_have_count(2)
+        field.type("ronin")
+        expect(page.locator(".iptv-card")).to_have_count(1)
+        page.locator(".autocomplete-help-btn").click()
+        expect(page.locator(".autocomplete-help-panel")).to_contain_text("group:")
+        page.screenshot(path="/tmp/claude-501/-home-ramesh-Workspace-hive/87a59954-02fa-4dce-8d54-5dc9484ad38a/scratchpad/library.png")
+    finally:
+        browser.close()
+        p.stop()
+
+
+@pytest.fixture
+def big_library_server(notes_dir, tmp_path):
+    from src.application.iptv.catalog import IptvCatalog
+    from src.domain.iptv.entities import Channel, StreamType
+    from src.infrastructure.iptv.store import IptvStore
+    from tests.iptv_fake import client as fake_client
+
+    store = IptvStore(tmp_path / "iptv.db")
+    store.replace(StreamType.VOD, [Channel(str(i), StreamType.VOD, f"Movie {i:03d}", "G", added=1000 + i) for i in range(130)], "t")
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(create_app(notes_dir, watch=False, iptv=IptvCatalog(store, lambda: fake_client())), port=port, log_level="warning"))
+    thread = threading.Thread(target=srv.run, daemon=True)
+    thread.start()
+    while not srv.started:
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}"
+    srv.should_exit = True
+    thread.join(5)
+
+
+def test_library_loads_more_cards_as_the_page_is_scrolled(big_library_server):
+    p, browser, page = library_page(big_library_server)
+    try:
+        page.goto(f"{big_library_server}/library")
+        cards = page.locator(".iptv-card")
+        expect(cards).not_to_have_count(0)
+        assert page.locator("app-pagination").count() == 0  # no page buttons
+        first = cards.count()
+        assert 48 <= first < 130  # one page (a tall window may have asked for the next already)
+        assert "Movie 129" in cards.first.inner_text()  # newest first
+        for _ in range(10):  # scroll to the end of what is loaded until everything is there
+            page.mouse.wheel(0, 20000)
+            page.evaluate("document.querySelector('.iptv-more').scrollIntoView()")
+            if cards.count() == 130:
+                break
+            page.wait_for_timeout(300)
+        expect(cards).to_have_count(130)
+        page.evaluate("document.querySelector('.iptv-more').scrollIntoView()")
+        page.wait_for_timeout(500)
+        expect(cards).to_have_count(130)  # the end: nothing more is asked for
+        # a search starts the list again
+        page.locator("#iptv-search-input").fill("movie 129")
+        expect(cards).to_have_count(1)
+    finally:
+        browser.close()
+        p.stop()

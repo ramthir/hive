@@ -2,7 +2,7 @@
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
  *
- * Hive's version is deliberately small: five navigation items (the container Dashboard, Notes, the Tasks board, Time entries and Chat), and a hardcoded user at the bottom
+ * Hive's version is deliberately small: five navigation items (the container Dashboard, Notes, the Tasks board, Time entries and Chat). The Library page is a separate app (`<app-shell app="library">`): its sidebar is headed Media Library and has only Movies, Series and Television. Both end with a hardcoded user at the bottom
  * (there is no sign-in yet).
  */
 
@@ -15,7 +15,19 @@ const NAVIGATION_ITEMS = Object.freeze([
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
   { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
   { href: '/chat', label: 'Chat', icon: 'fa-solid fa-comments', activePaths: ['/chat'] },
+  // The Library app (IPTV from a provider): one page (/library), the kind in ?type= (movies is the default). Shown only in the sidebar of `app="library"` pages.
+  { href: '/library', label: 'Movies', icon: 'fa-solid fa-film', app: 'library', iptvType: 'vod' },
+  { href: '/library?type=series', label: 'Series', icon: 'fa-solid fa-clapperboard', app: 'library', iptvType: 'series' },
+  { href: '/library?type=live', label: 'Television', icon: 'fa-solid fa-tv', app: 'library', iptvType: 'live' },
 ]);
+
+// The apps a sidebar can be: the notes app and the Library. Each has its own heading, home and items.
+const APPS = Object.freeze({
+  hive: { title: 'Note Hive', home: '/notes', icon: 'fa-solid fa-circle-nodes', label: 'Note Hive Home' },
+  library: { title: 'Media Library', home: '/library', icon: 'fa-solid fa-photo-film', label: 'Media Library Home' },
+});
+
+const onIptv = (item, location) => location.pathname === '/library' && (new URLSearchParams(location.search).get('type') || 'vod') === item.iptvType;
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';
 
@@ -34,7 +46,7 @@ const isEditable = (event) => {
 
 class AppSidebar extends HTMLElement {
   static get observedAttributes() {
-    return ['active-href'];
+    return ['active-href', 'app'];
   }
 
   constructor() {
@@ -111,7 +123,7 @@ class AppSidebar extends HTMLElement {
     this.querySelectorAll('.nav-link').forEach((link) => {
       const href = link.getAttribute('href');
       const item = NAVIGATION_ITEMS.find((candidate) => candidate.href === href);
-      const byPath = Boolean(item?.activePaths.some((p) => path === p || path.startsWith(`${p}/`)));
+      const byPath = item?.iptvType ? onIptv(item, window.location) : Boolean(item?.activePaths.some((p) => path === p || path.startsWith(`${p}/`)));
       const active = declared ? declared === href : byPath;
       link.classList.toggle('active', active);
       if (active) link.setAttribute('aria-current', 'page');
@@ -119,7 +131,13 @@ class AppSidebar extends HTMLElement {
     });
   }
 
+  get app() {
+    return APPS[this.getAttribute('app')] ? this.getAttribute('app') : 'hive';
+  }
+
   render() {
+    const app = APPS[this.app];
+    const items = NAVIGATION_ITEMS.filter((item) => (item.app || 'hive') === this.app);
     const stylesheet = `${new URL('./sidebar.css', import.meta.url).href}?v=1`;
     this.innerHTML = `
       <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
@@ -129,16 +147,16 @@ class AppSidebar extends HTMLElement {
       </button>
       <nav class="app-sidebar" aria-label="Main Navigation">
         <div class="sidebar-header">
-          <a href="/notes" class="logo" aria-label="Note Hive Home">
-            <i class="fa-solid fa-circle-nodes" aria-hidden="true"></i>
-            <span class="logo-text">Note Hive</span>
+          <a href="${app.home}" class="logo" aria-label="${app.label}">
+            <i class="${app.icon}" aria-hidden="true"></i>
+            <span class="logo-text">${app.title}</span>
           </a>
           <button class="desktop-collapse-btn" type="button" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar-nav" title="Collapse sidebar (Ctrl+\\)">
             <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
           </button>
         </div>
         <div class="sidebar-nav" id="sidebar-nav">
-          ${NAVIGATION_ITEMS.map((item) => `
+          ${items.map((item) => `
             <a href="${escapeHtml(item.href)}" class="nav-link" title="${escapeHtml(item.label)}">
               <i class="${escapeHtml(item.icon)}" aria-hidden="true"></i>
               <span>${escapeHtml(item.label)}</span>

@@ -147,7 +147,7 @@ class AppShell extends HTMLElement {
             </style>
 
             <div class="shell">
-                <app-sidebar></app-sidebar>
+                <app-sidebar${this.getAttribute('app') ? ` app="${this.getAttribute('app').replace(/[^a-z-]/g, '')}"` : ''}></app-sidebar>
                 <div class="page">
                     <main class="page-main">
                         <div class="page-container">

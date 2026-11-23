@@ -1,0 +1,522 @@
+app-autocomplete {
+  display: block;
+  position: relative;
+  flex: 0 1 var(--autocomplete-width, 28rem);
+  width: var(--autocomplete-width, 28rem);
+  max-width: 100%;
+  min-width: 0;
+  height: var(--autocomplete-height, var(--header-control-height, 2.8125rem));
+}
+.autocomplete-control {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.autocomplete-icon {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--color-dimmed3);
+  font-size: 0.8rem;
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+.autocomplete-control:focus-within .autocomplete-icon {
+  color: var(--color-accent5);
+}
+.autocomplete-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--autocomplete-height, var(--header-control-height, 2.8125rem));
+  padding: 0 2.25rem 0 2.25rem;
+  border: 1px solid var(--color-dimmed5);
+  border-radius: var(--radius-md);
+  background: var(--color-dark2);
+  color: var(--color-text);
+  font: 600 var(--btn-header-font-size) var(--font-family);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.autocomplete-input:focus {
+  border-color: var(--color-accent5);
+  box-shadow: var(--autocomplete-focus-ring, 0 0 0 2px color-mix(in srgb, var(--color-accent5) 12%, transparent));
+}
+.autocomplete-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+.autocomplete-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--search-clear-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+  z-index: 2;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+.autocomplete-clear-btn:hover {
+  color: var(--search-clear-hover-color);
+  background: var(--search-clear-hover-bg, color-mix(in srgb, var(--color-accent1) 12%, transparent));
+  transform: translateY(-50%) scale(1.08);
+}
+.autocomplete-clear-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+.autocomplete-clear-btn[hidden] {
+  display: none !important;
+}
+.autocomplete-shortcut-badge {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-dimmed5);
+  border: 1px solid var(--color-dimmed4);
+  color: var(--color-dimmed2);
+  font-family: var(--font-family);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+  transition: opacity 0.15s ease;
+}
+.autocomplete-control:focus-within .autocomplete-shortcut-badge {
+  opacity: 0;
+}
+.autocomplete-shortcut-badge[hidden] {
+  display: none !important;
+}
+.autocomplete-control.has-shortcut .autocomplete-input {
+  padding-right: 3.5rem;
+}
+.autocomplete-control.has-shortcut.has-suffix .autocomplete-input {
+  padding-right: 5.25rem;
+}
+.autocomplete-control.has-shortcut.has-suffix .autocomplete-shortcut-badge {
+  right: calc(var(--space-3) + 1.5rem);
+}
+.autocomplete-control.has-shortcut .autocomplete-clear-btn {
+  right: var(--space-3);
+}
+.autocomplete-suffix-container {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.autocomplete-suffix-container:focus-within,
+.autocomplete-suffix-container:hover {
+  z-index: 35;
+}
+.autocomplete-suffix-container[hidden] {
+  display: none !important;
+}
+.autocomplete-control.has-suffix .autocomplete-input {
+  padding-right: 4rem;
+}
+.autocomplete-control.has-suffix .autocomplete-clear-btn {
+  right: calc(var(--space-3) + 1.5rem);
+}
+.autocomplete-control.has-help .autocomplete-input {
+  padding-right: 4rem;
+}
+.autocomplete-control.has-help .autocomplete-clear-btn {
+  right: calc(var(--space-3) + 1.5rem);
+}
+.autocomplete-control.has-help.has-suffix .autocomplete-input {
+  padding-right: 5.75rem;
+}
+.autocomplete-control.has-help.has-suffix .autocomplete-suffix-container {
+  right: calc(var(--space-3) + 1.75rem);
+}
+.autocomplete-control.has-help.has-suffix .autocomplete-clear-btn {
+  right: calc(var(--space-3) + 3.25rem);
+}
+.autocomplete-help-btn {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--color-dimmed3);
+  font-size: 0.95rem;
+  cursor: pointer;
+  z-index: 5;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+.autocomplete-help-btn:hover,
+.autocomplete-help-btn:focus-visible,
+app-autocomplete.help-open .autocomplete-help-btn {
+  color: var(--color-accent5);
+}
+.autocomplete-help-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent5) 30%, transparent);
+}
+.autocomplete-help-panel {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 5.5rem);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: var(--space-4, 1rem);
+  border: 1px solid var(--color-dimmed5);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-dark1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  color: var(--color-text);
+  font-size: var(--font-size-sm, 0.85rem);
+  line-height: 1.55;
+  text-align: left;
+}
+.autocomplete-help-panel[hidden] {
+  display: none !important;
+}
+@media (max-width: 600px) {
+  .autocomplete-help-panel {
+    position: fixed;
+    inset: auto var(--space-4) auto var(--space-4);
+    width: auto;
+    max-height: calc(100vh - 5.5rem);
+  }
+}
+.autocomplete-help-title,
+.autocomplete-help-panel > strong,
+.autocomplete-help-panel .tooltip-title,
+.autocomplete-help-panel .work-tooltip-title,
+.autocomplete-help-panel .quotes-tooltip-title {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-accent5, var(--color-blue, #58a6ff));
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.autocomplete-help-panel p {
+  margin: 0.4rem 0;
+  color: var(--color-text);
+}
+.autocomplete-help-list,
+.autocomplete-help-panel ul,
+.autocomplete-help-panel .tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--color-dimmed1);
+}
+.autocomplete-help-panel li {
+  line-height: 1.45;
+}
+.autocomplete-help-code,
+.autocomplete-help-panel code,
+.autocomplete-help-panel .tooltip-code,
+.autocomplete-help-panel .work-tooltip-code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow-wrap: anywhere;
+}
+.autocomplete-help-example,
+.autocomplete-help-panel .help-example,
+.autocomplete-help-panel .work-tooltip-example,
+.autocomplete-help-panel .quotes-tooltip-example {
+  margin-top: 0.55rem;
+  color: var(--color-dimmed3);
+  font-size: 0.78rem;
+}
+.syntax-accent1, .work-tooltip-highlight-priority { color: var(--color-accent1); }
+.syntax-accent2, .tooltip-code, .work-tooltip-code { color: var(--color-accent2); }
+.syntax-accent3, .tooltip-highlight-score, .work-tooltip-highlight-status, .work-tooltip-highlight-duration, .quotes-tooltip-highlight-author { color: var(--color-accent3); }
+.syntax-accent4, .tooltip-highlight-exp, .work-tooltip-highlight-assignee, .work-tooltip-highlight-date, .quotes-tooltip-highlight-source { color: var(--color-accent4); }
+.syntax-accent5, .work-tooltip-highlight-week, .work-tooltip-highlight-task { color: var(--color-accent5); }
+.syntax-accent6, .tooltip-highlight-role, .work-tooltip-highlight-project, .quotes-tooltip-highlight-tag { color: var(--color-accent6); }
+.iptv-status-starred { color: var(--color-yellow); }
+.iptv-status-watched { color: var(--color-green); }
+.iptv-status-in-progress { color: var(--color-purple); }
+.iptv-status-unwatched { color: var(--color-orange); }
+.autocomplete-suffix-container .search-info-tooltip,
+.autocomplete-suffix-container .work-search-info-tooltip,
+.autocomplete-suffix-container .quotes-search-info-tooltip {
+  position: relative;
+  top: auto;
+  right: auto;
+  transform: none;
+}
+.autocomplete-results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--color-dimmed5);
+  border-radius: var(--radius-md);
+  background: var(--color-dark1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.autocomplete-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+.autocomplete-option-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+.autocomplete-option-icon {
+  font-size: 0.78rem;
+  color: var(--color-dimmed2);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+.autocomplete-option-icon.type-project {
+  color: var(--color-accent5);
+}
+.autocomplete-option-icon.type-prompt {
+  color: var(--color-accent1);
+}
+.autocomplete-option-icon.type-document {
+  color: var(--color-accent6);
+}
+.autocomplete-option-icon.type-table {
+  color: var(--color-green);
+}
+.autocomplete-option-icon.type-diagram {
+  color: var(--color-accent1);
+}
+.autocomplete-option-icon:is(.type-company, .type-folder, .type-resource) {
+  color: var(--color-accent2);
+}
+.autocomplete-option-icon:is(.type-role, .type-team, .type-status) {
+  color: var(--color-accent4);
+}
+.autocomplete-option-icon:is(.type-technology, .type-application, .type-component) {
+  color: var(--color-accent5);
+}
+.autocomplete-option-icon:is(.type-city, .type-environment, .type-year) {
+  color: var(--color-accent6);
+}
+.autocomplete-option-icon:is(.type-education, .type-priority) {
+  color: var(--color-accent3);
+}
+.autocomplete-option-icon.type-decision {
+  color: var(--color-accent1);
+}
+.autocomplete-option-icon.type-contact {
+  color: var(--color-accent4);
+}
+.autocomplete-option-icon.type-meeting {
+  color: var(--color-accent3);
+}
+.autocomplete-option-icon.type-task {
+  color: var(--color-accent5);
+}
+.autocomplete-option-icon.type-spec {
+  color: var(--color-accent2);
+}
+.autocomplete-option-icon.type-requirement {
+  color: var(--color-accent3);
+}
+.autocomplete-option-icon.type-use-case {
+  color: var(--color-accent6);
+}
+.autocomplete-option-icon.type-minutes {
+  color: var(--color-accent3);
+}
+.autocomplete-option-icon.type-month {
+  color: var(--color-accent5);
+}
+.autocomplete-option-icon.type-week {
+  color: var(--color-accent6);
+}
+.autocomplete-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.autocomplete-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--color-dimmed5);
+  color: var(--color-dimmed2, #9d999d);
+}
+.autocomplete-badge.type-project {
+  background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  color: var(--color-accent5);
+}
+.autocomplete-badge.type-contact {
+  background: color-mix(in srgb, var(--color-accent4) 18%, transparent);
+  color: var(--color-accent4);
+}
+.autocomplete-badge.type-spec {
+  background: color-mix(in srgb, var(--color-accent2) 18%, transparent);
+  color: var(--color-accent2);
+}
+.autocomplete-badge.type-requirement {
+  background: color-mix(in srgb, var(--color-accent3) 18%, transparent);
+  color: var(--color-accent3);
+}
+.autocomplete-badge.type-use-case {
+  background: color-mix(in srgb, var(--color-accent6) 18%, transparent);
+  color: var(--color-accent6);
+}
+.autocomplete-badge.type-minutes {
+  background: color-mix(in srgb, var(--color-accent3) 18%, transparent);
+  color: var(--color-accent3);
+}
+.autocomplete-badge.type-month {
+  background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  color: var(--color-accent5);
+}
+.autocomplete-badge.type-week {
+  background: color-mix(in srgb, var(--color-accent6) 18%, transparent);
+  color: var(--color-accent6);
+}
+.autocomplete-badge.type-note {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-dimmed2, #9d999d);
+}
+.autocomplete-badge.type-prompt {
+  background: color-mix(in srgb, var(--color-accent1) 18%, transparent);
+  color: color-mix(in srgb, var(--color-accent1) 65%, var(--color-text));
+}
+.autocomplete-badge.type-document {
+  background: color-mix(in srgb, var(--color-accent6) 18%, transparent);
+  color: var(--color-accent6);
+}
+.autocomplete-badge.type-table {
+  background: color-mix(in srgb, var(--color-green) 18%, transparent);
+  color: var(--color-green);
+}
+.autocomplete-badge.type-diagram {
+  background: color-mix(in srgb, var(--color-accent1) 18%, transparent);
+  color: color-mix(in srgb, var(--color-accent1) 70%, var(--color-text));
+}
+.autocomplete-badge:is(.type-company, .type-folder, .type-resource) {
+  background: color-mix(in srgb, var(--color-accent2) 18%, transparent);
+  color: var(--color-accent2);
+}
+.autocomplete-badge:is(.type-role, .type-team, .type-status) {
+  background: color-mix(in srgb, var(--color-accent4) 18%, transparent);
+  color: var(--color-accent4);
+}
+.autocomplete-badge:is(.type-technology, .type-application, .type-component) {
+  background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  color: var(--color-accent5);
+}
+.autocomplete-badge:is(.type-city, .type-environment, .type-year) {
+  background: color-mix(in srgb, var(--color-accent6) 18%, transparent);
+  color: var(--color-accent6);
+}
+.autocomplete-badge:is(.type-education, .type-priority) {
+  background: color-mix(in srgb, var(--color-accent3) 18%, transparent);
+  color: var(--color-accent3);
+}
+.autocomplete-badge:is(.type-flag, .type-time) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-dimmed2);
+}
+.autocomplete-badge.type-decision {
+  background: color-mix(in srgb, var(--color-accent1) 18%, transparent);
+  color: var(--color-accent1);
+}
+.autocomplete-badge.type-meeting {
+  background: color-mix(in srgb, var(--color-accent3) 18%, transparent);
+  color: var(--color-accent3);
+}
+.autocomplete-badge.type-task {
+  background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  color: var(--color-accent5);
+}
+.autocomplete-option:hover,
+.autocomplete-option.active {
+  background: var(--color-option-hover-bg);
+  color: var(--color-option-hover-text);
+}
+.autocomplete-option.selected {
+  background: var(--color-option-selected-bg);
+  color: var(--color-option-selected-text);
+  font-weight: 700;
+}
+.autocomplete-option:hover .autocomplete-option-icon,
+.autocomplete-option.active .autocomplete-option-icon,
+.autocomplete-option.selected .autocomplete-option-icon {
+  color: currentColor;
+}
+
+@media (max-width: 640px) {
+  app-autocomplete {
+    flex-basis: min(var(--autocomplete-width, 28rem), calc(100vw - 2rem));
+    width: min(var(--autocomplete-width, 28rem), calc(100vw - 2rem));
+    min-width: 0;
+  }
+}

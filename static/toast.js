@@ -48,6 +48,14 @@ function ensureContainer() {
   return container;
 }
 
+/** A modal <dialog> is in the browser's top layer, above any z-index, and makes the rest of the page inert, so a toast shown while one
+ *  is open goes inside it (the newest one); otherwise it lives in <body>. */
+function placeContainer(parent) {
+  const modals = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'));
+  const host = modals.length ? modals[modals.length - 1] : document.body;
+  if (parent.parentElement !== host) host.appendChild(parent);
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -121,6 +129,7 @@ export function showToast(message, type = 'info', duration = 3500) {
   }
 
   parent.appendChild(el);
+  placeContainer(parent);
   requestAnimationFrame(() => {
     el.style.opacity = '1';
     el.style.transform = 'translateY(0) scale(1)';

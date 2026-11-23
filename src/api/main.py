@@ -9,11 +9,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.localhost import LocalhostOnly
-from src.api.routes import agents, chat as chat_routes, diagrams, events, notes, system
+from src.api.routes import agents, chat as chat_routes, diagrams, events, iptv as iptv_routes, notes, system
 from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
 from src.application.agents.refresh import RefreshSchedule
@@ -21,6 +21,9 @@ from src.application.agents.usage import AgentUsage
 from src.application.colab.collector import ColabCollector
 from src.application.chat.service import ChatService
 from src.application.diagrams.service import DiagramError, DiagramService
+from src.application.iptv.catalog import IptvCatalog
+from src.infrastructure.iptv.store import IptvStore
+from src.infrastructure.iptv.xtream import XtreamClient, XtreamConfig
 from src.application.notes.service import NoteService
 from src.domain.notes.errors import GitError, InvalidProperty, InvalidSlug, InvalidTime, InvalidTitle, NoteConflict, NoteExists, NoteLinked, NoteNotFound
 from src.infrastructure.fs_notes.repository import FileNoteRepository
@@ -38,6 +41,16 @@ from src.infrastructure.git.rewording import CommitRewriter
 from src.infrastructure.metrics import Metrics
 from src.infrastructure.system.monitor import ContainerMonitor
 from src.infrastructure.watcher import NotesWatcher
+
+
+class RevalidatedStatic(StaticFiles):
+    """Static files that the browser checks with the server on every use (a cheap 304 when nothing changed). Without this a browser
+    keeps an unchanged-for-a-while script for days, so a fix to it (the toast, say) is not seen until a hard refresh."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def codex_setting(feature: str, name: str, agent: str = "CODEX") -> str | None:
@@ -104,7 +117,7 @@ def chat_codex(root: Path) -> CodexChat | None:
 
 
 def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
-               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None, colab: ColabCollector | None = None, schedule: bool | None = None, chat_runner=None) -> FastAPI:
+               diagram_service: DiagramService | None = None, agent_usage: AgentUsage | None = None, agent_quota: AgentQuota | None = None, colab: ColabCollector | None = None, schedule: bool | None = None, chat_runner=None, iptv: IptvCatalog | None = None) -> FastAPI:
     load_dotenv()
     root = Path(notes_dir or os.environ.get("NOTES_DIR", "~/Workspace/notes")).expanduser().resolve()
     metrics = Metrics()
@@ -158,6 +171,11 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.state.agents = agent_usage
     app.state.agent_quota = agent_quota
     app.state.colab = colab or ColabCollector(sessions=get_colab_sessions, kernel_state=get_colab_kernel_state, collect=collect_colab_snapshot)
+    def xtream_client() -> XtreamClient | None:  # the account is read from the environment each time
+        config = XtreamConfig.from_env()
+        return XtreamClient(config) if config else None
+
+    app.state.iptv = iptv or IptvCatalog(IptvStore(state_dir() / "iptv.db"), xtream_client)
     app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root, codex_sessions(), missing=chat_missing())
 
     def err(status: int):
@@ -185,6 +203,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.include_router(agents.router, prefix="/api")
     app.include_router(colab_routes.router, prefix="/api")
     app.include_router(chat_routes.router, prefix="/api")
+    app.include_router(iptv_routes.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
 
     @app.get("/api/metrics")
@@ -196,7 +215,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         return {"status": "ok", "notes_dir": str(root)}
 
     static = Path(__file__).resolve().parents[2] / "static"
-    app.mount("/static", StaticFiles(directory=static), name="static")
+    app.mount("/static", RevalidatedStatic(directory=static), name="static")
 
     @app.get("/tasks", include_in_schema=False)
     def tasks_page() -> FileResponse:
@@ -222,6 +241,14 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     @app.get("/time-entries", include_in_schema=False)
     def time_entries_page() -> FileResponse:
         return FileResponse(static / "time-entries.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/library", include_in_schema=False)
+    def library_page() -> FileResponse:
+        return FileResponse(static / "library.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/iptv", include_in_schema=False)  # the page's earlier address
+    def iptv_page(request: Request) -> RedirectResponse:
+        return RedirectResponse("/library" + (f"?{request.url.query}" if request.url.query else ""), status_code=301)
 
     @app.get("/", include_in_schema=False)
     @app.get("/notes", include_in_schema=False)
