@@ -9,6 +9,8 @@ const H3 = /^###\s+(.+?)\s*#*\s*$/;
 const FENCE = /^\s*(```|~~~)/;
 const BULLET = /^\s*[-*+]\s+(.*\S)\s*$/;
 const ARROW = /\s*(?:->|→)\s*/;
+// "Given a user, when they sign in, then a session starts" (given is optional; bold or a colon after a keyword is fine).
+const GWT = /^(?:given:?\s+(.+?)[,;]?\s+)?when:?\s+(.+?)[,;]?\s+then:?\s+(.+)$/is;
 const STRONG = /\b(SHALL|MUST)\b/;
 const PANDORA = /exported from pandora/i;
 
@@ -57,9 +59,13 @@ function requirement(name, body) {
     }
     const bullet = BULLET.exec(text);
     const parts = bullet ? bullet[1].split(ARROW) : [];
+    const gwt = bullet && parts.length < 2 ? GWT.exec(bullet[1].replace(/\*\*|__/g, '')) : null;
     if (bullet && parts.length >= 2) {
       started = true;
       scenarios.push({ when: parts[0].trim(), then: parts.slice(1).join(' -> ').trim() });
+    } else if (gwt) {
+      started = true;
+      scenarios.push({ given: gwt[1]?.trim() || '', when: gwt[2].trim(), then: gwt[3].trim(), gwt: true });
     } else if (!started && !bullet && !/^\s*[|#>]/.test(text) && text.trim()) {
       statement.push(text.trim());
     } else if (!started && !text.trim() && statement.length) {
@@ -154,10 +160,4 @@ export const verifiedStale = (age) => age === null || age > VERIFIED_STALE_DAYS;
 export function statusLabel(status) {
   const text = String(status || '').trim();
   return STATUSES.find((name) => name.toLowerCase() === text.toLowerCase()) || text;
-}
-
-/** A requirement as markdown, for the copy button. */
-export function requirementMarkdown(item) {
-  const scenarios = item.scenarios.map((scenario) => `- ${scenario.when} -> ${scenario.then}`).join('\n');
-  return [`### ${item.name}`, item.statement, scenarios, item.rest].filter(Boolean).join('\n\n');
 }

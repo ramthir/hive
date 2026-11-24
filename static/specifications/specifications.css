@@ -94,22 +94,29 @@ specifications-app {
 .spec-req--weak { border-color: color-mix(in srgb, var(--color-orange) 55%, var(--color-border)); }
 .spec-req-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
-.spec-req-copy { opacity: 0; transition: opacity 0.15s; }
-.spec-req:hover .spec-req-copy, .spec-req-copy:focus-visible { opacity: 1; }
 .spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
 .spec-statement mark { background: transparent; color: var(--color-blue); font-weight: 600; }
 
+/* Each scenario is two rows: When the condition, Then the outcome. */
 .spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 .spec-scenario {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1.25rem minmax(0, 1.4fr);
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
+  grid-template-columns: 2rem 3rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  align-items: baseline;
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--color-border);
   line-height: 1.5;
 }
-.spec-when { color: var(--color-dimmed2); }
-.spec-arrow { text-align: center; color: var(--color-blue); }
+.spec-sid { grid-row: 1 / span 2; font: 600 0.6875rem var(--font-mono, ui-monospace, monospace); color: var(--color-dimmed3); }
+.spec-label { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
+.spec-label--given { color: var(--color-purple); }
+.spec-label--when { color: var(--color-yellow); }
+.spec-label--then { color: var(--color-green); }
+.spec-scenario--given .spec-sid { grid-row: 1 / span 3; }
+.spec-given, .spec-when { color: var(--color-dimmed2); }
+.spec-then { color: var(--color-text); }
 
 .spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .spec-check .spec-pill { margin-top: var(--space-3); }

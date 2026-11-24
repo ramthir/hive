@@ -2161,6 +2161,8 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     cards = page.locator(".spec-req")
     expect(cards).to_have_count(2)
     expect(cards.nth(0).locator(".spec-scenario")).to_have_count(2)
+    expect(cards.nth(0).locator(".spec-sid")).to_have_text(["S1", "S2"])  # numbered, so a review can point at one
+    expect(cards.nth(0).locator(".spec-scenario").first.locator(".spec-label")).to_have_text(["When", "Then"])  # two rows each
     expect(cards.nth(0).locator(".spec-statement mark")).to_have_text("SHALL")
     expect(cards.nth(1)).to_have_class(re.compile("spec-req--weak"))  # no SHALL or MUST
     expect(page.locator(".spec-check li")).to_have_count(1)

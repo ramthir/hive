@@ -148,7 +148,24 @@ test('statusLabel gives the vault names and keeps anything else as typed', () =>
   assert.equal(s.statusLabel(null), '');
 });
 
-test('requirementMarkdown writes a requirement back as the vault format', () => {
-  const [item] = s.parseSpecification(CURRENT).requirements;
-  assert.match(s.requirementMarkdown(item), /^### Sign in\n\nThe system SHALL let a user sign in with a password\.\n\n- valid password -> a session starts\n- wrong password -> sign in is refused\n\n```plantuml/);
+test('Given / When / Then bullets are scenarios too, with or without a given and with bold keywords', () => {
+  const { requirements: [item] } = s.parseSpecification(`## Requirements
+
+### Sign in
+
+The system SHALL sign users in.
+
+- **Given** a registered user, **when** they enter a valid password, **then** a session starts
+- When the password is wrong, then sign in is refused.
+- Given: an expired account; When: they sign in; Then: they are asked to renew.
+- When a Task is planned, a link SHALL propose a dependency.
+- a -> b
+`);
+  assert.deepEqual(item.scenarios, [
+    { given: 'a registered user', when: 'they enter a valid password', then: 'a session starts', gwt: true },
+    { given: '', when: 'the password is wrong', then: 'sign in is refused.', gwt: true },
+    { given: 'an expired account', when: 'they sign in', then: 'they are asked to renew.', gwt: true },
+    { when: 'a', then: 'b' },
+  ]);
+  assert.match(item.rest, /^- When a Task is planned/); // prose without a "then" stays an ordinary bullet
 });
