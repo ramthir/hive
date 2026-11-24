@@ -2,7 +2,7 @@
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
  *
- * Hive's version is deliberately small: five navigation items (the container Dashboard, Notes, the Tasks board, Time entries and Chat). The Library page is a separate app (`<app-shell app="library">`): its sidebar is headed Media Library and has only Movies, Series and Television. Both end with a hardcoded user at the bottom
+ * Hive's version is deliberately small: five navigation items (the container Dashboard, Notes, the Tasks board, Time entries and Chat). The Media Library page is a separate app (`<app-shell app="iptv">`): its sidebar is headed Media Library and has only Movies, Series and Television. Both end with a hardcoded user at the bottom
  * (there is no sign-in yet).
  */
 
@@ -15,19 +15,19 @@ const NAVIGATION_ITEMS = Object.freeze([
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
   { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
   { href: '/chat', label: 'Chat', icon: 'fa-solid fa-comments', activePaths: ['/chat'] },
-  // The Library app (IPTV from a provider): one page (/library), the kind in ?type= (movies is the default). Shown only in the sidebar of `app="library"` pages.
-  { href: '/library', label: 'Movies', icon: 'fa-solid fa-film', app: 'library', iptvType: 'vod' },
-  { href: '/library?type=series', label: 'Series', icon: 'fa-solid fa-clapperboard', app: 'library', iptvType: 'series' },
-  { href: '/library?type=live', label: 'Television', icon: 'fa-solid fa-tv', app: 'library', iptvType: 'live' },
+  // The Media Library app (IPTV from a provider): one page (/iptv), the kind in ?type= (movies is the default). Shown only in the sidebar of `app="iptv"` pages.
+  { href: '/iptv', label: 'Movies', icon: 'fa-solid fa-film', app: 'iptv', iptvType: 'vod' },
+  { href: '/iptv?type=series', label: 'Series', icon: 'fa-solid fa-clapperboard', app: 'iptv', iptvType: 'series' },
+  { href: '/iptv?type=live', label: 'Television', icon: 'fa-solid fa-tv', app: 'iptv', iptvType: 'live' },
 ]);
 
-// The apps a sidebar can be: the notes app and the Library. Each has its own heading, home and items.
+// The apps a sidebar can be: the notes app and the Media Library. Each has its own heading, home and items.
 const APPS = Object.freeze({
   hive: { title: 'Note Hive', home: '/notes', icon: 'fa-solid fa-circle-nodes', label: 'Note Hive Home' },
-  library: { title: 'Media Library', home: '/library', icon: 'fa-solid fa-photo-film', label: 'Media Library Home' },
+  iptv: { title: 'Media Library', home: '/iptv', icon: 'fa-solid fa-photo-film', label: 'Media Library Home' },
 });
 
-const onIptv = (item, location) => location.pathname === '/library' && (new URLSearchParams(location.search).get('type') || 'vod') === item.iptvType;
+const onIptv = (item, location) => location.pathname === '/iptv' && (new URLSearchParams(location.search).get('type') || 'vod') === item.iptvType;
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';
 

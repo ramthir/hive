@@ -243,13 +243,9 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     def time_entries_page() -> FileResponse:
         return FileResponse(static / "time-entries.html", headers={"Cache-Control": "no-cache"})
 
-    @app.get("/library", include_in_schema=False)
-    def library_page() -> FileResponse:
-        return FileResponse(static / "library.html", headers={"Cache-Control": "no-cache"})
-
-    @app.get("/iptv", include_in_schema=False)  # the page's earlier address
-    def iptv_page(request: Request) -> RedirectResponse:
-        return RedirectResponse("/library" + (f"?{request.url.query}" if request.url.query else ""), status_code=301)
+    @app.get("/iptv", include_in_schema=False)
+    def iptv_page() -> FileResponse:
+        return FileResponse(static / "iptv.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/", include_in_schema=False)
     @app.get("/notes", include_in_schema=False)

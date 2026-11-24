@@ -9,9 +9,9 @@ import {
   TYPES, cardParts, channelsQuery, initials, readState, stateSearch, syncLabel, titleHue,
 } from '/static/iptv/format.js';
 
-/* Library (IPTV): browse the provider's catalogue (kept in SQLite on the server) and copy a stream's URL to open in a player such as VLC
-   (Media > Open Network Stream). Hive streams nothing. The sidebar's Library group links the three kinds (/library, /library?type=vod,
-   /library?type=series). */
+/* Media Library (IPTV): browse the provider's catalogue (kept in SQLite on the server) and copy a stream's URL to open in a player such as VLC
+   (Media > Open Network Stream). Hive streams nothing. The sidebar links the three kinds (/iptv, /iptv?type=series,
+   /iptv?type=live). */
 
 class IptvApp extends HTMLElement {
   connectedCallback() {
@@ -84,7 +84,7 @@ class IptvApp extends HTMLElement {
 
   go(change) {
     this.state = { ...this.state, ...change };
-    history.pushState(null, '', `/library${stateSearch(this.state)}`);
+    history.pushState(null, '', `/iptv${stateSearch(this.state)}`);
     this.refresh();
   }
 

@@ -7,7 +7,7 @@ export const TYPES = [
   { type: 'series', label: 'Series', icon: 'fa-clapperboard' },
   { type: 'live', label: 'Television', icon: 'fa-tv' },
 ];
-export const DEFAULT_TYPE = 'vod'; // the first of them: /library opens Movies
+export const DEFAULT_TYPE = 'vod'; // the first of them: /iptv opens Movies
 export const PAGE_SIZE = 48;
 
 /** `?type=live&q=x` -> state. There are no pages in the address: the list loads more as it is scrolled. */
