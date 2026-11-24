@@ -119,6 +119,14 @@ test('cards show priority, project, ticket, week and remaining tags in order', (
   assert.doesNotMatch(renderCard({ slug: 'x', title: 'X', project: ' ' }), /board-chip--project/);
 });
 
+test('cards give tags their own row and omit empty metadata rows', () => {
+  const task = { slug: 'x', title: 'X' };
+  assert.match(renderCard({ ...task, project: 'Acme', tags: ['work'] }),
+    /class="board-card-chips">.*Acme.*<\/div>\s*<div class="board-card-chips board-card-tags">.*work/s);
+  assert.doesNotMatch(renderCard({ ...task, tags: ['done'] }), /board-card-chips/);
+  assert.doesNotMatch(renderCard({ ...task, project: 'Acme' }), /board-card-tags/);
+});
+
 test('linked ticket text and border use the cyan accent on hover and keyboard focus', async () => {
   const css = await readFile(new URL('../../static/tasks/tasks.css', import.meta.url), 'utf8');
   assert.match(css, /\.board-chip--ticket\.board-chip--link:hover,\s*\.board-chip--ticket\.board-chip--link:focus-visible\s*\{[^}]*border-color: var\(--color-accent5\);[^}]*color: var\(--color-accent5\);/);

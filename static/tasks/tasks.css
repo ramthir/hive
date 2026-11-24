@@ -41,8 +41,58 @@ tasks-app {
   margin: var(--space-4) var(--space-6);
   color: var(--color-danger);
 }
-.board-card-tags {
-  margin-top: 0.7rem;
+.tasks-board-wrap .board-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  transition: background-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.tasks-board-wrap .board-card:hover:not(.board-card--skeleton),
+.tasks-board-wrap .board-card:focus-within {
+  background: color-mix(in srgb, var(--color-text) 4%, var(--color-dark1));
+}
+.tasks-board-wrap .board-card-heading {
+  align-items: center;
+}
+.tasks-board-wrap .board-card-title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+}
+.tasks-board-wrap .board-card-note-link {
+  color: var(--color-dimmed2);
+  border-radius: var(--radius-sm);
+}
+.tasks-board-wrap .board-card-note-link:hover,
+.tasks-board-wrap .board-card-note-link:focus-visible {
+  color: var(--color-accent5);
+}
+.tasks-board-wrap .board-card-note-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.tasks-board-wrap .board-chip {
+  min-width: 0;
+  min-height: 1.25rem;
+  padding: 0 0.5rem;
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.tasks-board-wrap .board-chip i {
+  color: inherit;
+}
+.tasks-board-wrap .board-chip--project,
+.tasks-board-wrap .board-chip--ticket {
+  color: var(--color-blue);
+  background: color-mix(in srgb, var(--color-blue) 14%, transparent);
+}
+.tasks-board-wrap .board-card-tags .board-chip {
+  padding-inline: 0.25rem;
+  background: transparent;
 }
 .board-chip--week { font-variant-numeric: tabular-nums; }
 .board-chip--ticket { font-variant-numeric: tabular-nums; }
