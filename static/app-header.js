@@ -53,6 +53,19 @@ const COMPONENT_CSS = `
                     flex-wrap: wrap;
                 }
 
+                /* bottom: for a header whose heading block has a second line (chips under the heading). The heading stays
+                   where it is in a header without one (the min-height is the usual 4.5625rem plus that line), the second
+                   line ends just above the bottom border, and the actions keep to the middle. */
+                :host([bottom]) .page-header-content {
+                    align-items: flex-end;
+                    min-height: 5.0625rem;
+                    padding-bottom: 0.5rem;
+                }
+
+                :host([bottom]) .page-header-actions {
+                    align-self: center;
+                }
+
                 /* attached: no gap between the header and the content below it. */
                 :host([attached]) .page-header-content {
                     margin-bottom: 0;
@@ -278,6 +291,7 @@ function applyComponentStyles(root) {
  *   variant="flush"  no bleed into the page padding; pads itself (Notes, Assets)
  *   variant="bar"    compact bar flush at the top of its pane, no gap below (Decide)
  *   variant="edge"   the page widens the host itself; the header only pulls up, actions wrap (Chat)
+ *   bottom           a line under the heading sits just above the bottom border, the heading stays put (Specifications)
  *   attached         no gap below the header
  */
 class AppHeader extends HTMLElement {

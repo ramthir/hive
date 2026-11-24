@@ -15,7 +15,7 @@ specifications-app {
 
 .spec-workspace {
   display: grid;
-  grid-template-columns: 13rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 13rem;
   gap: var(--space-6);
   padding: 0 var(--space-6);
   width: 100%;
@@ -50,9 +50,9 @@ specifications-app {
 .spec-outline a.on { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 12%, transparent); }
 .spec-count { color: var(--color-dimmed3); font-variant-numeric: tabular-nums; }
 
-.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-width: 60rem; }
+.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
 
-.spec-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.spec-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: 0.3rem; }
 .spec-pill {
   display: inline-flex;
   align-items: center;
@@ -75,7 +75,7 @@ specifications-app {
 
 .spec-section { display: flex; flex-direction: column; gap: var(--space-3); scroll-margin-top: var(--space-5); min-width: 0; }
 .spec-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
-.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); max-width: 46rem; }
+.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); }
 .spec-prose { min-width: 0; line-height: 1.6; }
 .spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 .spec-section--legacy .spec-prose { opacity: 0.85; }
@@ -94,23 +94,96 @@ specifications-app {
 .spec-req--weak { border-color: color-mix(in srgb, var(--color-orange) 55%, var(--color-border)); }
 .spec-req-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
-.spec-req-copy { opacity: 0; transition: opacity 0.15s; }
-.spec-req:hover .spec-req-copy, .spec-req-copy:focus-visible { opacity: 1; }
-.spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); max-width: 46rem; }
+.spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
 .spec-statement mark { background: transparent; color: var(--color-blue); font-weight: 600; }
 
+/* Each scenario is two rows: When the condition, Then the outcome. */
 .spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 .spec-scenario {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1.25rem minmax(0, 1.4fr);
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
+  grid-template-columns: 2rem 3rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  align-items: baseline;
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--color-border);
   line-height: 1.5;
 }
-.spec-when { color: var(--color-dimmed2); }
-.spec-arrow { text-align: center; color: var(--color-blue); }
+.spec-sid { grid-row: 1 / span 2; font: 600 0.6875rem var(--font-mono, ui-monospace, monospace); color: var(--color-dimmed3); }
+.spec-label { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
+.spec-label--given { color: var(--color-purple); }
+.spec-label--when { color: var(--color-yellow); }
+.spec-label--then { color: var(--color-green); }
+.spec-scenario--given .spec-sid { grid-row: 1 / span 3; }
+.spec-given, .spec-when { color: var(--color-dimmed2); }
+.spec-then { color: var(--color-text); }
 
 .spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .spec-check .spec-pill { margin-top: var(--space-3); }
 .spec-check ul .spec-pill { margin-top: 0; }
+
+/* Lists in the prose of a section (the note preview's list styles are scoped to its own pane). */
+.spec-prose p { margin: 0 0 var(--space-3); }
+.spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
+.spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Out of Scope: what this specification leaves alone, set apart with a dashed edge and red dot markers. */
+.spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  margin-right: var(--space-2);
+  letter-spacing: 0;
+}
+.spec-section--out .spec-heading::before { content: '\f05e'; color: var(--color-red); }
+.spec-section--out .spec-prose {
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-dimmed2);
+}
+.spec-section--out .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.spec-section--out .spec-prose li { position: relative; padding-left: 1.4rem; }
+.spec-section--out .spec-prose li::before {
+  content: '';
+  position: absolute;
+  left: 0.2rem;
+  top: 0.62em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--color-red);
+  opacity: 0.8;
+}
+
+/* References: a row of small chips, links in blue, file paths and identifiers in the code face. */
+.spec-section--refs .spec-heading::before { content: '\f0c1'; color: var(--color-blue); }
+.spec-section--refs .spec-prose ul { list-style: none; padding-left: 0; margin: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-2); }
+.spec-section--refs .spec-prose li {
+  max-width: 100%;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-dimmed1);
+  background: color-mix(in srgb, var(--color-dimmed5) 35%, transparent);
+  overflow-wrap: anywhere;
+}
+.spec-section--refs .spec-prose li:hover { border-color: color-mix(in srgb, var(--color-blue) 50%, var(--color-border)); }
+.spec-section--refs .spec-prose a { color: var(--color-blue); text-decoration: none; }
+.spec-section--refs .spec-prose a:hover { text-decoration: underline; }
+.spec-section--refs .spec-prose code { background: transparent; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
+
+/* Open Questions: the same list shape, with a question mark for the marker. */
+.spec-section--questions .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.spec-section--questions .spec-prose li { position: relative; padding-left: 1.4rem; }
+.spec-section--questions .spec-prose li::before {
+  content: '\f128';
+  position: absolute;
+  left: 0;
+  top: 0.4em;
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.7rem;
+  color: var(--color-orange);
+}

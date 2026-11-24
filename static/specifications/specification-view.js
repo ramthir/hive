@@ -1,6 +1,6 @@
+import '/static/components/dropdown-menu.js'; // the menu on a rendered diagram (Download PNG)
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
-import { copyTextToClipboard } from '/static/clipboard.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
@@ -9,7 +9,7 @@ import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { api } from '/static/notes/api.js';
 import { chatButtonHtml } from '/static/notes/note-chat.js';
 import {
-  parseSpecification, requirementMarkdown, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
+  parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
 } from '/static/specifications/specification-note.js';
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
@@ -55,17 +55,17 @@ export class SpecificationView {
     ].join('');
     host.innerHTML = `
       <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" attached>
+        <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
+          <div slot="subtitle" class="spec-chips">${chips}</div>
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
         <div class="spec-workspace">
-          ${this.outline()}
           <div class="spec-main" id="spec-main">
-            <div class="spec-chips">${chips}</div>
             ${spec.legacy ? `<p class="spec-legacy" role="note">${esc(LEGACY_NOTICE)}</p>` : ''}
             ${this.body()}
             ${this.formatCheck()}
           </div>
+          ${this.outline()}
         </div>
         <app-action-bar fixed class="notes-action-bar" aria-label="Specification status and actions">
           <div class="action-bar-left notes-footer-left">
@@ -95,16 +95,6 @@ export class SpecificationView {
       'delete-note-btn': 'delete', 'copy-note-btn': 'copy', 'note-properties-btn': 'properties',
       'note-versions-btn': 'versions', 'edit-note-btn': 'edit', 'note-chat-btn': 'chat',
     })) host.querySelector(`#${id}`)?.addEventListener('click', () => this.actions[run]());
-    host.querySelectorAll('.spec-req-copy').forEach((button) => button.addEventListener('click', async () => {
-      try {
-        await copyTextToClipboard(requirementMarkdown(spec.requirements[Number(button.dataset.req)]));
-        const icon = button.querySelector('i');
-        icon.className = 'fa-solid fa-check';
-        setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1500);
-      } catch (error) {
-        console.error('Failed to copy requirement:', error);
-      }
-    }));
     this.wireOutline();
     this.decorate(host.querySelector('#spec-main'));
   }
@@ -140,7 +130,7 @@ export class SpecificationView {
         </section>`);
         continue;
       }
-      const tone = section.key === 'open questions' ? ' spec-section--questions' : section.key === 'acceptance criteria' ? ' spec-section--legacy' : '';
+      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
       parts.push(`<section id="${slugOf(section.name)}" class="spec-section${tone}"><h2 class="spec-heading">${esc(section.name)}</h2>
         <div class="notes-preview-body spec-prose">${this.markdown(section.body)}</div></section>`);
     }
@@ -157,10 +147,9 @@ export class SpecificationView {
         <h3 class="spec-req-name">${esc(item.name)}</h3>
         ${item.strong ? '' : '<span class="spec-pill spec-pill--warn">No SHALL or MUST</span>'}
         ${item.scenarios.length ? `<span class="spec-pill${many ? ' spec-pill--warn' : ''}">${item.scenarios.length} scenario${item.scenarios.length === 1 ? '' : 's'}</span>` : ''}
-        <button class="tool-button spec-req-copy" type="button" data-req="${index}" title="Copy this requirement as markdown" aria-label="Copy ${esc(item.name)} as markdown"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
       </header>
       ${statement ? `<p class="spec-statement">${statement}</p>` : ''}
-      ${item.scenarios.length ? `<ul class="spec-scenarios">${item.scenarios.map((s) => `<li class="spec-scenario"><span class="spec-when">${esc(s.when)}</span><span class="spec-arrow" aria-label="then">→</span><span class="spec-then">${esc(s.then)}</span></li>`).join('')}</ul>` : ''}
+      ${item.scenarios.length ? `<ol class="spec-scenarios">${item.scenarios.map((s, n) => `<li class="spec-scenario${s.given ? ' spec-scenario--given' : ''}"><span class="spec-sid" aria-hidden="true">S${n + 1}</span>${s.given ? `<span class="spec-label spec-label--given">Given</span><span class="spec-given">${esc(s.given)}</span>` : ''}<span class="spec-label spec-label--when">When</span><span class="spec-when">${esc(s.when)}</span><span class="spec-label spec-label--then">Then</span><span class="spec-then">${esc(s.then)}</span></li>`).join('')}</ol>` : ''}
       ${item.rest ? `<div class="notes-preview-body spec-prose">${this.markdown(item.rest)}</div>` : ''}
     </article>`;
   }
