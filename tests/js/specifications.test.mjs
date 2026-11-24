@@ -169,3 +169,10 @@ The system SHALL sign users in.
   ]);
   assert.match(item.rest, /^- When a Task is planned/); // prose without a "then" stays an ordinary bullet
 });
+
+test('PlantUML diagrams do not count towards the length of a specification', () => {
+  const diagram = ['```plantuml', '@startuml', ...Array.from({ length: 200 }, (_, i) => `A -> B : step ${i}`), '@enduml', '```'].join('\n');
+  const body = `## Objective\n\nOne thing.\n\n## Requirements\n\n### R\n\nThe system SHALL do it.\n\n${diagram}\n\n\`\`\`json\n{"a": 1}\n\`\`\`\n`;
+  assert.equal(s.specificationLines(body), 8); // 5 text lines and the json block (3); the 204 diagram lines are left out
+  assert.deepEqual(s.parseSpecification(body).issues, []);
+});

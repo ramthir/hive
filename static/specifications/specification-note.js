@@ -79,6 +79,28 @@ function requirement(name, body) {
   return { name, statement: statementText, strong: STRONG.test(statementText), scenarios, rest: trimBlank(rest).join('\n') };
 }
 
+/** Non-blank lines of the note's text, not counting PlantUML diagrams: a diagram is long to write but says one thing, so it
+    does not make a specification cover more than one capability. */
+export function specificationLines(content) {
+  let count = 0;
+  let diagram = false;
+  let fence = false;
+  for (const text of String(content || '').split(/\r?\n/)) {
+    const opens = FENCE.exec(text);
+    if (opens && !fence) {
+      fence = true;
+      diagram = /^\s*(?:```|~~~)\s*(?:plantuml|puml)\b/i.test(text);
+    } else if (opens && fence) {
+      fence = false;
+      const was = diagram;
+      diagram = false;
+      if (was) continue;
+    }
+    if (!diagram && text.trim()) count += 1;
+  }
+  return count;
+}
+
 /** `{lead, sections, requirements, issues, legacy, lineCount}` from the note's text (the `# Title` line and frontmatter excluded). */
 export function parseSpecification(content) {
   const sections = [];
@@ -119,7 +141,7 @@ export function parseSpecification(content) {
     requirementsSection.intro = trimBlank(intro).join('\n');
   }
   const body = String(content || '');
-  const lineCount = body.split(/\r?\n/).filter((line) => line.trim()).length;
+  const lineCount = specificationLines(body);
   const lead = out.find((section) => section.key === 'objective')?.body || '';
   const keys = out.map((section) => section.key);
   const legacy = keys.includes('acceptance criteria') || PANDORA.test(body) || (!keys.includes('objective') && !keys.includes('requirements'));
@@ -141,7 +163,7 @@ export function checkSpecification({ sections, requirements, lineCount, body, ke
     if (!item.strong) issues.push(`"${item.name}" has no SHALL or MUST statement.`);
     if (item.scenarios.length > MAX_SCENARIOS) issues.push(`"${item.name}" has ${item.scenarios.length} scenarios (at most ${MAX_SCENARIOS}).`);
   }
-  if (lineCount > LONG_SPEC_LINES) issues.push(`${lineCount} lines: a long specification may cover more than one capability.`);
+  if (lineCount > LONG_SPEC_LINES) issues.push(`${lineCount} lines (diagrams not counted): a long specification may cover more than one capability.`);
   return issues;
 }
 
