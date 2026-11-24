@@ -23,6 +23,10 @@ specifications-app, task-note-app {
   min-width: 0;
 }
 
+/* With the chat docked beside the page there is little room: the outline steps aside and the text takes its column. */
+.chat-docked .spec-workspace { grid-template-columns: minmax(0, 1fr); }
+.chat-docked .spec-outline { display: none; }
+
 .spec-outline {
   position: sticky;
   top: var(--space-5);

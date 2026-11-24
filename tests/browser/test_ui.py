@@ -2148,6 +2148,32 @@ def test_timeline_note_opens_as_phases_and_the_pencil_returns_to_the_editor(page
     assert page.errors == []
 
 
+def test_with_the_chat_open_only_the_task_text_scrolls(page, server, notes_dir):
+    sections = "".join(f"## Section {i}\n\n" + "Some text that fills the page. " * 20 + "\n\n" for i in range(12))
+    (notes_dir / "long-task.md").write_text(f"---\ntitle: Long task\ntype: task\nupdated: 2026-03-03\n---\n\n# Long task\n\nLead.\n\n{sections}")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "long task")
+    page.set_viewport_size({"width": 1400, "height": 800})
+    page.goto(f"{server}/tasks/long-task")
+    page.wait_for_selector(".task-section")
+    page.click("#note-chat-btn")
+    expect(page.locator("task-note-app")).to_have_class(re.compile("chat-docked"))
+    sizes = page.evaluate("() => { const w = document.querySelector('.spec-workspace'); return { page: document.querySelector('task-note-app').getBoundingClientRect().height, window: innerHeight, text: w.scrollHeight, pane: w.clientHeight }; }")
+    assert sizes["page"] <= sizes["window"]  # the page itself does not scroll...
+    assert sizes["text"] > sizes["pane"]  # ...the text does
+    header = page.locator("app-header").bounding_box()
+    pane, bar = page.locator(".spec-workspace").bounding_box(), page.locator(".notes-action-bar").bounding_box()
+    assert abs(pane["y"] - (header["y"] + header["height"])) < 2  # the scrollbar starts at the header's border...
+    assert abs(pane["y"] + pane["height"] - bar["y"]) < 2  # ...and ends at the footer bar's
+    page.locator(".spec-workspace").evaluate("(e) => { e.scrollTop = 600; }")
+    assert page.locator("app-header").bounding_box() == header  # the header stays,
+    assert abs(page.locator(".notes-chat-dock").bounding_box()["y"] - (header["y"] + header["height"])) < 2  # and so does the chat
+    page.keyboard.press("Control+Shift+L")
+    expect(page.locator("task-note-app")).not_to_have_class(re.compile("chat-docked"))
+    assert page.evaluate("document.querySelector('task-note-app').getBoundingClientRect().height") > page.evaluate("innerHeight")  # closed: the whole page is as tall as its text again
+    assert page.errors == []
+
+
 def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "spine-users.md").write_text(
         "---\ntitle: 'Spine — Users'\ntype: specification\nstatus: Active\nverified: 2026-01-01\nupdated: 2026-03-03\n---\n\n"
@@ -2172,6 +2198,12 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(page.locator(".spec-check li")).to_have_count(1)
     assert page.evaluate("Boolean(customElements.get('app-dropdown-menu'))")  # the diagram menu (Download PNG) works here too
     expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
+    page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
+    expect(page.locator("specifications-app")).to_have_class(re.compile("chat-docked"))
+    spec_pane, spec_dock = page.locator(".spec-workspace").bounding_box(), page.locator(".notes-chat-dock").bounding_box()
+    assert spec_pane["x"] + spec_pane["width"] <= spec_dock["x"] + 1
+    expect(page.locator(".spec-outline")).to_be_hidden()
+    page.keyboard.press("Control+Shift+L")
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/spine-users?mode=edit")
     assert page.errors == []
@@ -2179,9 +2211,9 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
 
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "fix-login.md").write_text(
-        "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: Acme\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
+        "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
         "# Fix login\n\nSafari users cannot sign in.\n\n## Acceptance Criteria\n\n- [x] Cookie is set\n- [ ] Works on Safari\n\n"
-        "## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n")
+        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "task")
 
@@ -2190,18 +2222,40 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator("app-header")).to_have_attribute("heading", "Fix login")
     expect(page.locator("app-header .task-status--in-progress")).to_have_text("In Progress")
     expect(page.locator("app-header .task-priority--must")).to_have_text("Must")
-    expect(page.locator("app-header .task-project")).to_have_text("Acme")
+    expect(page.locator("app-header .task-project")).to_have_text("CreatorIQ")
+    ticket = page.locator("app-header .task-ticket")
+    expect(ticket).to_have_text("APIM-66")  # opens the Jira task, as the board's ticket chip does
+    expect(ticket).to_have_attribute("href", "https://socialedge.atlassian.net/browse/APIM-66")
+    expect(ticket).to_have_attribute("target", "_blank")
     expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
     expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
     expect(page.locator("app-header .task-progress")).to_have_text("1 of 2 done")  # a chip of the header, not a row above the content
-    expect(page.locator(".task-section")).to_have_count(3)
+    expect(page.locator(".task-section")).to_have_count(5)
     expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)
     expect(page.locator(".task-section--criteria")).to_have_count(1)  # Acceptance Criteria is drawn as rows
     expect(page.locator(".task-section--criteria li")).to_have_count(2)
+    expect(page.locator(".task-section--related li")).to_have_count(2)  # Related is a plain list of notes, not chips
     expect(page.locator(".task-section--verified")).to_contain_text("Checked by hand.")
-    expect(page.locator(".spec-outline a[href='#task-s1']")).to_have_text("Verification")
-    expect(page.locator(".spec-outline a[href='#task-s2'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    expect(page.locator(".task-step")).to_have_count(2)  # a numbered Plan is drawn as steps
+    expect(page.locator(".task-step-name")).to_have_text(["Reproduce", "Fix the cookie"])
+    expect(page.locator(".task-step-text").first).to_have_text("Use Safari 17.")
+    key = page.locator(".task-section--plan .hljs-attr").first
+    expect(key).to_have_text("cookie:")  # code blocks are highlighted here too...
+    assert key.evaluate("(el) => getComputedStyle(el).color") != key.evaluate("(el) => getComputedStyle(el.closest('code')).color")  # ...in colour, not just marked up
+    expect(page.locator(".spec-outline a[href='#task-s1'] .spec-count")).to_have_text("2")  # steps are counted in the outline
+    expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
+    expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
+    expect(page.locator("task-note-app")).to_have_class(re.compile("chat-docked"))
+    pane, dock, header = (page.locator(s).bounding_box() for s in (".spec-workspace", ".notes-chat-dock", "app-header"))
+    assert pane["x"] + pane["width"] <= dock["x"] + 1
+    expect(page.locator(".spec-outline")).to_be_hidden()  # the sections list steps aside while the chat is open
+    assert abs(dock["y"] - (header["y"] + header["height"])) < 2  # the dock starts under the header, in the body only, as on the note page
+    assert header["x"] + header["width"] >= dock["x"] + dock["width"] - 1  # and the header runs over it, full width
+    page.keyboard.press("Control+Shift+L")
+    expect(page.locator("task-note-app")).not_to_have_class(re.compile("chat-docked"))
+    expect(page.locator(".spec-outline")).to_be_visible()  # and comes back when it is closed
     page.click("#log-time-btn")  # a task takes time: the dialog and the footer chip work here too
     expect(page.locator(".log-time-title")).to_have_text("Fix login")
     page.keyboard.press("Escape")

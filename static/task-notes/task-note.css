@@ -7,6 +7,8 @@
 .task-priority--must { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
 .task-priority--important { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
 .task-priority--nice-to-have { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.task-ticket { color: var(--color-blue); text-decoration: none; }
+.task-ticket:hover, .task-ticket:focus-visible { background: color-mix(in srgb, var(--color-blue) 24%, transparent); }
 .task-project { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
 
 .task-lead { padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; color: var(--color-text); }
@@ -29,7 +31,7 @@
 .task-section--verified .spec-prose { padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-green); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-green) 7%, transparent); }
 .task-section--verified .spec-heading::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: var(--space-2); letter-spacing: 0; color: var(--color-green); }
 
-.task-section:not(.spec-section--out, .spec-section--questions, .task-section--verified, .task-section--refs) > .spec-prose {
+.task-section:not(.spec-section--out, .spec-section--questions, .task-section--verified, .task-section--refs, .task-section--related) > .spec-prose {
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -109,4 +111,23 @@
 .task-scope-group--out .task-scope-label { color: var(--color-red); }
 .task-scope-group--out { color: var(--color-dimmed2); }
 .task-section--scope .task-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
-.task-scope-group .spec-prose > p:has(+ ul), .task-scope-group > p:has(+ ul) { text-transform: none; }
+
+/* Plan: a numbered list is a row of steps joined by a line; text before or after it (an example, a table) stays prose. */
+.task-steps { margin: 0 0 var(--space-4); padding: 0; list-style: none; display: flex; flex-direction: column; }
+.task-steps:last-child { margin-bottom: 0; }
+.task-step { position: relative; display: grid; grid-template-columns: 1.75rem minmax(0, 1fr); column-gap: var(--space-4); padding-bottom: var(--space-4); }
+.task-step:last-child { padding-bottom: 0; }
+.task-step:not(:last-child)::before { content: ''; position: absolute; left: calc(0.875rem - 0.5px); top: 1.9rem; bottom: 0.2rem; width: 1px; background: var(--color-border); }
+.task-step-no {
+  display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%;
+  font: 600 0.75rem var(--font-mono, ui-monospace, monospace);
+  color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent);
+}
+.task-step-main { min-width: 0; padding-top: 0.2rem; }
+.task-step-name { margin: 0 0 var(--space-1); font-size: 0.9375rem; font-weight: 600; color: var(--color-text); }
+.task-step-text { color: var(--color-dimmed1); line-height: 1.6; }
+.task-step-text p { margin-bottom: var(--space-2); }
+
+/* Related: a plain list of links, no card (References stays a row of chips: it holds URLs and file paths). */
+.task-section--related .spec-prose a { color: var(--color-blue); text-decoration: none; }
+.task-section--related .spec-prose a:hover { text-decoration: underline; }

@@ -7,7 +7,7 @@ import { openVersionHistory } from '/static/notes/history.js';
 import { openProperties } from '/static/notes/properties.js';
 import { READ_PAGES } from '/static/notes/read-pages.js';
 import { debounce, remoteAction, watchChanges } from '/static/events.js';
-import { isChatShortcut, NoteChatDock } from '/static/notes/note-chat.js';
+import { NoteChatDock } from '/static/notes/note-chat.js';
 
 /* The page behind /tables/{slug}, /timelines/{slug}...: load the note, send it to /notes/{slug} when it is not of this
    type (or does not exist), draw it with `View`, and run the footer buttons. The pencil goes to /notes/{slug}?mode=edit.
@@ -16,8 +16,8 @@ import { isChatShortcut, NoteChatDock } from '/static/notes/note-chat.js';
    The page follows its note: an event from the server (`GET /api/events?note=`) fetches the note and compares its `revision` with the one
    held, so the page's own saves are recognised; a changed note is drawn again (the view keeps its filter, sort and page). A view may have
    `busy()` ('saving' while its own save is out, 'editing' while a drawer is open): the page waits for a save, and for an open drawer
-   (it would be thrown away) says so and draws the change once the drawer is closed. The chat beside the note is the shared `NoteChatDock`, fixed to the window's right edge (these pages
-   scroll with the window); the view's footer carries its button (`actions.chat`, `actions.chatOpen`). */
+   (it would be thrown away) says so and draws the change once the drawer is closed. The chat beside the note is the shared `NoteChatDock`;
+   the view's footer carries its button (`actions.chat`, `actions.chatOpen`). */
 
 const notePath = (slug, query = '') => `/notes/${encodeURIComponent(slug)}${query}`;
 
@@ -29,8 +29,6 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
     connectedCallback() {
       this.slug = decodeURIComponent(window.location.pathname.replace(pathPrefix, '').split('/')[0] || '');
       this.chat = new NoteChatDock(this, {
-        fixed: true,
-        parent: () => this,
         note: () => this.note,
         onFinished: (detail) => this.chatFinished(detail),
         onNavigate: (href) => window.location.assign(href),
@@ -46,21 +44,7 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
         chatOpen: () => this.chat.open,
         ...viewOptions(this),
       });
-      this._keydown = (event) => {
-        if (!isChatShortcut(event) || document.body.classList.contains('dialog-open') || !this.note) return;
-        event.preventDefault();
-        this.chat.toggle();
-      };
-      window.addEventListener('keydown', this._keydown);
-      // The text selected in the page goes to the chat as context for the next question (a click that selects nothing clears it).
-      this._mouseup = (event) => {
-        if (!this.chat.element || !this.chat.open) return;
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target || target.closest('app-header, app-action-bar, .notes-chat-dock')) return;
-        const selection = window.getSelection();
-        this.chat.setSelection(selection && !selection.isCollapsed ? selection.toString() : '');
-      };
-      this.addEventListener('mouseup', this._mouseup);
+      this.chat.attach();
       this.load();
       if (this.slug) {
         this.refresh = debounce(() => this.checkRemote(), 400);
@@ -72,8 +56,7 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
       this.changes?.close();
       this.refresh?.cancel();
       clearTimeout(this._holdTimer);
-      window.removeEventListener('keydown', this._keydown);
-      this.removeEventListener('mouseup', this._mouseup);
+      this.chat?.detach();
       this.view?.destroy?.();
     }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskPriority } from '../../static/tasks/card.js';
+import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskPriority, ticketUrl } from '../../static/tasks/card.js';
 
 test('the board has the three Pandora columns in order', () => {
   assert.deepEqual(COLUMNS.map((c) => c.value), ['TODO', 'IN_PROGRESS', 'DONE']);
@@ -122,4 +122,12 @@ test('cards show priority, project, ticket, week and remaining tags in order', (
 test('linked ticket text and border use the cyan accent on hover and keyboard focus', async () => {
   const css = await readFile(new URL('../../static/tasks/tasks.css', import.meta.url), 'utf8');
   assert.match(css, /\.board-chip--ticket\.board-chip--link:hover,\s*\.board-chip--ticket\.board-chip--link:focus-visible\s*\{[^}]*border-color: var\(--color-accent5\);[^}]*color: var\(--color-accent5\);/);
+});
+
+test('ticketUrl is the Jira address of a CreatorIQ ticket and nothing else', () => {
+  assert.equal(ticketUrl({ project: '[[CreatorIQ]]', ticket: 'apim-66' }), 'https://socialedge.atlassian.net/browse/APIM-66');
+  assert.equal(ticketUrl({ project: 'Acme', ticket: 'APIM-66' }), '');
+  assert.equal(ticketUrl({ project: 'CreatorIQ', ticket: 'not a ticket' }), '');
+  assert.equal(ticketUrl({ project: 'CreatorIQ' }), '');
+  assert.equal(ticketUrl(undefined), '');
 });

@@ -59,11 +59,11 @@ test('section kinds ignore leading emoji and case', () => {
   assert.equal(t.sectionKind('✅ Open Questions'), 'questions');
   assert.equal(t.sectionKind('Out of Scope'), 'out');
   assert.equal(t.sectionKind('Summary of Completed Work'), 'verified');
-  assert.equal(t.sectionKind('Related Notes'), 'refs');
+  assert.equal(t.sectionKind('Related Notes'), 'related');
+  assert.equal(t.sectionKind('References'), 'refs');
   assert.equal(t.sectionKind('Acceptance Criteria'), 'criteria');
   assert.equal(t.sectionKind('✅ Deliverables'), 'criteria');
   assert.equal(t.sectionKind('Scope'), 'scope');
-  assert.equal(t.sectionKind('Plan'), '');
 });
 
 test('visibleTags drops status words, priorities and the project name', () => {
@@ -99,4 +99,20 @@ test('an Open Questions section counts its top-level bullets, not nested lines o
   assert.equal(task.sections[0].questions, 2);
   assert.equal(task.sections[1].questions, 0);
   assert.equal(t.bulletCount(''), 0);
+});
+
+test('planSteps reads a numbered list as steps with bold names, and keeps what is above and below it', () => {
+  const plan = t.planSteps('Intro line.\n\n1. **Extract the data.** Review it\n   with Serhii.\n2. **Set attributes:** Attach them.\n\n   ```yaml\n   a: 1\n   ```\n3) Plain step\n\n### Example\n\n```yaml\n1. not a step\n```');
+  assert.equal(plan.before, 'Intro line.');
+  assert.deepEqual(plan.steps.map((s) => s.name), ['Extract the data', 'Set attributes', '']);
+  assert.equal(plan.steps[0].body, 'Review it\nwith Serhii.');
+  assert.match(plan.steps[1].body, /^Attach them\.\n\n```yaml\na: 1\n```$/); // an indented fence stays in its step
+  assert.equal(plan.steps[2].body, 'Plain step');
+  assert.match(plan.after, /^### Example\n\n```yaml\n1\. not a step\n```$/);
+});
+
+test('a Plan with no numbered list has no steps, and the outline counts the steps of one that has', () => {
+  assert.deepEqual(t.planSteps('Just a paragraph.\n\n- a bullet'), { before: 'Just a paragraph.\n\n- a bullet', steps: [], after: '' });
+  assert.equal(t.parseTask('# T\n\n## Plan\n\n1. **A.** x\n2. **B.** y\n').sections[0].steps, 2);
+  assert.equal(t.sectionKind('Plan'), 'plan');
 });
