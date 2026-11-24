@@ -126,23 +126,20 @@
   opacity: 0.8;
 }
 
-/* References: a row of small chips, links in blue, file paths and identifiers in the code face. */
+/* References share a compact list across task and specification pages. */
 .spec-section--refs .spec-heading::before { content: '\f0c1'; color: var(--color-blue); }
-.spec-section--refs .spec-prose ul { list-style: none; padding-left: 0; margin: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-2); }
-.spec-section--refs .spec-prose li {
-  max-width: 100%;
-  padding: 0.2rem 0.7rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  line-height: 1.5;
+.spec-section--refs .spec-prose {
   color: var(--color-dimmed1);
-  background: color-mix(in srgb, var(--color-dimmed5) 35%, transparent);
   overflow-wrap: anywhere;
 }
-.spec-section--refs .spec-prose li:hover { border-color: color-mix(in srgb, var(--color-blue) 50%, var(--color-border)); }
 .spec-section--refs .spec-prose a, .spec-section--refs .spec-prose a.notes-wikilink { color: var(--color-blue); text-decoration: none; border: 0; background: none; padding: 0; font-weight: inherit; }
-.spec-section--refs .spec-prose a:hover, .spec-section--refs .spec-prose a.notes-wikilink:hover { text-decoration: underline; background: none; }
+.spec-section--refs .spec-prose a:is(:hover, :focus-visible),
+.spec-section--refs .spec-prose a.notes-wikilink:is(:hover, :focus-visible) { text-decoration: underline; background: none; }
+.spec-section--refs .spec-prose a:focus-visible,
+.spec-section--refs .spec-prose a.notes-wikilink:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
 .spec-section--refs .spec-prose code { background: transparent; border: 0; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
 
 /* Open Questions: the same list shape, with a question mark for the marker. */

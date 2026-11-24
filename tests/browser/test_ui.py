@@ -2211,6 +2211,32 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     assert page.errors == []
 
 
+@pytest.mark.parametrize(("note_type", "route"), [("task", "tasks"), ("specification", "specifications")])
+def test_read_pages_show_references_as_a_list(page, server, notes_dir, note_type, route):
+    path = "src/" + "long-module-name-" * 80 + ".py"
+    (notes_dir / "reference-example.md").write_text(
+        f"---\ntitle: Reference example\ntype: {note_type}\n---\n\n"
+        "# Reference example\n\n## Objective\n\nDocument the feature.\n\n"
+        "## References\n\n- [Design document](https://example.com/design) — current design\n"
+        f"- `{path}`\n"
+    )
+    page.goto(f"{server}/{route}/reference-example")
+    references = page.locator(".spec-section--refs")
+    expect(references.get_by_role("heading", name="References")).to_be_visible()
+    rows = references.locator(".spec-prose > ul > li")
+    expect(rows).to_have_count(2)
+    expect(rows.first).to_have_css("list-style-type", "disc")
+    expect(rows.first).to_have_css("padding-block-start", "0px")
+    expect(rows.first).to_have_css("padding-block-end", "0px")
+    expect(rows.nth(1)).to_have_css("border-block-start-width", "0px")
+    assert rows.first.bounding_box()["y"] < rows.nth(1).bounding_box()["y"]
+    expect(rows.nth(1).locator("code")).to_have_text(path)
+    assert rows.nth(1).evaluate("(row) => row.scrollWidth <= row.clientWidth")
+    link = rows.first.get_by_role("link", name="Design document")
+    link.focus()
+    expect(link).to_have_css("outline-style", "solid")
+
+
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "fix-login.md").write_text(
         "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"

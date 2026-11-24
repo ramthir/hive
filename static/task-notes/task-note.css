@@ -110,6 +110,6 @@
 .task-step-text { color: var(--color-dimmed1); line-height: 1.6; }
 .task-step-text p { margin-bottom: var(--space-2); }
 
-/* Related: a plain list of links, no card (References stays a row of chips: it holds URLs and file paths). */
+/* Related uses plain links within the note's prose. */
 .task-section--related .spec-prose a, .task-section--related .spec-prose a.notes-wikilink { color: var(--color-blue); text-decoration: none; border: 0; background: none; padding: 0; font-weight: inherit; }
 .task-section--related .spec-prose a:hover, .task-section--related .spec-prose a.notes-wikilink:hover { text-decoration: underline; background: none; }
