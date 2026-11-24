@@ -89,7 +89,7 @@ export class TaskView extends SpecificationView {
   outline() {
     const entries = [];
     if (this.task.lead) entries.push({ id: 'task-lead', label: 'Summary', count: 0 });
-    this.task.sections.forEach((section, index) => entries.push({ id: `task-s${index}`, label: section.name, count: section.total }));
+    this.task.sections.forEach((section, index) => entries.push({ id: `task-s${index}`, label: section.name, count: section.questions || section.total }));
     if (entries.length < 2) return '<nav class="spec-outline" aria-hidden="true"></nav>';
     return `<nav class="spec-outline" aria-label="Task sections">
       <b>Sections</b>

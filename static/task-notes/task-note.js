@@ -44,7 +44,14 @@ export function checklist(content) {
   return { done, total };
 }
 
-/** `{lead, sections: [{name, kind, body, done, total}], progress}` from the note's text (the `# Title` line excluded). */
+/** How many top-level bullets a text has (one per question in an Open Questions section), ignoring code fences. */
+export function bulletCount(content) {
+  let count = 0;
+  for (const { text, plain } of lines(content)) if (plain && /^[-*+]\s+\S/.test(text)) count += 1;
+  return count;
+}
+
+/** `{lead, sections: [{name, kind, body, done, total, questions}], progress}` from the note's text (the `# Title` line excluded). */
 export function parseTask(content) {
   const sections = [];
   const before = [];
@@ -62,7 +69,7 @@ export function parseTask(content) {
   }
   const out = sections.map((section) => {
     const body = trimBlank(section.body).join('\n');
-    return { ...section, body, ...checklist(body) };
+    return { ...section, body, ...checklist(body), questions: section.kind === 'questions' ? bulletCount(body) : 0 };
   });
   return { lead: trimBlank(before).join('\n'), sections: out, progress: checklist(String(content || '')) };
 }

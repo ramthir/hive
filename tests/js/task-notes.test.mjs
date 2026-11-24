@@ -93,3 +93,10 @@ test('scopeGroups splits Scope at its In scope / Out of scope lines', () => {
   assert.deepEqual(t.scopeGroups('- Only a list'), [{ kind: '', body: '- Only a list' }]);
   assert.deepEqual(t.scopeGroups('Out of scope\n- X').map((g) => g.kind), ['out']);
 });
+
+test('an Open Questions section counts its top-level bullets, not nested lines or fenced ones', () => {
+  const task = t.parseTask('# T\n\n## Open Questions\n\n- One?\n  - detail\n- Two?\n\n```md\n- not one\n```\n\n## Plan\n\n- a\n');
+  assert.equal(task.sections[0].questions, 2);
+  assert.equal(task.sections[1].questions, 0);
+  assert.equal(t.bulletCount(''), 0);
+});
