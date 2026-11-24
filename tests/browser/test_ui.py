@@ -2181,7 +2181,7 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     (notes_dir / "fix-login.md").write_text(
         "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: Acme\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
         "# Fix login\n\nSafari users cannot sign in.\n\n## Acceptance Criteria\n\n- [x] Cookie is set\n- [ ] Works on Safari\n\n"
-        "## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n")
+        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "task")
 
@@ -2195,13 +2195,21 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
     expect(page.locator("app-header .task-progress")).to_have_text("1 of 2 done")  # a chip of the header, not a row above the content
-    expect(page.locator(".task-section")).to_have_count(3)
+    expect(page.locator(".task-section")).to_have_count(5)
     expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)
     expect(page.locator(".task-section--criteria")).to_have_count(1)  # Acceptance Criteria is drawn as rows
     expect(page.locator(".task-section--criteria li")).to_have_count(2)
+    expect(page.locator(".task-section--related li")).to_have_count(2)  # Related is a plain list of notes, not chips
     expect(page.locator(".task-section--verified")).to_contain_text("Checked by hand.")
-    expect(page.locator(".spec-outline a[href='#task-s1']")).to_have_text("Verification")
-    expect(page.locator(".spec-outline a[href='#task-s2'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    expect(page.locator(".task-step")).to_have_count(2)  # a numbered Plan is drawn as steps
+    expect(page.locator(".task-step-name")).to_have_text(["Reproduce", "Fix the cookie"])
+    expect(page.locator(".task-step-text").first).to_have_text("Use Safari 17.")
+    key = page.locator(".task-section--plan .hljs-attr").first
+    expect(key).to_have_text("cookie:")  # code blocks are highlighted here too...
+    assert key.evaluate("(el) => getComputedStyle(el).color") != key.evaluate("(el) => getComputedStyle(el.closest('code')).color")  # ...in colour, not just marked up
+    expect(page.locator(".spec-outline a[href='#task-s1'] .spec-count")).to_have_text("2")  # steps are counted in the outline
+    expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
+    expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
     page.click("#log-time-btn")  # a task takes time: the dialog and the footer chip work here too
     expect(page.locator(".log-time-title")).to_have_text("Fix login")
     page.keyboard.press("Escape")

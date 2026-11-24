@@ -16,6 +16,7 @@ export const plainName = (name) => String(name || '').replace(/^[^\p{L}\p{N}]+/u
 const KINDS = {
   'open questions': 'questions',
   'out of scope': 'out',
+  plan: 'plan',
   scope: 'scope',
   'in scope': 'scope',
   'acceptance criteria': 'criteria',
@@ -23,12 +24,12 @@ const KINDS = {
   deliverables: 'criteria',
   verification: 'verified',
   'summary of completed work': 'verified',
-  related: 'refs',
-  'related notes': 'refs',
+  related: 'related',
+  'related notes': 'related',
   references: 'refs',
 };
 
-/** How a section is drawn: `scope`, `criteria`, `questions`, `out`, `verified`, `refs` or '' (plain). */
+/** How a section is drawn: `plan`, `scope`, `criteria`, `questions`, `out`, `verified`, `related`, `refs` or '' (plain). */
 export const sectionKind = (name) => KINDS[plainName(name)] || '';
 
 /** `{done, total}` of the checklist items in a text, ignoring code fences. */
@@ -51,7 +52,7 @@ export function bulletCount(content) {
   return count;
 }
 
-/** `{lead, sections: [{name, kind, body, done, total, questions}], progress}` from the note's text (the `# Title` line excluded). */
+/** `{lead, sections: [{name, kind, body, done, total, questions, steps}], progress}` from the note's text (the `# Title` line excluded). */
 export function parseTask(content) {
   const sections = [];
   const before = [];
@@ -69,7 +70,7 @@ export function parseTask(content) {
   }
   const out = sections.map((section) => {
     const body = trimBlank(section.body).join('\n');
-    return { ...section, body, ...checklist(body), questions: section.kind === 'questions' ? bulletCount(body) : 0 };
+    return { ...section, body, ...checklist(body), questions: section.kind === 'questions' ? bulletCount(body) : 0, steps: section.kind === 'plan' ? planSteps(body).steps.length : 0 };
   });
   return { lead: trimBlank(before).join('\n'), sections: out, progress: checklist(String(content || '')) };
 }
@@ -97,4 +98,47 @@ export function scopeGroups(body) {
   return groups
     .map((group) => ({ kind: group.kind, body: trimBlank(group.lines).join('\n') }))
     .filter((group, index) => group.body || (group.kind && index > 0));
+}
+
+const STEP = /^\d+[.)]\s+(.*)$/;
+const FENCE_LINE = /^\s*(```|~~~)/;
+const LEAD = /^\*\*(.+?)\*\*\s*([.:])?\s*(.*)$/s;
+
+/** A Plan section as numbered steps: `{before, steps: [{name, body}], after}`. A step is a top-level `1.` item with its
+    indented lines (and indented code fences); `name` is its leading **bold** words (without a closing full stop or colon),
+    `body` the rest as markdown. `before` is the text above the list, `after` everything from the first line that is neither
+    a step nor indented (a `###` block, a code fence, a table). No numbered item: no steps, the whole text is `before`. */
+export function planSteps(body) {
+  const before = [];
+  const after = [];
+  const raw = [];
+  let state = 'before';
+  let fence = null; // where the lines of an open code fence go
+  for (const text of String(body || '').split(/\r?\n/)) {
+    if (fence) {
+      fence.push(fence === raw.at(-1)?.lines ? text.replace(/^ {1,4}/, '') : text);
+      if (FENCE_LINE.test(text)) fence = null;
+      continue;
+    }
+    const step = STEP.exec(text);
+    const open = FENCE_LINE.test(text);
+    if (step) {
+      state = 'list';
+      raw.push({ lines: [step[1]] });
+    } else if (state === 'list' && (!text.trim() || /^\s/.test(text))) {
+      raw.at(-1).lines.push(text.replace(/^ {1,4}/, ''));
+      if (open) fence = raw.at(-1).lines;
+    } else {
+      if (state === 'list') state = 'after';
+      (state === 'after' ? after : before).push(text);
+      if (open) fence = state === 'after' ? after : before;
+    }
+  }
+  if (!raw.length) return { before: String(body || '').trim(), steps: [], after: '' };
+  const steps = raw.map(({ lines: stepLines }) => {
+    const text = trimBlank(stepLines).join('\n');
+    const lead = LEAD.exec(text);
+    return lead ? { name: lead[1].replace(/[.:]$/, '').trim(), body: lead[3] } : { name: '', body: text };
+  });
+  return { before: trimBlank(before).join('\n'), steps, after: trimBlank(after).join('\n') };
 }

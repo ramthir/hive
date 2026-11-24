@@ -1,5 +1,5 @@
 /* Monokai Pro Syntax Highlighting for Notes Preview */
-.notes-preview-pane pre code.hljs {
+:is(.notes-preview-pane, .spec-prose) pre code.hljs {
   display: block;
   overflow-x: auto;
   padding: 0;
@@ -8,84 +8,84 @@
 }
 
 /* Keywords, tags, logic, storage, control flow: Monokai Pro Pink */
-.notes-preview-pane .hljs-keyword,
-.notes-preview-pane .hljs-selector-tag,
-.notes-preview-pane .hljs-tag,
-.notes-preview-pane .hljs-name,
-.notes-preview-pane .hljs-doctag {
+:is(.notes-preview-pane, .spec-prose) .hljs-keyword,
+:is(.notes-preview-pane, .spec-prose) .hljs-selector-tag,
+:is(.notes-preview-pane, .spec-prose) .hljs-tag,
+:is(.notes-preview-pane, .spec-prose) .hljs-name,
+:is(.notes-preview-pane, .spec-prose) .hljs-doctag {
   color: var(--color-accent1);
   font-weight: 500;
 }
 
 /* Classes, functions, methods, section titles: Monokai Pro Green */
-.notes-preview-pane .hljs-title,
-.notes-preview-pane .hljs-title.class_,
-.notes-preview-pane .hljs-section {
+:is(.notes-preview-pane, .spec-prose) .hljs-title,
+:is(.notes-preview-pane, .spec-prose) .hljs-title.class_,
+:is(.notes-preview-pane, .spec-prose) .hljs-section {
   color: var(--color-accent4);
   font-weight: 600;
 }
 
 /* Strings, characters, regex, attributes value: Monokai Pro Yellow */
-.notes-preview-pane .hljs-string,
-.notes-preview-pane .hljs-regexp,
-.notes-preview-pane .hljs-symbol,
-.notes-preview-pane .hljs-bullet {
+:is(.notes-preview-pane, .spec-prose) .hljs-string,
+:is(.notes-preview-pane, .spec-prose) .hljs-regexp,
+:is(.notes-preview-pane, .spec-prose) .hljs-symbol,
+:is(.notes-preview-pane, .spec-prose) .hljs-bullet {
   color: var(--color-accent3);
 }
 
 /* Numbers, constants, booleans, literals: Monokai Pro Purple */
-.notes-preview-pane .hljs-number,
-.notes-preview-pane .hljs-literal,
-.notes-preview-pane .hljs-link {
+:is(.notes-preview-pane, .spec-prose) .hljs-number,
+:is(.notes-preview-pane, .spec-prose) .hljs-literal,
+:is(.notes-preview-pane, .spec-prose) .hljs-link {
   color: var(--color-accent6);
 }
 
 /* Variables, parameters, object keys, attributes: Monokai Pro Orange */
-.notes-preview-pane .hljs-variable,
-.notes-preview-pane .hljs-template-variable,
-.notes-preview-pane .hljs-params,
-.notes-preview-pane .hljs-attr,
-.notes-preview-pane .hljs-attribute {
+:is(.notes-preview-pane, .spec-prose) .hljs-variable,
+:is(.notes-preview-pane, .spec-prose) .hljs-template-variable,
+:is(.notes-preview-pane, .spec-prose) .hljs-params,
+:is(.notes-preview-pane, .spec-prose) .hljs-attr,
+:is(.notes-preview-pane, .spec-prose) .hljs-attribute {
   color: var(--color-accent2);
 }
 
 /* Built-in functions/types, types, classes: Monokai Pro Cyan */
-.notes-preview-pane .hljs-type,
-.notes-preview-pane .hljs-built_in,
-.notes-preview-pane .hljs-builtin-name {
+:is(.notes-preview-pane, .spec-prose) .hljs-type,
+:is(.notes-preview-pane, .spec-prose) .hljs-built_in,
+:is(.notes-preview-pane, .spec-prose) .hljs-builtin-name {
   color: var(--color-accent5);
   font-style: italic;
 }
 
 /* Comments, quotes: Monokai Pro Dimmed Muted Gray */
-.notes-preview-pane .hljs-comment,
-.notes-preview-pane .hljs-quote,
-.notes-preview-pane .hljs-meta {
+:is(.notes-preview-pane, .spec-prose) .hljs-comment,
+:is(.notes-preview-pane, .spec-prose) .hljs-quote,
+:is(.notes-preview-pane, .spec-prose) .hljs-meta {
   color: var(--color-dimmed3);
   font-style: italic;
 }
 
 /* Operators, punctuation: Monokai Pro Dimmed Light */
-.notes-preview-pane .hljs-operator,
-.notes-preview-pane .hljs-punctuation {
+:is(.notes-preview-pane, .spec-prose) .hljs-operator,
+:is(.notes-preview-pane, .spec-prose) .hljs-punctuation {
   color: var(--color-dimmed1);
 }
 
 /* Deletion & Addition (diffs) */
-.notes-preview-pane .hljs-deletion {
+:is(.notes-preview-pane, .spec-prose) .hljs-deletion {
   color: var(--color-accent1);
   background: color-mix(in srgb, var(--color-accent1) 15%, transparent);
 }
-.notes-preview-pane .hljs-addition {
+:is(.notes-preview-pane, .spec-prose) .hljs-addition {
   color: var(--color-accent4);
   background: color-mix(in srgb, var(--color-accent4) 15%, transparent);
 }
 
 /* Emphasis & Strong */
-.notes-preview-pane .hljs-emphasis {
+:is(.notes-preview-pane, .spec-prose) .hljs-emphasis {
   font-style: italic;
 }
-.notes-preview-pane .hljs-strong {
+:is(.notes-preview-pane, .spec-prose) .hljs-strong {
   font-weight: 700;
 }
 
