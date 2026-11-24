@@ -80,7 +80,7 @@
 .spec-req-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
 .spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
-.spec-statement mark { background: transparent; color: var(--color-orange); font-weight: 700; }
+.spec-statement mark, .task-requirement-keyword { background: transparent; color: var(--color-orange); font-weight: 700; }
 
 /* Each scenario is two rows: When the condition, Then the outcome. */
 .spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }

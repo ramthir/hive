@@ -2260,7 +2260,7 @@ def test_read_pages_show_references_as_a_list(page, server, notes_dir, note_type
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "fix-login.md").write_text(
         "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
-        "# Fix login\n\nSafari users cannot sign in.\n\n## Acceptance Criteria\n\n- [x] Cookie is set\n- [ ] Works on Safari\n\n"
+        "# Fix login\n\nSafari users cannot sign in. The fix MUST preserve sessions.\n\n## Acceptance Criteria\n\n- [x] The service SHALL set the cookie\n- [ ] Works on Safari with `MUST` in an example\n\n"
         "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "task")
@@ -2280,6 +2280,11 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
     expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
+    keywords = page.locator(".task-requirement-keyword")
+    expect(keywords).to_have_text(["MUST", "SHALL"])
+    expect(keywords.first).to_have_css("font-weight", "700")
+    expect(keywords.first).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+    expect(page.locator(".task-section--criteria code")).to_have_text("MUST")
     expect(page.locator("app-header .task-progress")).to_have_text("1 of 2 done")  # a chip of the header, not a row above the content
     expect(page.locator(".task-section")).to_have_count(5)
     expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)

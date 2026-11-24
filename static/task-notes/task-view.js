@@ -13,6 +13,30 @@ const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section-
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
     its checklists and a card per section. The page, markdown, diagrams and outline behave as on the specification page. */
 export class TaskView extends SpecificationView {
+  decorate(root) {
+    for (const prose of root?.querySelectorAll('.spec-prose') ?? []) {
+      const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => node.parentElement.closest('a, code, pre, mark, .katex, .notes-diagram')
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+      });
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      for (const node of textNodes) {
+        const parts = node.data.split(/\b(SHALL|MUST)\b/);
+        if (parts.length === 1) continue;
+        node.replaceWith(...parts.map((part, index) => {
+          if (index % 2 === 0) return part;
+          const keyword = document.createElement('mark');
+          keyword.className = 'task-requirement-keyword';
+          keyword.textContent = part;
+          return keyword;
+        }));
+      }
+    }
+    super.decorate(root);
+  }
+
   render(note, { typeLabel, typeIconName }) {
     const { host } = this;
     this.note = note;
