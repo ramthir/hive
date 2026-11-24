@@ -159,3 +159,34 @@ def test_stars_survive_a_sync_and_unknown_items_are_404(synced, tmp_path):
     assert _names(synced, type="vod", q="is:starred") == ["Heat"]
     assert synced.put("/api/iptv/star", params={"type": "vod", "id": "999"}).status_code == 404
     assert synced.delete("/api/iptv/star", params={"type": "vod", "id": "999"}).status_code == 404
+
+
+@pytest.mark.parametrize("kind", list(StreamType))
+def test_env_hides_groups_from_existing_catalogue(tmp_path, monkeypatch, kind):
+    monkeypatch.setenv("HIVE_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("HIVE_IPTV_HIDDEN_GROUPS", " Hidden Group, , O'Brien, HINDI DUB | * ")
+    _, catalog = make_app(tmp_path)
+    catalog.store.replace(kind, [
+        Channel("1", kind, "A hidden item", "Hidden Group"),
+        Channel("2", kind, "Another hidden item", "O'Brien"),
+        Channel("3", kind, "Visible item", "Hidden Group Extra"),
+        Channel("4", kind, "Dubbed 2025", "HINDI DUB | 2025"),
+        Channel("5", kind, "Dubbed 2026", "HINDI DUB | 2026"),
+    ], "t")
+    catalog.store.set_starred(kind, "1", True)
+
+    app = create_app(tmp_path / "notes", watch=False, schedule=False)
+    with TestClient(app) as c:
+        params = {"type": kind.value}
+        assert c.get("/api/iptv/groups", params=params).json() == [{"name": "Hidden Group Extra", "count": 1}]
+        page = c.get("/api/iptv/channels", params={**params, "page_size": 1}).json()
+        assert [item["id"] for item in page["items"]] == ["3"]
+        assert page["total"] == page["total_pages"] == 1
+        assert not _names(c, **params, group="Hidden Group")
+        assert not _names(c, **params, q="is:starred")
+        assert not _names(c, **params, q='group:"HINDI DUB | 2026"')
+
+    monkeypatch.setenv("HIVE_IPTV_HIDDEN_GROUPS", "")
+    app = create_app(tmp_path / "notes", watch=False, schedule=False)
+    with TestClient(app) as c:
+        assert _names(c, type=kind.value, q="is:starred") == ["A hidden item"]

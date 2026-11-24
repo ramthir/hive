@@ -175,7 +175,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         config = XtreamConfig.from_env()
         return XtreamClient(config) if config else None
 
-    app.state.iptv = iptv or IptvCatalog(IptvStore(state_dir() / "iptv.db"), xtream_client)
+    hidden_groups = tuple(filter(None, (name.strip() for name in os.getenv("HIVE_IPTV_HIDDEN_GROUPS", "").split(","))))
+    app.state.iptv = iptv or IptvCatalog(
+        IptvStore(state_dir() / "iptv.db", hidden_groups=hidden_groups), xtream_client
+    )
     app.state.chat = ChatService(chat_runner if chat_runner is not None else chat_codex(root), service, git, root, codex_sessions(), missing=chat_missing())
 
     def err(status: int):

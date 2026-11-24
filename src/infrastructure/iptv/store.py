@@ -28,8 +28,23 @@ def _like(word: str) -> str:
 
 
 class IptvStore:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, hidden_groups: tuple[str, ...] = ()) -> None:
         self.path = Path(path)
+        self._hidden_groups = tuple(name for name in hidden_groups if "*" not in name)
+        self._hidden_patterns = tuple(
+            name.replace("[", "[[]").replace("?", "[?]") for name in hidden_groups if "*" in name
+        )
+
+    def _visible_groups(self, type: StreamType) -> tuple[str, list[str]]:
+        clause, args = "type = ?", [type.value]
+        if self._hidden_groups:
+            placeholders = ", ".join("?" for _ in self._hidden_groups)
+            clause += f" AND grp NOT IN ({placeholders})"
+            args.extend(self._hidden_groups)
+        for pattern in self._hidden_patterns:
+            clause += " AND grp NOT GLOB ?"
+            args.append(pattern)
+        return clause, args
 
     def _connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +74,8 @@ class IptvStore:
         return row["value"] if row else None
 
     def page(self, type: StreamType, group: str | None, q: str | None, sort: str, page: int, page_size: int) -> tuple[list[Channel], int]:
-        where, args = ["type = ?"], [type.value]
+        visible, args = self._visible_groups(type)
+        where = [visible]
         if group:
             where.append("grp = ?")
             args.append(group)
@@ -82,8 +98,11 @@ class IptvStore:
         return [self._channel(r) for r in rows], total
 
     def groups(self, type: StreamType) -> list[dict]:
+        clause, args = self._visible_groups(type)
         with closing(self._connect()) as db:
-            rows = db.execute("SELECT grp, COUNT(*) n FROM channel WHERE type = ? GROUP BY grp ORDER BY grp COLLATE NOCASE", (type.value,)).fetchall()
+            rows = db.execute(
+                f"SELECT grp, COUNT(*) n FROM channel WHERE {clause} GROUP BY grp ORDER BY grp COLLATE NOCASE", args
+            ).fetchall()
         return [{"name": r["grp"], "count": r["n"]} for r in rows]
 
     def get(self, type: StreamType, provider_id: str) -> Channel | None:
