@@ -2156,7 +2156,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     page.goto(f"{server}/notes/spine-users")
     page.wait_for_url("**/specifications/spine-users")  # a specification note is read on its own page
     expect(page.locator("app-header")).to_have_attribute("heading", "Spine — Users")
-    expect(page.locator(".spec-status")).to_have_text("Active")
+    expect(page.locator("app-header .spec-status")).to_have_text("Active")  # the chips sit in the header, under the heading
     expect(page.locator(".spec-objective")).to_have_text("People can sign in.")
     cards = page.locator(".spec-req")
     expect(cards).to_have_count(2)

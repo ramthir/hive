@@ -55,17 +55,17 @@ export class SpecificationView {
     ].join('');
     host.innerHTML = `
       <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" attached>
+        <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
+          <div slot="subtitle" class="spec-chips">${chips}</div>
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
         <div class="spec-workspace">
-          ${this.outline()}
           <div class="spec-main" id="spec-main">
-            <div class="spec-chips">${chips}</div>
             ${spec.legacy ? `<p class="spec-legacy" role="note">${esc(LEGACY_NOTICE)}</p>` : ''}
             ${this.body()}
             ${this.formatCheck()}
           </div>
+          ${this.outline()}
         </div>
         <app-action-bar fixed class="notes-action-bar" aria-label="Specification status and actions">
           <div class="action-bar-left notes-footer-left">
