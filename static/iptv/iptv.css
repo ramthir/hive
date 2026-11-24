@@ -26,6 +26,13 @@ app-autocomplete.iptv-search { --autocomplete-width: min(24rem, 35vw); --autocom
 .iptv-more button { margin-left: 0.5rem; }
 
 button.iptv-card { cursor: pointer; }
+.iptv-open { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.iptv-open:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; border-radius: var(--radius-md, 0.5rem); }
+.iptv-star { position: absolute; left: 0.5rem; top: 0.5rem; display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 1px solid rgb(255 255 255 / 0.25); border-radius: var(--radius-full, 999px); background: rgb(0 0 0 / 0.65); color: #fff; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: background-color 0.12s, opacity 0.12s, color 0.12s; }
+.iptv-card:hover .iptv-star, .iptv-star:hover, .iptv-star:focus-visible, .iptv-star.is-starred { opacity: 1; }
+.iptv-star.is-starred { color: var(--color-yellow, #f5c542); }
+.iptv-star:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; }
+.iptv-card--live .iptv-quality, .iptv-card--vod .iptv-quality { top: auto; bottom: 0.4rem; }
 .iptv-copy { position: absolute; right: 0.5rem; top: 0.5rem; display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 1px solid rgb(255 255 255 / 0.25); border-radius: var(--radius-full, 999px); background: rgb(0 0 0 / 0.65); color: #fff; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: background-color 0.12s, opacity 0.12s; }
 .iptv-card:hover .iptv-copy, .iptv-copy:hover, .iptv-copy:focus-visible { opacity: 1; background: var(--color-accent5); }
 .iptv-copy:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; }

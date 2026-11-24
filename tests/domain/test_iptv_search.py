@@ -16,3 +16,10 @@ def test_an_empty_group_is_ignored_and_nothing_is_nothing():
 
 def test_a_word_that_only_contains_group_is_a_title_word():
     assert parse_query("subgroup:x") == Query(words=("subgroup:x",))
+
+
+def test_is_starred_is_a_filter_not_a_title_word():
+    assert parse_query("is:starred") == Query(starred=True)
+    assert parse_query("raja IS:Starred group:tamil") == Query(("raja",), ("tamil",), True)
+    assert parse_query("is:star heat") == Query(("heat",), (), True)
+    assert parse_query("is:starredx this:is:starred") == Query(("is:starredx", "this:is:starred"))

@@ -1,4 +1,4 @@
-/** Suggestions for the Library search box (no DOM, unit-tested in tests/js/iptv.test.mjs): typing `group:` offers the provider's categories. */
+/** Suggestions for the Library search box (no DOM, unit-tested in tests/js/iptv.test.mjs): typing `group:` offers the provider's categories, `is:` the starred filter. */
 
 /** The word at the caret: where it starts and ends in the text, and what is before the caret. */
 export function searchToken(value, cursor = value.length) {
@@ -34,4 +34,19 @@ export function groupTerm(name) {
 export function insertTerm(value, cursor, term) {
   const { start, end } = searchToken(value, cursor);
   return { value: value.slice(0, start) + term + ' ' + value.slice(end).trimStart(), cursor: start + term.length + 1 };
+}
+
+export const STARRED_TERM = 'is:starred';
+
+/** A word that starts like `is:starred` (i, is, is:, is:st) offers the starred filter, unless the search already has it. */
+export function starredSuggestions(value, cursor = value.length) {
+  const { prefix } = searchToken(value, cursor);
+  const lower = prefix.toLowerCase();
+  if (!lower || !STARRED_TERM.startsWith(lower) || /(^|\s)is:starred(\s|$)/i.test(value.slice(0, cursor - prefix.length) + ' ' + value.slice(cursor))) return [];
+  return [{ value: STARRED_TERM, label: 'Starred only', badge: '\u2605' }];
+}
+
+/** Does the search ask for the starred only? (The page then drops an item from view when it is unstarred.) */
+export function wantsStarred(q) {
+  return /(^|\s)is:star(red)?(\s|$)/i.test(q || '');
 }

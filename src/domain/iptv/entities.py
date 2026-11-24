@@ -20,6 +20,7 @@ class Channel:
     logo: str | None = None
     ext: str | None = None  # a movie's container extension
     added: int | None = None  # when the provider added it (epoch seconds)
+    starred: bool = False  # the user's own mark; kept apart from the catalogue, so a sync does not lose it
 
 
 @dataclass(frozen=True)

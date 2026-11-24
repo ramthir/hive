@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS channel (
   logo TEXT, ext TEXT, added INTEGER, PRIMARY KEY (type, id));
 CREATE INDEX IF NOT EXISTS channel_group ON channel (type, grp);
 CREATE INDEX IF NOT EXISTS channel_name ON channel (type, name_lc);
+CREATE TABLE IF NOT EXISTS star (type TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY (type, id));
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
+
+
+STARRED = "EXISTS (SELECT 1 FROM star s WHERE s.type = channel.type AND s.id = channel.id)"
 
 
 def _like(word: str) -> str:
@@ -63,6 +67,8 @@ class IptvStore:
         for word in query.words:
             where.append("name_lc LIKE ? ESCAPE '\\'")
             args.append(_like(word))
+        if query.starred:
+            where.append(STARRED)
         for part in query.groups:  # the category contains it, whatever its case
             where.append("LOWER(grp) LIKE ? ESCAPE '\\'")
             args.append(_like(part))
@@ -70,7 +76,7 @@ class IptvStore:
         with closing(self._connect()) as db:
             total = db.execute(f"SELECT COUNT(*) FROM channel WHERE {clause}", args).fetchone()[0]
             rows = db.execute(
-                f"SELECT * FROM channel WHERE {clause} ORDER BY {SORTS.get(sort, SORTS['name'])} LIMIT ? OFFSET ?",
+                f"SELECT channel.*, {STARRED} AS starred FROM channel WHERE {clause} ORDER BY {SORTS.get(sort, SORTS['name'])} LIMIT ? OFFSET ?",
                 [*args, page_size, page * page_size],
             ).fetchall()
         return [self._channel(r) for r in rows], total
@@ -82,9 +88,20 @@ class IptvStore:
 
     def get(self, type: StreamType, provider_id: str) -> Channel | None:
         with closing(self._connect()) as db:
-            row = db.execute("SELECT * FROM channel WHERE type = ? AND id = ?", (type.value, provider_id)).fetchone()
+            row = db.execute(f"SELECT channel.*, {STARRED} AS starred FROM channel WHERE type = ? AND id = ?", (type.value, provider_id)).fetchone()
         return self._channel(row) if row else None
+
+    def set_starred(self, type: StreamType, provider_id: str, starred: bool) -> bool:
+        """Star or unstar one entry; False when the catalogue has no such entry. Stars are not touched by a sync."""
+        with closing(self._connect()) as db, db:
+            if not db.execute("SELECT 1 FROM channel WHERE type = ? AND id = ?", (type.value, provider_id)).fetchone():
+                return False
+            if starred:
+                db.execute("INSERT OR IGNORE INTO star VALUES (?, ?)", (type.value, provider_id))
+            else:
+                db.execute("DELETE FROM star WHERE type = ? AND id = ?", (type.value, provider_id))
+        return True
 
     @staticmethod
     def _channel(r: sqlite3.Row) -> Channel:
-        return Channel(r["id"], StreamType(r["type"]), r["name"], r["grp"], r["logo"], r["ext"], r["added"])
+        return Channel(r["id"], StreamType(r["type"]), r["name"], r["grp"], r["logo"], r["ext"], r["added"], bool(r["starred"]))

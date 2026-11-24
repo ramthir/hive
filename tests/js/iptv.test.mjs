@@ -103,3 +103,16 @@ test('an episode title loses the provider\'s playlist attributes, the series nam
   assert.equal(episodeTitle('A.B (x): Price (Part 1)', 'A.B (x)'), 'Price (Part 1)');  // a series name with regex characters is matched as text
   assert.equal(episodeLabel({ number: 3, title: 'Pilot' }), 'E03 \u00b7 Pilot');
 });
+
+test('typing is: offers the starred filter once, and wantsStarred reads it', async () => {
+  const { starredSuggestions, wantsStarred } = await import('../../static/iptv/search.js');
+  assert.deepEqual(starredSuggestions('i').map((s) => s.value), ['is:starred']);
+  assert.deepEqual(starredSuggestions('raja IS:s').map((s) => s.value), ['is:starred']);
+  assert.deepEqual(starredSuggestions('group:tamil is:starred is'), []);  // already asked for
+  assert.deepEqual(starredSuggestions('raja'), []);
+  assert.deepEqual(starredSuggestions(''), []);
+  assert.equal(wantsStarred('raja is:starred'), true);
+  assert.equal(wantsStarred('is:star'), true);
+  assert.equal(wantsStarred('raja'), false);
+  assert.equal(wantsStarred('this:is:starred'), false);
+});

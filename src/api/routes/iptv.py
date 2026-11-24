@@ -16,7 +16,7 @@ router = APIRouter(prefix="/iptv")
 
 
 def _out(c: Channel) -> dict:
-    out = {"id": c.id, "type": c.type.value, "name": c.name, "group": c.group, "logo": c.logo, "added": c.added}
+    out = {"id": c.id, "type": c.type.value, "name": c.name, "group": c.group, "logo": c.logo, "added": c.added, "starred": c.starred}
     if c.type == StreamType.LIVE:  # the stored name stays as the provider sent it (a sync brings it back); it is cleaned when read
         clean = clean_channel_name(c.name)
         out.update(display_name=clean.name, quality=clean.quality, note=clean.note)
@@ -52,6 +52,20 @@ def channels(request: Request, type: StreamType, group: str | None = Query(None,
 @router.get("/groups")
 def groups(request: Request, type: StreamType) -> list[dict]:
     return _catalog(request).store.groups(type)
+
+
+@router.put("/star")
+def star(request: Request, type: StreamType, id: str = Query(max_length=32)) -> dict:
+    if not _catalog(request).store.set_starred(type, id, True):
+        raise HTTPException(404, "Not found")
+    return {"starred": True}
+
+
+@router.delete("/star")
+def unstar(request: Request, type: StreamType, id: str = Query(max_length=32)) -> dict:
+    if not _catalog(request).store.set_starred(type, id, False):
+        raise HTTPException(404, "Not found")
+    return {"starred": False}
 
 
 @router.get("/series/{series_id}")

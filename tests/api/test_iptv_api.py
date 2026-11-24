@@ -131,3 +131,32 @@ def test_series_page_data_has_the_facts_seasons_and_episodes_but_no_stream_urls(
     assert two == {"id": "301", "number": 2, "title": "Two", "plot": "The second.", "duration": 3000, "image": "http://img.example/e2.jpg"}
     text = synced.get("/api/iptv/series/30").text
     assert "s3cret" not in text and "alice" not in text and "prov.example" not in text
+
+
+def _names(c, **params):
+    return [x["name"] for x in c.get("/api/iptv/channels", params=params).json()["items"]]
+
+
+def test_starring_marks_an_item_and_is_found_with_is_starred(synced):
+    assert all(not c["starred"] for c in synced.get("/api/iptv/channels", params={"type": "vod"}).json()["items"])
+    assert synced.put("/api/iptv/star", params={"type": "vod", "id": "21"}).json() == {"starred": True}
+    assert synced.put("/api/iptv/star", params={"type": "series", "id": "30"}).status_code == 200
+    assert _names(synced, type="vod", q="is:starred") == ["Ronin 100%"]
+    assert _names(synced, type="series", q="is:starred") == ["The Wire"]
+    assert _names(synced, type="live", q="is:starred") == []  # stars are per kind
+    assert _names(synced, type="vod", q="is:starred heat") == []
+    assert _names(synced, type="vod", q="is:starred group:action") == ["Ronin 100%"]
+    flags = {c["name"]: c["starred"] for c in synced.get("/api/iptv/channels", params={"type": "vod"}).json()["items"]}
+    assert flags == {"Heat": False, "Ronin 100%": True}
+    assert synced.get("/api/iptv/series/30").json()["starred"] is True
+    assert synced.delete("/api/iptv/star", params={"type": "vod", "id": "21"}).json() == {"starred": False}
+    assert _names(synced, type="vod", q="is:starred") == []
+
+
+def test_stars_survive_a_sync_and_unknown_items_are_404(synced, tmp_path):
+    synced.put("/api/iptv/star", params={"type": "vod", "id": "20"})
+    assert synced.post("/api/iptv/sync").json() == {"started": True}
+    synced.app.state.iptv.wait(10)
+    assert _names(synced, type="vod", q="is:starred") == ["Heat"]
+    assert synced.put("/api/iptv/star", params={"type": "vod", "id": "999"}).status_code == 404
+    assert synced.delete("/api/iptv/star", params={"type": "vod", "id": "999"}).status_code == 404

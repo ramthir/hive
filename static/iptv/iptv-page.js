@@ -4,7 +4,7 @@ import { showToast } from '/static/toast.js';
 import { copyStreamUrl } from '/static/iptv/copy.js';
 import { openSeriesDrawer } from '/static/iptv/series-drawer.js';
 import '/static/components/autocomplete.js';
-import { groupSuggestions, insertTerm } from '/static/iptv/search.js';
+import { groupSuggestions, insertTerm, starredSuggestions, wantsStarred } from '/static/iptv/search.js';
 import {
   TYPES, cardParts, channelsQuery, initials, readState, stateSearch, syncLabel, titleHue,
 } from '/static/iptv/format.js';
@@ -24,8 +24,8 @@ class IptvApp extends HTMLElement {
             <app-autocomplete id="iptv-search" class="iptv-search" input-id="iptv-search-input" no-shortcut placeholder="Search ${esc(TYPES.find((t) => t.type === this.state.type).label.toLowerCase())}…" value="${esc(this.state.q)}">
               <div slot="help" class="iptv-search-help">
                 <strong class="autocomplete-help-title">Search</strong>
-                <p>Type a title, or filter by category with <code>group:</code>. Start typing it to pick a category.</p>
-                <p><code>group:tamil</code> — categories containing "tamil"<br><code>group:"Tamil Movies"</code> — a category with spaces<br><code>raja group:tamil</code> — a title word and a category</p>
+                <p>Type a title, or filter by category with <code>group:</code>. Start typing it to pick a category. Star an item with its ★ and find it again with <code>is:starred</code>.</p>
+                <p><code>group:tamil</code> — categories containing "tamil"<br><code>group:"Tamil Movies"</code> — a category with spaces<br><code>raja group:tamil</code> — a title word and a category<br><code>is:starred</code> — only what you starred<br><code>is:starred group:tamil</code> — starred, in a category</p>
               </div>
             </app-autocomplete>
             <button type="button" data-sync title="Load the catalogue from the provider"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync</button>
@@ -43,7 +43,7 @@ class IptvApp extends HTMLElement {
     const search = autocomplete.input;
     this.groups = [];
     this.loadGroups();
-    const suggest = () => { autocomplete.options = groupSuggestions(this.groups, search.value, search.selectionStart ?? search.value.length); };
+    const suggest = () => { const at = search.selectionStart ?? search.value.length; autocomplete.options = [...starredSuggestions(search.value, at), ...groupSuggestions(this.groups, search.value, at)]; };
     let timer;
     const apply = () => { clearTimeout(timer); this.go({ q: search.value.trim() }); };
     search.addEventListener('input', () => { suggest(); clearTimeout(timer); timer = setTimeout(apply, 250); });
@@ -64,6 +64,8 @@ class IptvApp extends HTMLElement {
     this.observer.observe(this.more);
     this.querySelector('[data-sync]').addEventListener('click', () => this.sync());
     this.grid.addEventListener('click', (e) => {
+      const star = e.target.closest('[data-star]');
+      if (star) { e.preventDefault(); this.toggleStar(star); return; }
       const series = e.target.closest('[data-series]');
       if (series) { e.preventDefault(); openSeriesDrawer({ id: series.dataset.series, name: series.dataset.name }); return; }
       const copy = e.target.closest('[data-copy]');
@@ -136,11 +138,37 @@ class IptvApp extends HTMLElement {
     const art = `<span class="iptv-art" style="--hue:${titleHue(title)}"><span class="iptv-initials" aria-hidden="true">${esc(initials(title))}</span>${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ''}${quality ? `<span class="iptv-quality">${esc(quality)}</span>` : ''}</span>`;
     const label = `<span class="iptv-name">${esc(title)}</span><span class="iptv-group-name">${esc(subtitle)}</span>`;
     const cls = `iptv-card iptv-card--${c.type}`;
+    const star = `<button type="button" class="iptv-star${c.starred ? ' is-starred' : ''}" data-star data-type="${c.type}" data-id="${esc(c.id)}" aria-pressed="${c.starred ? 'true' : 'false'}" aria-label="Star ${esc(c.name)}" title="${c.starred ? 'Remove the star' : 'Star'}"><i class="${c.starred ? 'fa-solid' : 'fa-regular'} fa-star" aria-hidden="true"></i></button>`;
     // A series has no stream of its own: its card opens a drawer, where each episode has the copy button.
     if (c.type === 'series') {
-      return `<button type="button" class="${cls}" data-series="${esc(c.id)}" data-name="${esc(c.name)}" title="${esc(c.name)}">${art}${label}</button>`;
+      return `<div class="${cls}" title="${esc(c.name)}"><button type="button" class="iptv-open" data-series="${esc(c.id)}" data-name="${esc(c.name)}">${art}${label}</button>${star}</div>`;
     }
-    return `<div class="${cls}" title="${esc(c.name)}">${art}${label}<button type="button" class="iptv-copy" data-copy data-type="${c.type}" data-id="${esc(c.id)}" aria-label="Copy the stream URL of ${esc(c.name)}" title="Copy stream URL"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></div>`;
+    return `<div class="${cls}" title="${esc(c.name)}">${art}${label}${star}<button type="button" class="iptv-copy" data-copy data-type="${c.type}" data-id="${esc(c.id)}" aria-label="Copy the stream URL of ${esc(c.name)}" title="Copy stream URL"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></div>`;
+  }
+
+  /** Star or unstar a card. The list is not redrawn, so the page keeps its place; a card stays on screen when the search is "is:starred"
+   *  (so a misclick can be undone) and is gone the next time the list loads. */
+  async toggleStar(button) {
+    const { type, id } = button.dataset;
+    const starred = button.getAttribute('aria-pressed') !== 'true';
+    button.disabled = true;
+    try {
+      await api(`/iptv/star?${new URLSearchParams({ type, id })}`, { method: starred ? 'PUT' : 'DELETE' });
+      this.paintStar(button, starred);
+      if (!starred && wantsStarred(this.state.q)) showToast('Star removed. It leaves this list when you search again.');
+    } catch (error) {
+      showToast(error.message || 'Could not change the star');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  paintStar(button, starred) {
+    button.setAttribute('aria-pressed', String(starred));
+    button.classList.toggle('is-starred', starred);
+    button.title = starred ? 'Remove the star' : 'Star';
+    const icon = button.querySelector('i');
+    if (icon) icon.className = `${starred ? 'fa-solid' : 'fa-regular'} fa-star`;
   }
 
   async loadStatus() {
