@@ -9,13 +9,14 @@ import threading
 from collections.abc import Iterable
 from datetime import date
 from dataclasses import replace
+from typing import get_args
 
 from src.application.notes import properties as properties_view, time_entries
 from src.application.notes.feed import ChangeFeed
 from src.application.notes.index import NoteIndex, SearchHit
 from src.domain.notes.entities import Comparison, Note, NoteVersion
-from src.domain.notes.errors import InvalidTime, InvalidTitle, NoteConflict, NoteLinked, NoteNotFound
-from src.domain.notes.properties import apply_properties, form_for
+from src.domain.notes.errors import InvalidProperty, InvalidTime, InvalidTitle, NoteConflict, NoteLinked, NoteNotFound
+from src.domain.notes.properties import SpecStatus, apply_properties, form_for
 from src.domain.notes.repositories import NoteRepository
 from src.domain.notes.slug import slugify
 from src.domain.notes.tasks import is_task, task_status, week_label, without_priority
@@ -226,6 +227,8 @@ class NoteService:
             raise NoteConflict("This note changed since you opened it (edited elsewhere).")
         new_types = current.types if types is None else _clean(types)
         new_status = current.status if status is None else status
+        if status in get_args(SpecStatus) and any(t.casefold() == "task" for t in new_types):
+            raise InvalidProperty(f"{status!r} is a specification status, not a task status.")
         new_week = current.week if week is None else (week or None)
         new_tags = current.tags if tags is None else tuple(tags)
         new_priority = current.priority

@@ -10,6 +10,7 @@ from src.application.notes.time_entries import TimeRow
 from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.properties import form_for
 from src.domain.notes.time import MAX_MINUTES_PER_DAY, TimeKind, accepts_time, time_type
+from src.domain.notes.properties import SpecStatus
 from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
@@ -146,7 +147,7 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     tags: list[str] | None = None
     types: list[str] | None = None  # omitted: unchanged; []: clear
-    status: TaskStatus | None = None  # omitted: unchanged
+    status: TaskStatus | SpecStatus | None = None  # omitted: unchanged
     priority: TaskPriority | Literal[""] | None = None  # stored in the `priority` key; "" removes it; omitted: unchanged
     week: str | None = Field(default=None, pattern=WEEK_PATTERN + "|^$")  # omitted: unchanged (set automatically with status); "" clears
     properties: dict[str, str] | None = None  # the type's own fields, e.g. {"project": "Acme"}; "" removes one; omitted: unchanged

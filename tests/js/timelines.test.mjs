@@ -59,6 +59,8 @@ test('readPagePath sends table and timeline notes to their own page', async () =
   const { readPagePath } = await import('/static/notes/read-pages.js');
   assert.equal(readPagePath({ slug: 'plan', types: ['timeline'] }), '/timelines/plan');
   assert.equal(readPagePath({ slug: 'a b', types: ['Table'] }), '/tables/a%20b');
+  assert.equal(readPagePath({ slug: 'spine-users', types: ['specification'] }), '/specifications/spine-users');
+  assert.equal(readPagePath({ slug: 'spine-users', types: ['Spec'] }), '/specifications/spine-users');
   assert.equal(readPagePath({ slug: 'plan', types: ['task'] }), '');
   assert.equal(readPagePath({ types: ['table'] }), '');
 });

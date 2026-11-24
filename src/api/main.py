@@ -223,7 +223,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         return FileResponse(static / "tasks.html", headers={"Cache-Control": "no-cache"})
 
     # Note types read on their own page (keep in step with READ_PAGES in static/notes/read-pages.js).
-    for prefix, html in (("tables", "tables.html"), ("timelines", "timelines.html")):
+    for prefix, html in (("tables", "tables.html"), ("timelines", "timelines.html"), ("specifications", "specifications.html")):
         def read_page(slug: str, html: str = html) -> FileResponse:
             return FileResponse(static / html, headers={"Cache-Control": "no-cache"})
 

@@ -1,0 +1,116 @@
+/* Specification notes: the objective and requirements of a `type: specification` note as cards, with an outline. */
+
+specifications-app {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-7));
+  width: calc(100% + 2 * var(--space-7));
+  box-sizing: border-box;
+}
+
+.spec-page { padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
+
+.spec-workspace {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: 0 var(--space-6);
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.spec-outline {
+  position: sticky;
+  top: var(--space-5);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+  font-size: 0.8125rem;
+}
+.spec-outline b { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); margin-bottom: var(--space-2); }
+.spec-outline .spec-outline-gap { margin-top: var(--space-4); }
+.spec-outline a {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-dimmed2);
+  text-decoration: none;
+}
+.spec-outline a span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spec-outline a:hover, .spec-outline a:focus-visible { color: var(--color-text); }
+.spec-outline a.on { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 12%, transparent); }
+.spec-count { color: var(--color-dimmed3); font-variant-numeric: tabular-nums; }
+
+.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-width: 60rem; }
+
+.spec-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.spec-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 10px;
+  min-height: 1.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-dimmed1);
+  background: color-mix(in srgb, var(--color-dimmed3) 18%, transparent);
+}
+.spec-pill--ok { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.spec-pill--warn { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
+.spec-status--active { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.spec-status--deprecated { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
+.spec-project { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
+
+.spec-legacy { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); line-height: 1.5; color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
+
+.spec-section { display: flex; flex-direction: column; gap: var(--space-3); scroll-margin-top: var(--space-5); min-width: 0; }
+.spec-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
+.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); max-width: 46rem; }
+.spec-prose { min-width: 0; line-height: 1.6; }
+.spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
+.spec-section--legacy .spec-prose { opacity: 0.85; }
+.spec-empty { margin: 0; color: var(--color-dimmed3); }
+
+.spec-req {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  scroll-margin-top: var(--space-5);
+}
+.spec-req--weak { border-color: color-mix(in srgb, var(--color-orange) 55%, var(--color-border)); }
+.spec-req-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
+.spec-req-copy { opacity: 0; transition: opacity 0.15s; }
+.spec-req:hover .spec-req-copy, .spec-req-copy:focus-visible { opacity: 1; }
+.spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); max-width: 46rem; }
+.spec-statement mark { background: transparent; color: var(--color-blue); font-weight: 600; }
+
+.spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.spec-scenario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.25rem minmax(0, 1.4fr);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+  line-height: 1.5;
+}
+.spec-when { color: var(--color-dimmed2); }
+.spec-arrow { text-align: center; color: var(--color-blue); }
+
+.spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.spec-check .spec-pill { margin-top: var(--space-3); }
+.spec-check ul .spec-pill { margin-top: 0; }

@@ -6,7 +6,7 @@ from typing import Iterable
 
 from src.domain.notes.entities import Note
 from src.domain.notes.properties import Field, Form, extra_values, split_titles
-from src.domain.notes.tasks import task_priority, task_status, week_label, without_priority
+from src.domain.notes.tasks import is_task, task_priority, task_status, week_label, without_priority
 
 WEEKS_BEFORE, WEEKS_AFTER = 2, 2
 
@@ -39,8 +39,8 @@ def _known_values(field: Field, notes: Iterable[Note], me: str, current: str) ->
 def _value(field: Field, note: Note, values: dict[str, str]) -> str:
     if field.target == "tags":  # comma-separated; the priority tag of an older note is the Priority field
         return ",".join(without_priority(note.tags))
-    if field.target == "status":
-        return task_status(note)
+    if field.target == "status":  # a task's is one of three; any other note (a specification: Draft, Active...) keeps what it has
+        return task_status(note) if is_task(note) else (note.status or "")
     if field.target == "priority":
         return task_priority(note) or ""
     if field.target == "week":

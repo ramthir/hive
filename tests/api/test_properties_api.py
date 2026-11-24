@@ -48,7 +48,7 @@ def test_each_type_gets_its_own_fields(client):
     assert keys(make(client, "P", "project")) == ["billing"]
     assert keys(make(client, "Co", "company")) == ["billing"]
     assert keys(make(client, "C", "contact")) == ["role", "project", "team", "billing", "acting_for"]
-    assert keys(make(client, "S", "spec")) == ["project", "application"]
+    assert keys(make(client, "S", "spec")) == ["project", "application", "status", "verified"]
     assert keys(make(client, "Both", "meeting", "task"))[:2] == ["project", "specification"]  # a task and a meeting: the task's
 
 
@@ -255,3 +255,26 @@ def test_role_offers_the_roles_other_contacts_have_and_accepts_new_ones(client, 
     client.put(f"/api/notes/{a}", json={"properties": {"role": "Lead Engineer"}})
     assert "role: '[[Lead Engineer]]'" in pa.read_text()  # a note that used links keeps using them
     assert form(client, b)["role"]["value"] == "Architect"
+
+
+def test_a_specification_has_a_status_of_its_own_and_a_verified_date(client, root):
+    slug = make(client, "Spine - Users", "specification")
+    f = form(client, slug)
+    assert f["status"]["value"] == ""  # a task would read TODO here; a specification has none until one is chosen
+    assert [c["value"] for c in f["status"]["choices"]] == ["Draft", "Active", "Deprecated"]
+    r = client.put(f"/api/notes/{slug}", json={"status": "Active", "properties": {"verified": "2026-11-20"}})
+    assert r.status_code == 200, r.text
+    text = (root / "spine-users.md").read_text()
+    assert "status: Active" in text and "verified: '2026-11-20'" in text  # text, so quoted; the vault's own unquoted date reads the same
+    f = form(client, slug)
+    assert (f["status"]["value"], f["verified"]["value"]) == ("Active", "2026-11-20")
+    (root / "spine-users.md").write_text(text.replace("verified: '2026-11-20'", "verified: 2026-11-21"))
+    assert client.post("/api/reindex").status_code == 204
+    assert form(client, slug)["verified"]["value"] == "2026-11-21"
+    assert client.get(f"/api/notes/{slug}").json()["extra"]["verified"] == "2026-11-21"
+    assert client.get("/api/tasks").json() == []  # Active is not a task status: the board never sees it
+
+
+def test_a_task_refuses_a_specification_status(client):
+    slug = make(client, "Job", "task")
+    assert client.put(f"/api/notes/{slug}", json={"status": "Active"}).status_code == 422

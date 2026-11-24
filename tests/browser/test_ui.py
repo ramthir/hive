@@ -1,4 +1,5 @@
 """End-to-end UI flows against a real server and a temp notes repo."""
+import re
 import socket
 from datetime import date
 import subprocess
@@ -2140,6 +2141,32 @@ def test_timeline_note_opens_as_phases_and_the_pencil_returns_to_the_editor(page
     expect(page.locator("button.timeline-phase-head, #timeline-toggle-all")).to_have_count(0)  # nothing collapses
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/roadmap?mode=edit")
+    assert page.errors == []
+
+
+def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
+    (notes_dir / "spine-users.md").write_text(
+        "---\ntitle: 'Spine — Users'\ntype: specification\nstatus: Active\nverified: 2026-01-01\nupdated: 2026-03-03\n---\n\n"
+        "# Spine — Users\n\n## Objective\n\nPeople can sign in.\n\n## Requirements\n\n"
+        "### Sign in\n\nThe system SHALL let a user sign in.\n\n- valid password -> a session starts\n- wrong password -> sign in is refused\n\n"
+        "### Sign out\n\nA user can sign out.\n\n## Open Questions\n\n- Single sign-on?\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "specification")
+
+    page.goto(f"{server}/notes/spine-users")
+    page.wait_for_url("**/specifications/spine-users")  # a specification note is read on its own page
+    expect(page.locator("app-header")).to_have_attribute("heading", "Spine — Users")
+    expect(page.locator(".spec-status")).to_have_text("Active")
+    expect(page.locator(".spec-objective")).to_have_text("People can sign in.")
+    cards = page.locator(".spec-req")
+    expect(cards).to_have_count(2)
+    expect(cards.nth(0).locator(".spec-scenario")).to_have_count(2)
+    expect(cards.nth(0).locator(".spec-statement mark")).to_have_text("SHALL")
+    expect(cards.nth(1)).to_have_class(re.compile("spec-req--weak"))  # no SHALL or MUST
+    expect(page.locator(".spec-check li")).to_have_count(1)
+    expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
+    page.click("#edit-note-btn")
+    page.wait_for_url("**/notes/spine-users?mode=edit")
     assert page.errors == []
 
 

@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 from src.domain.notes.entities import Note
 from src.domain.notes.errors import InvalidProperty
 
+SpecStatus = Literal["Draft", "Active", "Deprecated"]  # the `status` of a specification (a task has TODO / IN_PROGRESS / DONE)
 Kind = Literal["text", "select", "note", "values", "tags"]  # free text, `values` (the values other notes already have for the key, and new ones), one of `choices`, the title of a note of one of `note_types`, or a list of tags
 Target = Literal["property", "tags", "status", "priority", "week"]
 MAX_LENGTH = 255
@@ -78,8 +79,13 @@ TASK = Form(
         Field("tags", "Tags", "tag", "tags", target="tags", group="tags", wide=True, placeholder="Add tags"),
     ),
 )
-SPEC = Form("Spec", fields=(_project(), Field("application", "Application", "code", "note", note_types=("application", "project"),
-                                       placeholder="Select application...")))
+SPEC_STATUS = tuple((name, name) for name in get_args(SpecStatus))
+SPEC = Form("Spec", fields=(
+    _project(),
+    Field("application", "Application", "code", "note", note_types=("application", "project"), placeholder="Select application..."),
+    Field("status", "Status", "list-check", "select", target="status", choices=SPEC_STATUS, placeholder="Not set"),
+    Field("verified", "Verified", "calendar-check", placeholder="YYYY-MM-DD, last checked against the code"),
+))
 CONTACT = Form(
     "Contact",
     groups={"context": "Project & Team"},
