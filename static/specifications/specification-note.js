@@ -25,7 +25,7 @@ export const isSpecificationNote = (note) => (note?.types || []).some((type) => 
 export const sectionKey = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** Lines outside code fences are the only ones that can start a heading or a bullet. */
-function* lines(content) {
+export function* lines(content) {
   let fence = false;
   for (const text of String(content || '').split(/\r?\n/)) {
     const opens = FENCE.test(text);
@@ -34,7 +34,7 @@ function* lines(content) {
   }
 }
 
-const trimBlank = (list) => {
+export const trimBlank = (list) => {
   let start = 0;
   let end = list.length;
   while (start < end && !list[start].trim()) start += 1;

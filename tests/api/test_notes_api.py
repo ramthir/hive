@@ -483,6 +483,24 @@ def test_specifications_page_is_its_own_document(client):
     assert "<specifications-app>" in res.text
 
 
+def test_task_page_is_its_own_document(client):
+    res = client.get("/tasks/anything")
+    assert res.status_code == 200
+    assert "<task-note-app>" in res.text
+    assert client.get("/tasks").text != res.text  # the board is another document
+
+
+def test_a_task_note_carries_its_effective_status_and_priority(client):
+    make(client, "Old one", types=["task"], tags=["done", "Must"])  # an older note: only tags say so
+    make(client, "New one", types=["task"])
+    assert client.put("/api/notes/new-one", json={"status": "IN_PROGRESS", "priority": "nice-to-have"}).status_code == 200
+    make(client, "Idea", types=["idea"], tags=["must"])
+    old, new, idea = (client.get(f"/api/notes/{slug}").json() for slug in ("old-one", "new-one", "idea"))
+    assert (old["task_status"], old["priority"]) == ("DONE", "must")
+    assert (new["task_status"], new["priority"]) == ("IN_PROGRESS", "nice-to-have")
+    assert (idea["task_status"], idea["priority"]) == (None, None)
+
+
 def test_role_is_returned_as_plain_text_for_the_search(client, root):
     for slug, role in [("ann", "'[[Senior Engineer]]'"), ("bo", "'[[senior-engineer|Lead]]'"), ("cy", "UserRole"), ("dee", None)]:
         extra = f"role: {role}\n" if role else ""

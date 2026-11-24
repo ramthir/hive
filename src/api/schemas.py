@@ -11,7 +11,7 @@ from src.domain.notes.entities import Note, NoteVersion
 from src.domain.notes.properties import form_for
 from src.domain.notes.time import MAX_MINUTES_PER_DAY, TimeKind, accepts_time, time_type
 from src.domain.notes.properties import SpecStatus
-from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, task_priority, task_status, task_week, without_priority
+from src.domain.notes.tasks import WEEK_PATTERN, TaskPriority, TaskStatus, is_task, task_priority, task_status, task_week, without_priority
 from src.domain.notes.title import with_h1
 
 
@@ -52,12 +52,15 @@ class NoteDetail(NoteSummary):
     takes_time: bool = False  # a task or meeting: time can be logged on it
     has_properties: bool = False  # the note's type has a properties drawer (GET /notes/{slug}/properties)
     revision: str | None = None  # changes whenever the file's text does; send it back in PUT to detect edits made meanwhile
+    task_status: str | None = None  # a task's effective status (the stored one, else derived from a `done` tag); None for other notes
+    priority: str | None = None  # a task's priority (the `priority:` key, else an older priority tag); None for other notes
     extra: dict[str, Any]
 
     @classmethod
     def from_note(cls, n: Note) -> "NoteDetail":
         return cls(slug=n.slug, title=n.title, tags=list(n.tags), created=n.created, updated=n.updated,
-                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, revision=n.revision, extra=dict(n.extra))
+                   types=list(n.types), status=n.status, week=n.week, role=role_of(n), snippet=snippet(n.content), content=with_h1(n.title, n.content), time=dict(n.time), takes_time=accepts_time(n), has_properties=form_for(n.types) is not None, revision=n.revision,
+                   task_status=task_status(n) if is_task(n) else None, priority=task_priority(n) if is_task(n) else None, extra=dict(n.extra))
 
 
 class TimeEntryOut(BaseModel):

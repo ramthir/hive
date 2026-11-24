@@ -1,6 +1,6 @@
 /* Specification notes: the objective and requirements of a `type: specification` note as cards, with an outline. */
 
-specifications-app {
+specifications-app, task-note-app {
   display: flex;
   flex: 1;
   flex-direction: column;
