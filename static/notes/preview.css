@@ -1,5 +1,112 @@
-/* Monokai Pro Syntax Highlighting for Notes Preview */
-:is(.notes-preview-pane, .spec-prose) pre code.hljs {
+/* Shared markdown prose, code block, table and wiki-link styling across notes, specifications, tasks, tables and chat. */
+
+:is(.notes-preview-pane, .chat-answer) h1,
+:is(.notes-preview-pane, .chat-answer) h2,
+:is(.notes-preview-pane, .chat-answer) h3,
+:is(.notes-preview-pane, .chat-answer) h4,
+:is(.notes-preview-pane, .chat-answer) h5,
+:is(.notes-preview-pane, .chat-answer) h6 {
+  color: var(--color-text);
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+:is(.notes-preview-pane, .chat-answer) h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  border-bottom: 1px solid var(--color-dimmed5);
+  padding-bottom: 0.4em;
+}
+
+:is(.notes-preview-pane, .chat-answer) h2 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 0.3em;
+}
+
+:is(.notes-preview-pane, .chat-answer) h3 {
+  font-size: 1.25rem;
+}
+
+:is(.notes-preview-pane, .chat-answer) h4 {
+  font-size: 1.05rem;
+}
+
+:is(.notes-preview-pane, .chat-answer) h5,
+:is(.notes-preview-pane, .chat-answer) h6 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-dimmed1);
+}
+
+:is(.notes-preview-pane, .chat-answer) h6 {
+  font-weight: 500;
+  color: var(--color-dimmed2);
+}
+
+/* A heading straight after another heading sits close to it */
+:is(.notes-preview-pane, .chat-answer) :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0.5em;
+}
+
+:is(.notes-preview-pane, .chat-answer) p {
+  margin: 0.8em 0;
+  color: var(--color-dimmed1);
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) img[src*="/diagram.svg"] {
+  cursor: pointer;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) img[src*="/diagram.svg"]:hover {
+  filter: brightness(1.08);
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) code {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--color-background);
+  border: 1px solid var(--color-dimmed5);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  color: var(--color-accent3);
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) pre {
+  position: relative;
+  background: var(--color-background);
+  border: 1px solid var(--color-dimmed5);
+  border-radius: var(--radius-md, 6px);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1em 0;
+  line-height: 1.6;
+}
+
+:is(.notes-preview-pane, .spec-prose, .chat-answer) pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--color-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  tab-size: 2;
+}
+
+/* Monokai Pro Syntax Highlighting */
+:is(.notes-preview-pane, .spec-prose, .chat-answer) pre code.hljs {
   display: block;
   overflow-x: auto;
   padding: 0;
@@ -8,84 +115,84 @@
 }
 
 /* Keywords, tags, logic, storage, control flow: Monokai Pro Pink */
-:is(.notes-preview-pane, .spec-prose) .hljs-keyword,
-:is(.notes-preview-pane, .spec-prose) .hljs-selector-tag,
-:is(.notes-preview-pane, .spec-prose) .hljs-tag,
-:is(.notes-preview-pane, .spec-prose) .hljs-name,
-:is(.notes-preview-pane, .spec-prose) .hljs-doctag {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-keyword,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-selector-tag,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-tag,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-name,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-doctag {
   color: var(--color-accent1);
   font-weight: 500;
 }
 
 /* Classes, functions, methods, section titles: Monokai Pro Green */
-:is(.notes-preview-pane, .spec-prose) .hljs-title,
-:is(.notes-preview-pane, .spec-prose) .hljs-title.class_,
-:is(.notes-preview-pane, .spec-prose) .hljs-section {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-title,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-title.class_,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-section {
   color: var(--color-accent4);
   font-weight: 600;
 }
 
 /* Strings, characters, regex, attributes value: Monokai Pro Yellow */
-:is(.notes-preview-pane, .spec-prose) .hljs-string,
-:is(.notes-preview-pane, .spec-prose) .hljs-regexp,
-:is(.notes-preview-pane, .spec-prose) .hljs-symbol,
-:is(.notes-preview-pane, .spec-prose) .hljs-bullet {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-string,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-regexp,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-symbol,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-bullet {
   color: var(--color-accent3);
 }
 
 /* Numbers, constants, booleans, literals: Monokai Pro Purple */
-:is(.notes-preview-pane, .spec-prose) .hljs-number,
-:is(.notes-preview-pane, .spec-prose) .hljs-literal,
-:is(.notes-preview-pane, .spec-prose) .hljs-link {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-number,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-literal,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-link {
   color: var(--color-accent6);
 }
 
 /* Variables, parameters, object keys, attributes: Monokai Pro Orange */
-:is(.notes-preview-pane, .spec-prose) .hljs-variable,
-:is(.notes-preview-pane, .spec-prose) .hljs-template-variable,
-:is(.notes-preview-pane, .spec-prose) .hljs-params,
-:is(.notes-preview-pane, .spec-prose) .hljs-attr,
-:is(.notes-preview-pane, .spec-prose) .hljs-attribute {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-variable,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-template-variable,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-params,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-attr,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-attribute {
   color: var(--color-accent2);
 }
 
 /* Built-in functions/types, types, classes: Monokai Pro Cyan */
-:is(.notes-preview-pane, .spec-prose) .hljs-type,
-:is(.notes-preview-pane, .spec-prose) .hljs-built_in,
-:is(.notes-preview-pane, .spec-prose) .hljs-builtin-name {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-type,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-built_in,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-builtin-name {
   color: var(--color-accent5);
   font-style: italic;
 }
 
 /* Comments, quotes: Monokai Pro Dimmed Muted Gray */
-:is(.notes-preview-pane, .spec-prose) .hljs-comment,
-:is(.notes-preview-pane, .spec-prose) .hljs-quote,
-:is(.notes-preview-pane, .spec-prose) .hljs-meta {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-comment,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-quote,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-meta {
   color: var(--color-dimmed3);
   font-style: italic;
 }
 
 /* Operators, punctuation: Monokai Pro Dimmed Light */
-:is(.notes-preview-pane, .spec-prose) .hljs-operator,
-:is(.notes-preview-pane, .spec-prose) .hljs-punctuation {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-operator,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-punctuation {
   color: var(--color-dimmed1);
 }
 
 /* Deletion & Addition (diffs) */
-:is(.notes-preview-pane, .spec-prose) .hljs-deletion {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-deletion {
   color: var(--color-accent1);
   background: color-mix(in srgb, var(--color-accent1) 15%, transparent);
 }
-:is(.notes-preview-pane, .spec-prose) .hljs-addition {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-addition {
   color: var(--color-accent4);
   background: color-mix(in srgb, var(--color-accent4) 15%, transparent);
 }
 
 /* Emphasis & Strong */
-:is(.notes-preview-pane, .spec-prose) .hljs-emphasis {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-emphasis {
   font-style: italic;
 }
-:is(.notes-preview-pane, .spec-prose) .hljs-strong {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) .hljs-strong {
   font-weight: 700;
 }
 
@@ -106,7 +213,7 @@
   line-height: 1;
 }
 
-.notes-preview-pane pre:hover .notes-copy-code-btn,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) pre:hover .notes-copy-code-btn,
 .notes-copy-code-btn:focus-visible {
   opacity: 1;
 }
@@ -122,7 +229,7 @@
   opacity: 1;
 }
 
-.notes-preview-pane blockquote {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) blockquote {
   border-left: 4px solid var(--color-accent5);
   margin: 1em 0;
   padding: 0.4em 1em;
@@ -131,13 +238,13 @@
   border-radius: 0 4px 4px 0;
 }
 
-.notes-preview-pane ul,
-.notes-preview-pane ol {
+:is(.notes-preview-pane, .chat-answer) ul,
+:is(.notes-preview-pane, .chat-answer) ol {
   padding-left: 1.5em;
   margin: 0.8em 0;
 }
 
-.notes-preview-pane li {
+:is(.notes-preview-pane, .chat-answer) li {
   margin: 0.3em 0;
   color: var(--color-dimmed1);
 }
@@ -183,77 +290,80 @@
   background-size: 100%;
 }
 
-.notes-preview-pane table {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) table {
   width: 100%;
   border-collapse: collapse;
   margin: 1em 0;
 }
 
-.notes-preview-pane th,
-.notes-preview-pane td {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) th,
+:is(.notes-preview-pane, .spec-prose, .chat-answer) td {
   border: 1px solid var(--color-dimmed5);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
-.notes-preview-pane th[align='center'],
-.notes-preview-pane td[align='center'] {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) th[align='center'],
+:is(.notes-preview-pane, .spec-prose, .chat-answer) td[align='center'] {
   text-align: center;
 }
 
-.notes-preview-pane th[align='right'],
-.notes-preview-pane td[align='right'] {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) th[align='right'],
+:is(.notes-preview-pane, .spec-prose, .chat-answer) td[align='right'] {
   text-align: right;
 }
 
-.notes-preview-pane th[align='left'],
-.notes-preview-pane td[align='left'] {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) th[align='left'],
+:is(.notes-preview-pane, .spec-prose, .chat-answer) td[align='left'] {
   text-align: left;
 }
 
-.notes-preview-pane th {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) th {
   background: var(--color-dark1);
   color: var(--color-text);
   font-weight: 600;
 }
 
-.notes-preview-pane tr:nth-child(even) {
+:is(.notes-preview-pane, .spec-prose, .chat-answer) tr:nth-child(even) {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.notes-preview-pane a {
+:is(.notes-preview-pane, .chat-answer) a {
   color: var(--color-accent5);
   text-decoration: underline;
 }
 
-.notes-preview-pane a.notes-wikilink {
+/* Shared wiki-link chip across note previews, specifications, tasks, tables and chat answers. */
+:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink {
   color: var(--color-accent5);
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-accent5) 45%, transparent);
-  padding: 0.05rem 0.15rem;
-  border-radius: 3px;
-  background-color: color-mix(in srgb, var(--color-accent5) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent5) 35%, transparent);
+  border-radius: 6px;
+  padding: 0.02rem 0.4rem;
+  background: color-mix(in srgb, var(--color-accent5) 8%, transparent);
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.notes-preview-pane a.notes-wikilink:hover {
-  background-color: color-mix(in srgb, var(--color-accent5) 18%, transparent);
-  border-bottom-color: var(--color-accent5);
+:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink:hover,
+:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink:focus-visible {
+  background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
+  border-color: var(--color-accent5);
   color: #a6f0fc;
+  outline: none;
 }
 
-.notes-preview-pane a.notes-wikilink.unresolved {
+:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink.unresolved {
   color: var(--color-dimmed3, #908e90);
-  border-bottom: 1px dashed var(--color-dimmed4);
-  background-color: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-dimmed4);
+  border-style: dashed;
+  background: transparent;
   font-weight: normal;
 }
 
-.notes-preview-pane a.notes-wikilink.unresolved:hover {
+:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink.unresolved:hover {
   color: var(--color-accent3, #e6db74);
-  border-bottom-color: var(--color-accent3, #e6db74);
-  background-color: rgba(230, 219, 116, 0.1);
+  border-color: var(--color-accent3, #e6db74);
+  background: rgba(230, 219, 116, 0.1);
 }
-

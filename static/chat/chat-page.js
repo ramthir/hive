@@ -347,7 +347,7 @@ class ChatApp extends HTMLElement {
     return `<div class="chat-message assistant" data-index="${index}"><div class="chat-avatar"><i class="fa-solid fa-robot"></i></div>
       <div class="chat-body"><div class="chat-sender">Hive</div>
         ${this.workHtml(turn, noteItem, stepItem)}
-        ${turn.answer ? `<div class="chat-answer notes-preview-pane text-flow">${renderMarkdownPreview(turn.answer, { isRoute: (path) => path.startsWith('/notes') })}</div>`
+        ${turn.answer ? `<div class="chat-answer text-flow">${renderMarkdownPreview(turn.answer, { isRoute: (path) => path.startsWith('/notes') })}</div>`
           : running ? '<div class="chat-thinking">Thinking…</div>' : ''}
         ${turn.status === 'error' ? `<div class="chat-error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(turn.error)}</div>` : ''}
         ${turn.status === 'stopped' ? '<div class="chat-stopped">Stopped. Anything already saved stays saved (see History on the note).</div>' : ''}
