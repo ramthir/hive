@@ -5,8 +5,6 @@ from datetime import datetime, timedelta
 
 PROVIDERS = ('claude', 'codex', 'antigravity')
 WINDOWS = ('5h', '7d')
-# Antigravity also reports Argon's weekly limit, which the page draws as its innermost ring.
-PROVIDER_WINDOWS = {'claude': WINDOWS, 'codex': WINDOWS, 'antigravity': WINDOWS + ('argon-7d',)}
 STALE_AFTER = timedelta(minutes=45)  # three collection intervals of 15 minutes
 SCHEMA_VERSION = 1
 
@@ -62,18 +60,18 @@ def build_view(snapshot: dict, now: datetime) -> dict:
         if not isinstance(provider, dict) or provider.get('status') != 'ok':
             reason = provider.get('reason') if isinstance(provider, dict) else None
             providers[name] = {'status': 'unavailable', 'reason': reason or 'No quota source.',
-                               'windows': {window: {'state': 'unavailable', 'used_pct': None, 'resets_at': None} for window in PROVIDER_WINDOWS[name]}}
+                               'windows': {window: {'state': 'unavailable', 'used_pct': None, 'resets_at': None} for window in WINDOWS}}
             continue
         windows = provider.get('windows') if isinstance(provider.get('windows'), dict) else {}
         providers[name] = {'status': 'ok', 'reason': None,
-                           'windows': {window: _window(windows.get(window), now, generated) for window in PROVIDER_WINDOWS[name]}}
+                           'windows': {window: _window(windows.get(window), now, generated) for window in WINDOWS}}
     return {'generated_at': generated.isoformat(), 'stale': generated < now - STALE_AFTER, 'providers': providers}
 
 
 def unavailable_view(reason: str) -> dict:
     return {'generated_at': None, 'stale': True, 'reason': reason,
             'providers': {name: {'status': 'unavailable', 'reason': reason,
-                                 'windows': {window: {'state': 'unavailable', 'used_pct': None, 'resets_at': None} for window in PROVIDER_WINDOWS[name]}}
+                                 'windows': {window: {'state': 'unavailable', 'used_pct': None, 'resets_at': None} for window in WINDOWS}}
                           for name in PROVIDERS}}
 
 

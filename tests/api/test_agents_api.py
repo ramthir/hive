@@ -73,7 +73,8 @@ def test_quota_has_the_windows_per_provider_and_never_waits_for_the_clis(client)
     body = client.get("/api/agents/quota").json()
     assert list(body["providers"]) == ["claude", "codex", "antigravity"]
     assert body["providers"]["claude"]["windows"]["5h"]["state"] == "ok"
-    assert body["providers"]["antigravity"]["windows"]["argon-7d"]["used_pct"] == 0.0
+    windows = body["providers"]["antigravity"]["windows"]
+    assert {key: window["used_pct"] for key, window in windows.items()} == {"5h": 40.0, "7d": 29.0}
 
 
 def test_quota_refreshes_show_in_metrics(client):

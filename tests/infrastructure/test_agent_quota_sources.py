@@ -52,11 +52,10 @@ def test_a_december_reset_read_in_january_belongs_to_the_next_year():
     assert windows["5h"]["resets_at"].startswith("2027-01-02")
 
 
-def test_antigravity_remaining_allowance_becomes_used_percent_for_gemini_and_argon_only():
+def test_antigravity_remaining_allowance_becomes_used_percent_for_gemini_only():
     windows = parse_agy_usage(AGY, NOW)
-    assert list(windows) == ["7d", "5h", "argon-7d"]  # the Claude and GPT pool is not shown
+    assert list(windows) == ["7d", "5h"]
     assert windows["5h"]["used_pct"] == 10.0 and windows["5h"]["pool"] == "Gemini Models"
-    assert windows["argon-7d"]["used_pct"] == 45.0 and windows["argon-7d"]["resets_at"] == "2026-11-28T09:53:30+00:00"
 
 
 def test_codex_app_server_windows_are_matched_by_their_length():

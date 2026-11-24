@@ -132,10 +132,12 @@ test('the rings show what is left, not what is used, and the tooltip lists each 
   assert.match(svg, /data-tooltip-no-total/);
 });
 
-test('Antigravity has three rings, Argon innermost', () => {
+test('Antigravity shows two Gemini rings and tooltip rows', () => {
   const windows = { '5h': win(0), '7d': win(1), 'argon-7d': win(45) };
   const svg = quotaDonut('antigravity', { status: 'ok', windows });
-  assert.deepEqual([...svg.matchAll(/class="arc (\w+)"/g)].map((m) => m[1]), ['outer', 'middle', 'argon']);
+  assert.deepEqual([...svg.matchAll(/class="arc (\w+)"/g)].map((m) => m[1]), ['outer', 'inner']);
+  const rows = JSON.parse(svg.match(/data-tooltip-details="([^"]*)"/)[1].replaceAll('&quot;', '"'));
+  assert.deepEqual(rows.map((row) => row.label), ['Gemini 5 hour', 'Gemini weekly']);
 });
 
 test('a ring without a reading is dashed and says why, never a percentage', () => {

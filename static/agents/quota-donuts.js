@@ -1,17 +1,10 @@
 import { escapeHtml as esc } from '../html.js';
 
 // Rings run outside in: the first entry is the outermost circle. Each ring has its own radius, stroke and colour.
-const LAYOUTS = {
-  default: [
-    { key: '5h', kind: 'outer', radius: 50, stroke: 12, label: '5 hour' },
-    { key: '7d', kind: 'inner', radius: 34, stroke: 12, label: 'Weekly' },
-  ],
-  antigravity: [
-    { key: '5h', kind: 'outer', radius: 50, stroke: 10, label: 'Gemini 5 hour' },
-    { key: '7d', kind: 'middle', radius: 36, stroke: 10, label: 'Gemini weekly' },
-    { key: 'argon-7d', kind: 'argon', radius: 22, stroke: 10, label: 'Argon weekly' },
-  ],
-};
+const LAYOUT = [
+  { key: '5h', kind: 'outer', radius: 50, stroke: 12, label: '5 hour' },
+  { key: '7d', kind: 'inner', radius: 34, stroke: 12, label: 'Weekly' },
+];
 
 const percent = (window) => (window && window.state === 'ok' && typeof window.used_pct === 'number' ? window.used_pct : null);
 
@@ -36,7 +29,7 @@ const LABELS = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravit
 const shareLeft = (used) => Math.max(0, Math.min(100, 100 - used));
 
 /** One row per ring: its label, remaining share and when it resets. */
-function detail(window, ring, now = new Date()) {
+function detail(window, label, now) {
   const used = percent(window);
   const reset = resetText(window, now);
   const state = window ? window.state : 'unavailable';
@@ -47,9 +40,9 @@ function detail(window, ring, now = new Date()) {
       expired: '· reset, not measured yet',
       stale: `· no recent reading${resetNote}`,
     }[state] || '· not available';
-    return { label: ring.label, note, value: '–' };
+    return { label, note, value: '–' };
   }
-  return { label: ring.label, note: reset ? `· resets ${reset}` : '', value: `${Math.round(shareLeft(used))}%` };
+  return { label, note: reset ? `· resets ${reset}` : '', value: `${Math.round(shareLeft(used))}%` };
 }
 
 /** How worrying what is left is: under a tenth is critical, under a quarter a warning. */
@@ -75,24 +68,24 @@ function ring(window, spec) {
 export function quotaTooltipDetails(name, provider, now = new Date()) {
   if (!provider || provider.status !== 'ok') return [];
   const windows = provider.windows || {};
-  const layout = LAYOUTS[name] || LAYOUTS.default;
-  return layout.map((spec) => detail(windows[spec.key], spec, now));
+  return LAYOUT.map(({ key, label }) =>
+    detail(windows[key], name === 'antigravity' ? `Gemini ${label.toLowerCase()}` : label, now),
+  );
 }
 
 /**
- * A short donut for one provider's quota, rings from outside in as the provider's layout lists them. The tooltip names
+ * A short donut for one provider's quota, with the 5-hour ring outside the weekly ring. The tooltip names
  * each ring's percentage and reset. A provider without a source gets no donut.
  */
 export function quotaDonut(name, provider, now = new Date()) {
   if (!provider || provider.status !== 'ok') return '';
   const windows = provider.windows || {};
-  const layout = LAYOUTS[name] || LAYOUTS.default;
   // The rings are not a total, so the tooltip is told not to draw its total rule above the last rows.
   const rows = quotaTooltipDetails(name, provider, now);
   const label = `${LABELS[name] || name} Quota`;
   return `<svg class="quota-donut" data-quota-provider="${esc(name)}" viewBox="0 0 120 120" role="img" tabindex="0" aria-label="${esc(label)}"
     data-tooltip-title="${esc(label)}" data-tooltip-no-total data-tooltip-details="${esc(JSON.stringify(rows))}">
-    ${layout.map((spec) => ring(windows[spec.key], spec)).join('\n    ')}
+    ${LAYOUT.map((spec) => ring(windows[spec.key], spec)).join('\n    ')}
   </svg>`;
 }
 

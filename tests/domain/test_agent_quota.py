@@ -12,9 +12,11 @@ def view(raw, now=NOW):
     return build_view(parse_snapshot(raw), now)
 
 
-def test_each_provider_has_its_5h_and_weekly_windows_and_antigravity_also_argon():
-    providers = view(quota_snapshot(NOW))["providers"]
-    assert list(providers["claude"]["windows"]) == ["5h", "7d"] and list(providers["antigravity"]["windows"]) == ["5h", "7d", "argon-7d"]
+def test_each_provider_has_its_5h_and_weekly_windows_even_with_a_legacy_argon_window():
+    raw = quota_snapshot(NOW)
+    raw["providers"]["antigravity"]["windows"]["argon-7d"] = quota_window(45.0, NOW + timedelta(days=4), NOW)
+    providers = view(raw)["providers"]
+    assert all(list(provider["windows"]) == ["5h", "7d"] for provider in providers.values())
     assert providers["claude"]["windows"]["5h"] == {"state": "ok", "used_pct": 40.0, "resets_at": (NOW + timedelta(hours=2)).isoformat()}
 
 

@@ -30,8 +30,6 @@ CODEX_SCAN_FILES = 50  # newest session files searched for a rate-limit event
 USAGE_LINE = re.compile(r"^(Current session|Current week \(all models\)):\s*(\d+(?:\.\d+)?)% used(?:\s*·\s*resets\s+(.+?))?\s*$", re.M)
 USAGE_WINDOWS = {"Current session": "5h", "Current week (all models)": "7d"}
 AGY_LINE = re.compile(r"^(?P<pool>[^\t]+)\t(?P<metric>Five Hour Limit Remaining|Weekly Limit Remaining)\t(?P<remaining>\d+(?:\.\d+)?)%\t(?P<reset>\S+)$", re.M)
-AGY_ARGON = re.compile(r"^Gemini 4 Argon\tGemini 4 Argon Weekly Limit\t(?P<remaining>\d+(?:\.\d+)?)%\t(?P<reset>\S+)$", re.M)
-# The windows shown for Antigravity: Gemini's two pools and Argon's weekly limit. The Claude and GPT pool is not shown.
 AGY_WINDOWS = {("Gemini Models", "Five Hour Limit Remaining"): "5h", ("Gemini Models", "Weekly Limit Remaining"): "7d"}
 USAGE_RESET = re.compile(r"^(\w{3} \d{1,2}), (\d{1,2}(?::\d{2})?(?:am|pm)) \((.+)\)$")
 
@@ -87,7 +85,7 @@ def _agy_window(used_pct: float, reset: str, now: datetime, pool: str):
 
 
 def parse_agy_usage(text: str, now: datetime) -> dict:
-    """Windows from `agy -p /usage`: Gemini's 5-hour and weekly remaining allowance (as used %), and Argon's weekly one."""
+    """Windows from `agy -p /usage`: Gemini's 5-hour and weekly remaining allowance (as used %)."""
     windows = {}
     for match in AGY_LINE.finditer(text):
         pool = match.group("pool").strip()
@@ -95,10 +93,6 @@ def parse_agy_usage(text: str, now: datetime) -> dict:
         window = name and _agy_window(100.0 - float(match.group("remaining")), match.group("reset"), now, pool)
         if window:
             windows[name] = window
-    argon = AGY_ARGON.search(text)
-    window = argon and _agy_window(100.0 - float(argon.group("remaining")), argon.group("reset"), now, "Gemini 4 Argon")
-    if window:
-        windows["argon-7d"] = window
     return windows
 
 

@@ -37,7 +37,5 @@ def quota_snapshot(now, ok=("claude", "codex", "antigravity"), five=40.0, week=2
         if name not in ok:
             return {"status": "unavailable", "reason": f"{name} /usage printed no quota windows.", "windows": {}}
         windows = {"5h": quota_window(five, now + timedelta(hours=2), now), "7d": quota_window(week, now + timedelta(days=4), now)}
-        if name == "antigravity":
-            windows["argon-7d"] = quota_window(0.0, now + timedelta(days=4), now, pool="Gemini 4 Argon")
         return {"status": "ok", "reason": None, "windows": windows}
     return {"schema_version": 1, "generated_at": now.isoformat(), "providers": {name: provider(name) for name in ("claude", "codex", "antigravity")}}
