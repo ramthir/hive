@@ -1,11 +1,9 @@
 import { escapeHtml as esc } from '/static/html.js';
-import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
-import { chatButtonHtml } from '/static/notes/note-chat.js';
+import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
 import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
-import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { parseTask, planSteps, projectName, scopeGroups, visibleTags } from '/static/task-notes/task-note.js';
 
 const STATUS_TONE = { TODO: ['todo', 'neutral'], IN_PROGRESS: ['in-progress', 'blue'], DONE: ['done', 'green'] };
@@ -24,7 +22,6 @@ export class TaskView extends SpecificationView {
     const priority = PRIORITIES.find((item) => item.value === note.priority);
     const project = projectName(note.extra?.project);
     const ticket = String(note.extra?.ticket || '').trim();
-    const logged = loggedLabel(note.time);
     const chips = renderHeaderChips([
       status && { label: status.label, tone: statusTone, title: 'Status', className: `task-status--${statusSlug}` },
       this.progressChip(),
@@ -46,36 +43,10 @@ export class TaskView extends SpecificationView {
           </div>
           ${this.outline()}
         </div>
-        <app-action-bar fixed class="notes-action-bar" aria-label="Task status and actions">
-          <div class="action-bar-left notes-footer-left">
-            <span class="notes-type-label"><i class="fa-solid fa-${esc(typeIconName)}" aria-hidden="true"></i><span>${esc(typeLabel)}</span></span>
-            <span class="action-bar-divider notes-footer-divider" aria-hidden="true"></span>
-            <div class="action-bar-status notes-footer-status">
-              <span class="stat-updated" title="${esc(parseUtcDate(note.updated)?.toLocaleDateString() || '')}">
-                <i class="fa-regular fa-clock" aria-hidden="true"></i>
-                <span>${note.updated ? `Updated ${esc(formatRelativeTime(note.updated))}` : 'Draft'}</span>
-              </span>
-              ${canLogTime(note) ? `<span class="stat-logged" title="Time logged on this note"${logged ? '' : ' hidden'}><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> <span>${esc(logged)}</span></span>` : ''}
-            </div>
-          </div>
-          <div class="action-bar-right notes-footer-actions">
-            <div class="map-toolbar" aria-label="Task actions">
-              <button id="delete-note-btn" class="tool-button danger" type="button" aria-label="Delete note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
-              <button id="copy-note-btn" class="tool-button" type="button" title="Copy note markdown to clipboard" aria-label="Copy note markdown to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
-              ${canLogTime(note) ? '<button id="log-time-btn" class="tool-button" type="button" title="Log time" aria-label="Log time"><i class="fa-solid fa-clock" aria-hidden="true"></i></button>' : ''}
-              ${note.has_properties ? '<button id="note-properties-btn" class="tool-button" type="button" title="Edit note properties" aria-label="Edit note properties"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>' : ''}
-              ${chatButtonHtml(this.actions.chatOpen())}
-              <button id="note-versions-btn" class="tool-button" type="button" title="History" aria-label="History"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
-              <button id="edit-note-btn" class="tool-button notes-edit-toggle" type="button" title="Edit markdown" aria-label="Edit note" aria-pressed="false"><i class="fa-solid fa-pencil" aria-hidden="true"></i></button>
-            </div>
-          </div>
-        </app-action-bar>
+        ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
       </section>`;
     wireSearchTrigger(host);
-    for (const [id, run] of Object.entries({
-      'delete-note-btn': 'delete', 'copy-note-btn': 'copy', 'log-time-btn': 'logTime', 'note-properties-btn': 'properties',
-      'note-versions-btn': 'versions', 'edit-note-btn': 'edit', 'note-chat-btn': 'chat',
-    })) host.querySelector(`#${id}`)?.addEventListener('click', () => this.actions[run]());
+    wireReadActionBar(host, this.actions);
     this.wireOutline();
     this.decorate(host.querySelector('#spec-main'));
   }

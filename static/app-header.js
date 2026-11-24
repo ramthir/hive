@@ -58,7 +58,7 @@ const COMPONENT_CSS = `
                    line ends just above the bottom border, the actions keep to the middle, and the search box is shorter
                    so the chips have room. */
                 :host([bottom]) {
-                    --search-width: var(--search-width-compact, 16rem);
+                    --search-width: var(--search-width-compact, 20rem);
                 }
 
                 :host([bottom]) .page-header-content {
@@ -170,7 +170,7 @@ const COMPONENT_CSS = `
                 ::slotted([slot="subtitle"]) {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: var(--space-2, 0.5rem);
+                    gap: 0.375rem;
                     align-items: center;
                     margin-top: 0.3rem;
                 }

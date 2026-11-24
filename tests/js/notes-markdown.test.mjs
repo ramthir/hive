@@ -79,7 +79,25 @@ test('the diagram cache keeps at most 100 entries, dropping the oldest', async (
   assert.ok(!diagrams.cache.has('d0'));
 });
 
-const { noteStats, updateSaveIndicator, updateStats } = await import('../../static/notes/status-bar.js');
+const { noteStats, renderReadActionBar, updateSaveIndicator, updateStats } = await import('../../static/notes/status-bar.js');
+
+test('read pages share one footer action bar helper', () => {
+  const bar = renderReadActionBar(
+    { slug: 'task', title: 'Task', takes_time: true, has_properties: true, updated: '2026-03-03', time: { '2026-03-03': 90 } },
+    { typeLabel: 'Task', typeIconName: 'list-check', actions: { chatOpen: () => true, logTime: () => {} }, statsHtml: '<span>3 rows</span>' },
+  );
+  assert.match(bar, /aria-label="Task status and actions"/);
+  assert.match(bar, /<span>3 rows<\/span>/);
+  assert.match(bar, /id="log-time-btn"/);
+  assert.match(bar, /1h 30m logged/);
+  assert.match(bar, /id="note-properties-btn"/);
+  assert.match(bar, /id="note-chat-btn"[^>]*aria-pressed="true"/);
+  for (const view of ['tables/table-view.js', 'timelines/timeline-view.js', 'specifications/specification-view.js', 'task-notes/task-view.js']) {
+    const src = readFileSync(new URL(`../../static/${view}`, import.meta.url), 'utf8');
+    assert.ok(src.includes('renderReadActionBar('), `${view} does not use renderReadActionBar`);
+    assert.ok(src.includes('wireReadActionBar('), `${view} does not use wireReadActionBar`);
+  }
+});
 
 test('word count, characters and reading time of a note', () => {
   assert.deepEqual(noteStats(''), { words: 0, chars: 0, readingMinutes: 0 });

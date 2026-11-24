@@ -1,6 +1,4 @@
-/* Task notes: the sections of a `type: task` note as cards. Layout, outline and prose come from specifications.css; header chips come from hive.css. */
-
-.task-lead { padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; color: var(--color-text); }
+/* Task notes: the sections of a `type: task` note as cards. Layout, outline, lead, cards and prose come from specifications.css; header chips come from hive.css. */
 
 .task-progress { gap: 0.5rem; }
 .task-bar { width: 3rem; height: 0.3125rem; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--color-dimmed3) 30%, transparent); }
@@ -20,11 +18,6 @@
 .task-section--verified .spec-prose { padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-green); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-green) 7%, transparent); }
 .task-section--verified .spec-heading::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: var(--space-2); letter-spacing: 0; color: var(--color-green); }
 
-.task-section:not(.spec-section--out, .spec-section--questions, .task-section--verified, .task-section--refs, .task-section--related) > .spec-prose {
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
 
 /* Acceptance criteria: one row per criterion, a ring that fills green with a tick when it is met (a plain bullet is shown as a met-able row too). */
 .task-section.task-section--criteria > .spec-prose.notes-preview-body { padding: 0; overflow: hidden; }
@@ -118,5 +111,5 @@
 .task-step-text p { margin-bottom: var(--space-2); }
 
 /* Related: a plain list of links, no card (References stays a row of chips: it holds URLs and file paths). */
-.task-section--related .spec-prose a { color: var(--color-blue); text-decoration: none; }
-.task-section--related .spec-prose a:hover { text-decoration: underline; }
+.task-section--related .spec-prose a, .task-section--related .spec-prose a.notes-wikilink { color: var(--color-blue); text-decoration: none; border: 0; background: none; padding: 0; font-weight: inherit; }
+.task-section--related .spec-prose a:hover, .task-section--related .spec-prose a.notes-wikilink:hover { text-decoration: underline; background: none; }

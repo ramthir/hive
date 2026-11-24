@@ -2187,7 +2187,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     page.wait_for_url("**/specifications/spine-users")  # a specification note is read on its own page
     expect(page.locator("app-header")).to_have_attribute("heading", "Spine — Users")
     expect(page.locator("app-header #search-notes-btn")).to_be_visible()
-    assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 300  # shorter so the header chips have room
+    assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 360  # shorter so the header chips have room
     expect(page.locator("app-header .spec-status")).to_have_text("Active")  # the chips sit in the header, under the heading
     expect(page.locator(".spec-objective")).to_have_text("People can sign in.")
     cards = page.locator(".spec-req")
@@ -2223,7 +2223,7 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     page.wait_for_url("**/tasks/fix-login")  # a task note is read on its own page
     expect(page.locator("app-header")).to_have_attribute("heading", "Fix login")
     expect(page.locator("app-header #search-notes-btn")).to_be_visible()
-    assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 300
+    assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 360
     expect(page.locator("app-header .task-status--in-progress")).to_have_text("In Progress")
     expect(page.locator("app-header .task-priority--must")).to_have_text("Must")
     expect(page.locator("app-header .task-project")).to_have_text("CreatorIQ")
