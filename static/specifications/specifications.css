@@ -114,3 +114,69 @@ specifications-app {
 .spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .spec-check .spec-pill { margin-top: var(--space-3); }
 .spec-check ul .spec-pill { margin-top: 0; }
+
+/* Lists in the prose of a section (the note preview's list styles are scoped to its own pane). */
+.spec-prose p { margin: 0 0 var(--space-3); }
+.spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
+.spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Out of Scope: what this specification leaves alone, set apart with a dashed edge and a struck-out marker. */
+.spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  margin-right: var(--space-2);
+  letter-spacing: 0;
+}
+.spec-section--out .spec-heading::before { content: '\f05e'; color: var(--color-red); }
+.spec-section--out .spec-prose {
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-dimmed2);
+}
+.spec-section--out .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.spec-section--out .spec-prose li { position: relative; padding-left: 1.4rem; }
+.spec-section--out .spec-prose li::before {
+  content: '\f068';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.65rem;
+  color: var(--color-red);
+  opacity: 0.8;
+}
+
+/* References: a row of small chips, links in blue, file paths and identifiers in the code face. */
+.spec-section--refs .spec-heading::before { content: '\f0c1'; color: var(--color-blue); }
+.spec-section--refs .spec-prose ul { list-style: none; padding-left: 0; margin: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-2); }
+.spec-section--refs .spec-prose li {
+  max-width: 100%;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-dimmed1);
+  background: color-mix(in srgb, var(--color-dimmed5) 35%, transparent);
+  overflow-wrap: anywhere;
+}
+.spec-section--refs .spec-prose li:hover { border-color: color-mix(in srgb, var(--color-blue) 50%, var(--color-border)); }
+.spec-section--refs .spec-prose a { color: var(--color-blue); text-decoration: none; }
+.spec-section--refs .spec-prose a:hover { text-decoration: underline; }
+.spec-section--refs .spec-prose code { background: transparent; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
+
+/* Open Questions: the same list shape, with a question mark for the marker. */
+.spec-section--questions .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.spec-section--questions .spec-prose li { position: relative; padding-left: 1.4rem; }
+.spec-section--questions .spec-prose li::before {
+  content: '\f128';
+  position: absolute;
+  left: 0;
+  top: 0.4em;
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.7rem;
+  color: var(--color-orange);
+}

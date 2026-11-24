@@ -141,7 +141,7 @@ export class SpecificationView {
         </section>`);
         continue;
       }
-      const tone = section.key === 'open questions' ? ' spec-section--questions' : section.key === 'acceptance criteria' ? ' spec-section--legacy' : '';
+      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
       parts.push(`<section id="${slugOf(section.name)}" class="spec-section${tone}"><h2 class="spec-heading">${esc(section.name)}</h2>
         <div class="notes-preview-body spec-prose">${this.markdown(section.body)}</div></section>`);
     }
