@@ -16,6 +16,29 @@ const LEGACY_NOTICE = 'This specification is in an older format. Edit it to matc
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
 const STATUS_TONE = { draft: 'neutral', active: 'green', deprecated: 'red' };
 
+const inlineMarkdown = (text, decorate) => renderMarkdownPreview(text, { inline: true, decorate });
+
+export function highlightRequirementKeywords(prose) {
+  const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => node.parentElement.closest('a, code, pre, mark, .katex, .notes-diagram')
+      ? NodeFilter.FILTER_REJECT
+      : NodeFilter.FILTER_ACCEPT,
+  });
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  for (const node of textNodes) {
+    const parts = node.data.split(/\b(SHALL|MUST)\b/);
+    if (parts.length === 1) continue;
+    node.replaceWith(...parts.map((part, index) => {
+      if (index % 2 === 0) return part;
+      const keyword = document.createElement('mark');
+      keyword.className = 'requirement-keyword';
+      keyword.textContent = part;
+      return keyword;
+    }));
+  }
+}
+
 /** The read view of a specification note: the objective, one card per requirement and the other sections, with an outline. */
 export class SpecificationView {
   constructor(host, actions) {
@@ -113,7 +136,7 @@ export class SpecificationView {
   body() {
     const { spec } = this;
     const parts = [];
-    if (spec.lead) parts.push(`<section id="spec-objective" class="spec-section"><p class="spec-objective">${esc(spec.lead.replace(/\s+/g, ' '))}</p></section>`);
+    if (spec.lead) parts.push(`<section id="spec-objective" class="spec-section"><p class="spec-objective spec-prose">${inlineMarkdown(spec.lead)}</p></section>`);
     for (const section of spec.sections) {
       if (section.key === 'objective') continue;
       if (section.key === 'requirements') {
@@ -132,8 +155,7 @@ export class SpecificationView {
   }
 
   requirementCard(item, index) {
-    const strong = item.statement.replace(/\b(SHALL|MUST)\b/g, '\u0000$1\u0001');
-    const statement = esc(strong).replace(/\u0000(SHALL|MUST)\u0001/g, '<mark>$1</mark>');
+    const statement = inlineMarkdown(item.statement, (doc) => highlightRequirementKeywords(doc.body));
     const many = item.scenarios.length > MAX_SCENARIOS;
     return `<article class="spec-req${item.strong ? '' : ' spec-req--weak'}" id="spec-req-${index}">
       <header class="spec-req-head">
@@ -141,8 +163,8 @@ export class SpecificationView {
         ${item.strong ? '' : '<span class="spec-pill spec-pill--warn">No SHALL or MUST</span>'}
         ${item.scenarios.length ? `<span class="spec-pill${many ? ' spec-pill--warn' : ''}">${item.scenarios.length} scenario${item.scenarios.length === 1 ? '' : 's'}</span>` : ''}
       </header>
-      ${statement ? `<p class="spec-statement">${statement}</p>` : ''}
-      ${item.scenarios.length ? `<ol class="spec-scenarios">${item.scenarios.map((s, n) => `<li class="spec-scenario${s.given ? ' spec-scenario--given' : ''}"><span class="spec-sid" aria-hidden="true">S${n + 1}</span>${s.given ? `<span class="spec-label spec-label--given">Given</span><span class="spec-given">${esc(s.given)}</span>` : ''}<span class="spec-label spec-label--when">When</span><span class="spec-when">${esc(s.when)}</span><span class="spec-label spec-label--then">Then</span><span class="spec-then">${esc(s.then)}</span></li>`).join('')}</ol>` : ''}
+      ${statement ? `<p class="spec-statement spec-prose">${statement}</p>` : ''}
+      ${item.scenarios.length ? `<ol class="spec-scenarios">${item.scenarios.map((s, n) => `<li class="spec-scenario${s.given ? ' spec-scenario--given' : ''}"><span class="spec-sid" aria-hidden="true">S${n + 1}</span>${s.given ? `<span class="spec-label spec-label--given">Given</span><span class="spec-given spec-prose">${inlineMarkdown(s.given)}</span>` : ''}<span class="spec-label spec-label--when">When</span><span class="spec-when spec-prose">${inlineMarkdown(s.when)}</span><span class="spec-label spec-label--then">Then</span><span class="spec-then spec-prose">${inlineMarkdown(s.then)}</span></li>`).join('')}</ol>` : ''}
       ${item.rest ? `<div class="notes-preview-body spec-prose">${this.markdown(item.rest)}</div>` : ''}
     </article>`;
   }

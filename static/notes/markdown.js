@@ -59,16 +59,19 @@ export function configureMarkedWikilinks(markedLib) {
 /**
  * Render markdown to a sanitised HTML string.
  * `isRoute(pathname)` says whether a same-origin link is an in-app route (it gets `data-route`);
+ * `inline` renders a fragment for an existing paragraph or cell.
  * `decorate(doc)` may rewrite the parsed document last (diagram figures).
  */
-export function renderMarkdownPreview(content, { isRoute = () => false, decorate = null } = {}) {
+export function renderMarkdownPreview(content, { isRoute = () => false, decorate = null, inline = false } = {}) {
   const markdownText = String(content || '');
   const markedLib = globalThis.marked;
-  if (!markedLib?.parse) return `<pre>${esc(markdownText)}</pre>`;
+  if (!markedLib?.parse) return inline ? esc(markdownText) : `<pre>${esc(markdownText)}</pre>`;
   configureMarkedWikilinks(markedLib);
   globalThis.PandoraMath?.configure(markedLib, globalThis.katex);
 
-  const parsed = new DOMParser().parseFromString(markedLib.parse(markdownText, { gfm: true, breaks: false }), 'text/html');
+  const options = { gfm: true, breaks: false };
+  const html = inline ? markedLib.parseInline(markdownText, options) : markedLib.parse(markdownText, options);
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
   // Mark task items so they can be styled whether marked renders them tight (`li > input`) or loose
   // (`li > p > input`), and let a hard-wrapped item flow as one text: `breaks: true` would force a <br>.
   parsed.querySelectorAll('li > input[type="checkbox"], li > p > input[type="checkbox"]').forEach((checkbox) => {

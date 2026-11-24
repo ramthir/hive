@@ -2,7 +2,7 @@ import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
-import { SpecificationView } from '/static/specifications/specification-view.js';
+import { SpecificationView, highlightRequirementKeywords } from '/static/specifications/specification-view.js';
 import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
 import { parseTask, planSteps, projectName, visibleTags } from '/static/task-notes/task-note.js';
 
@@ -14,26 +14,7 @@ const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section-
     its checklists and a card per section. The page, markdown, diagrams and outline behave as on the specification page. */
 export class TaskView extends SpecificationView {
   decorate(root) {
-    for (const prose of root?.querySelectorAll('.spec-prose') ?? []) {
-      const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
-        acceptNode: (node) => node.parentElement.closest('a, code, pre, mark, .katex, .notes-diagram')
-          ? NodeFilter.FILTER_REJECT
-          : NodeFilter.FILTER_ACCEPT,
-      });
-      const textNodes = [];
-      while (walker.nextNode()) textNodes.push(walker.currentNode);
-      for (const node of textNodes) {
-        const parts = node.data.split(/\b(SHALL|MUST)\b/);
-        if (parts.length === 1) continue;
-        node.replaceWith(...parts.map((part, index) => {
-          if (index % 2 === 0) return part;
-          const keyword = document.createElement('mark');
-          keyword.className = 'task-requirement-keyword';
-          keyword.textContent = part;
-          return keyword;
-        }));
-      }
-    }
+    for (const prose of root?.querySelectorAll('.spec-prose') ?? []) highlightRequirementKeywords(prose);
     super.decorate(root);
   }
 

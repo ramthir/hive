@@ -2177,8 +2177,9 @@ def test_with_the_chat_open_only_the_task_text_scrolls(page, server, notes_dir):
 def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "spine-users.md").write_text(
         "---\ntitle: 'Spine — Users'\ntype: specification\nstatus: Active\nverified: 2026-01-01\nupdated: 2026-03-03\n---\n\n"
-        "# Spine — Users\n\n## Objective\n\nPeople can sign in.\n\n## Requirements\n\n"
-        "### Sign in\n\nThe system SHALL let a user sign in and MUST verify the password.\n\n- valid password -> a session starts\n- wrong password -> sign in is refused\n\n"
+        "# Spine — Users\n\n## Objective\n\nPeople can sign in with a `password`.\n\n## Requirements\n\n"
+        "### Sign in\n\nThe system SHALL let a user sign in and MUST verify the `password`.\n\n"
+        "- valid `password` -> a `session` starts\n- wrong password -> sign in is refused\n\n"
         "### Sign out\n\nA user can sign out.\n\n## Open Questions\n\n- Single sign-on?\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "specification")
@@ -2189,12 +2190,15 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(page.locator("app-header #search-notes-btn")).to_be_visible()
     assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 360  # shorter so the header chips have room
     expect(page.locator("app-header .spec-status")).to_have_text("Active")  # the chips sit in the header, under the heading
-    expect(page.locator(".spec-objective")).to_have_text("People can sign in.")
+    expect(page.locator(".spec-objective code")).to_have_text("password")
     cards = page.locator(".spec-req")
     expect(cards).to_have_count(2)
     expect(cards.nth(0).locator(".spec-scenario")).to_have_count(2)
     expect(cards.nth(0).locator(".spec-sid")).to_have_text(["S1", "S2"])  # numbered, so a review can point at one
     expect(cards.nth(0).locator(".spec-scenario").first.locator(".spec-label")).to_have_text(["When", "Then"])  # two rows each
+    expect(cards.nth(0).locator(".spec-statement code")).to_have_text("password")
+    expect(cards.nth(0).locator(".spec-when code")).to_have_text("password")
+    expect(cards.nth(0).locator(".spec-then code")).to_have_text("session")
     keywords = cards.nth(0).locator(".spec-statement mark")
     expect(keywords).to_have_text(["SHALL", "MUST"])
     for keyword in keywords.all():
@@ -2280,7 +2284,7 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
     expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
-    keywords = page.locator(".task-requirement-keyword")
+    keywords = page.locator(".requirement-keyword")
     expect(keywords).to_have_text(["MUST", "SHALL"])
     expect(keywords.first).to_have_css("font-weight", "700")
     expect(keywords.first).to_have_css("background-color", "rgba(0, 0, 0, 0)")
