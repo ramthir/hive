@@ -11,7 +11,7 @@ specifications-app, task-note-app {
   box-sizing: border-box;
 }
 
-.spec-page { padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
+.spec-page { --search-width: 16rem; padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
 
 .spec-workspace {
   display: grid;
