@@ -2167,7 +2167,7 @@ def test_with_the_chat_open_only_the_task_text_scrolls(page, server, notes_dir):
     assert abs(pane["y"] + pane["height"] - bar["y"]) < 2  # ...and ends at the footer bar's
     page.locator(".spec-workspace").evaluate("(e) => { e.scrollTop = 600; }")
     assert page.locator("app-header").bounding_box() == header  # the header stays,
-    assert abs(page.locator(".notes-chat-dock--fixed").bounding_box()["y"] - (header["y"] + header["height"])) < 2  # and so does the chat
+    assert abs(page.locator(".notes-chat-dock").bounding_box()["y"] - (header["y"] + header["height"])) < 2  # and so does the chat
     page.keyboard.press("Control+Shift+L")
     expect(page.locator("task-note-app")).not_to_have_class(re.compile("chat-docked"))
     assert page.evaluate("document.querySelector('task-note-app').getBoundingClientRect().height") > page.evaluate("innerHeight")  # closed: the whole page is as tall as its text again
@@ -2198,8 +2198,10 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(page.locator(".spec-check li")).to_have_count(1)
     assert page.evaluate("Boolean(customElements.get('app-dropdown-menu'))")  # the diagram menu (Download PNG) works here too
     expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
-    page.click("#note-chat-btn")  # the chat docks at the window's edge and the page makes room for it
-    expect(page.locator("specifications-app")).not_to_have_css("padding-right", "0px")
+    page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
+    expect(page.locator("specifications-app")).to_have_class(re.compile("chat-docked"))
+    spec_pane, spec_dock = page.locator(".spec-workspace").bounding_box(), page.locator(".notes-chat-dock").bounding_box()
+    assert spec_pane["x"] + spec_pane["width"] <= spec_dock["x"] + 1
     expect(page.locator(".spec-outline")).to_be_hidden()
     page.keyboard.press("Control+Shift+L")
     page.click("#edit-note-btn")
@@ -2244,10 +2246,10 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator(".spec-outline a[href='#task-s1'] .spec-count")).to_have_text("2")  # steps are counted in the outline
     expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
     expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
-    page.click("#note-chat-btn")  # the chat docks at the window's edge and the page makes room for it
+    page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
     expect(page.locator("task-note-app")).to_have_class(re.compile("chat-docked"))
-    expect(page.locator("task-note-app")).not_to_have_css("padding-right", "0px")
-    dock, header = page.locator(".notes-chat-dock--fixed").bounding_box(), page.locator("app-header").bounding_box()
+    pane, dock, header = (page.locator(s).bounding_box() for s in (".spec-workspace", ".notes-chat-dock", "app-header"))
+    assert pane["x"] + pane["width"] <= dock["x"] + 1
     expect(page.locator(".spec-outline")).to_be_hidden()  # the sections list steps aside while the chat is open
     assert abs(dock["y"] - (header["y"] + header["height"])) < 2  # the dock starts under the header, in the body only, as on the note page
     assert header["x"] + header["width"] >= dock["x"] + dock["width"] - 1  # and the header runs over it, full width

@@ -23,14 +23,9 @@ specifications-app, task-note-app {
   min-width: 0;
 }
 
-/* With the chat docked the page stops scrolling as a whole: the header and the chat stay where they are and only the text scrolls (as on the note page). */
-specifications-app.chat-docked, task-note-app.chat-docked { flex: none; height: 100dvh; min-height: 0; overflow: hidden; }
-specifications-app.chat-docked .spec-page, task-note-app.chat-docked .spec-page { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; padding-bottom: var(--footer-bar-height, 3.75rem); }
-/* the pane runs from the header's border to the footer bar's, so its scrollbar does; the spacing is inside it */
-specifications-app.chat-docked .spec-workspace, task-note-app.chat-docked .spec-workspace { flex: 1; min-height: 0; overflow-y: auto; align-content: start; padding-top: var(--space-5); padding-bottom: var(--space-5); }
 /* With the chat docked beside the page there is little room: the outline steps aside and the text takes its column. */
-specifications-app.chat-docked .spec-workspace, task-note-app.chat-docked .spec-workspace { grid-template-columns: minmax(0, 1fr); }
-specifications-app.chat-docked .spec-outline, task-note-app.chat-docked .spec-outline { display: none; }
+.chat-docked .spec-workspace { grid-template-columns: minmax(0, 1fr); }
+.chat-docked .spec-outline { display: none; }
 
 .spec-outline {
   position: sticky;

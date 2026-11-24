@@ -77,29 +77,24 @@ chat-app .chat-send.stop { background: var(--color-accent1); color: var(--color-
 /* The header bleeds over the page padding to the window's edges, like the bar below it (Pandora's chat header does the same). */
 chat-app app-header { width: calc(100% + 2 * var(--page-inline-padding, 1.5rem)); margin-inline: calc(-1 * var(--page-inline-padding, 1.5rem)); box-sizing: border-box; }
 
-/* --- The chat beside a note (`<chat-app compact>` in the note page's dock) --------------------------------------------------------
-   A panel next to the note, not an overlay: the note shrinks to make room, so edits show as the agent makes them. The footer bar is
-   fixed over the bottom of the page, so the dock leaves room for it. */
-.notes-chat-dock { --dock-width: min(26rem, 45vw); flex: 0 0 var(--dock-width); width: var(--dock-width); min-width: 0; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;
+/* --- The chat beside a note (`<chat-app compact>` in the page's `.notes-chat-dock`) -----------------------------------------------
+   A panel next to the note, not an overlay: `.chat-docked` locks the page to the viewport and places the header across the full width,
+   the note's workspace on the left and the chat dock on the right, so the header and chat stay still while the note scrolls and edits
+   show live. */
+.notes-chat-dock { --dock-width: min(26rem, 45vw); width: var(--dock-width); min-width: 0; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;
   border-left: 1px solid var(--color-dimmed5); background: var(--color-dark1); }
-/* The footer bar stops at the dock, whose composer is the bottom strip beside it (same height, same top line). */
-notes-app.chat-docked .notes-action-bar,
-tables-app.chat-docked .notes-action-bar,
-timelines-app.chat-docked .notes-action-bar,
-specifications-app.chat-docked .notes-action-bar,
-task-note-app.chat-docked .notes-action-bar { right: min(26rem, 45vw); }
-/* Hide the bottom action buttons (including the chat toggle) while the chat side pane is open; close it from the pane's header. */
-notes-app.chat-docked .notes-footer-actions,
-tables-app.chat-docked .notes-footer-actions,
-timelines-app.chat-docked .notes-footer-actions,
-specifications-app.chat-docked .notes-footer-actions,
-task-note-app.chat-docked .notes-footer-actions { display: none; }
-/* The header runs the full width above the dock, which starts under it (note-chat.js places it), as on the note page. */
-tables-app.chat-docked app-header, timelines-app.chat-docked app-header, specifications-app.chat-docked app-header, task-note-app.chat-docked app-header { margin-right: calc(-1 * min(26rem, 45vw)); }
-/* The pages of table and timeline notes scroll with the window, so their dock is a column fixed to its right edge and the page makes room. */
-.notes-chat-dock--fixed { position: fixed; top: 0; right: 0; bottom: 0; height: auto; z-index: 25; }
-tables-app.chat-docked, timelines-app.chat-docked, specifications-app.chat-docked, task-note-app.chat-docked { padding-right: min(26rem, 45vw); }
 .notes-chat-dock[hidden] { display: none; }
+.chat-docked { flex: none; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+.chat-docked .notes-page { display: grid; grid-template-columns: minmax(0, 1fr) min(26rem, 45vw); grid-template-rows: auto minmax(0, 1fr);
+  flex: 1; height: 100vh; height: 100dvh; min-height: 0; gap: 0; padding-bottom: 0; }
+.chat-docked .notes-page > app-header { grid-column: 1 / -1; }
+/* On read pages the workspace itself scrolls between the header and the footer bar (the note page's panes scroll inside their workspace). */
+.chat-docked :is(.notes-table-workspace, .timeline-workspace, .spec-workspace) { min-height: 0; overflow-y: auto; align-content: start;
+  padding-top: var(--space-5); padding-bottom: var(--space-5); margin-bottom: var(--footer-bar-height, 3.75rem); }
+/* The footer bar stops at the dock, whose composer is the bottom strip beside it (same height, same top line). */
+.chat-docked .notes-action-bar { right: min(26rem, 45vw); }
+/* Hide the bottom action buttons (including the chat toggle) while the chat side pane is open; close it from the pane's header. */
+.chat-docked .notes-footer-actions { display: none; }
 
 chat-app[compact] { margin: 0; height: 100%; min-height: 0; }
 chat-app[compact] .chat-dock-header { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; padding: .55rem .6rem .55rem 1rem; border-bottom: 1px solid var(--color-dimmed5);
