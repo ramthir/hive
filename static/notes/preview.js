@@ -41,7 +41,7 @@ export class Preview {
   renderMarkdownPreview(content) {
     const html = renderMarkdown(content, {
       isRoute: (pathname) => Boolean(notesRouter.getMatch(pathname)),
-      decorate: (parsed) => this._diagrams.markBlocks(parsed),
+      decorate: (parsed) => { this._diagrams.markBlocks(parsed); this._diagrams.markEmbeds(parsed); },
     });
     return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, ''); // the title is in the header
   }
@@ -68,6 +68,7 @@ export class Preview {
     preview.addEventListener('dropdown-select', this._diagramMenuHandler);
     this.decorateWikilinks(preview);
     this._diagrams.decorate(preview, { editing: this.isNoteEditing });
+    this._diagrams.loadEmbeds(preview);
     setupCodeBlockActions(preview);
     this.preloadEditorWhenIdle();
   }

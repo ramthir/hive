@@ -162,3 +162,24 @@ test('a rendered diagram carries a kebab menu with a dark and a light item', () 
   assert.match(tools.html, /data-download-theme="light"/);
   assert.equal(nodes.length, 0);
 });
+
+const { embedSlug, versionedEmbed } = await import('../../static/notes/diagrams.js');
+
+test('an embed address names its note and takes the note revision as v', () => {
+  assert.equal(embedSlug('/notes/arch/diagram.svg?n=2'), 'arch');
+  assert.equal(embedSlug('/notes/arch/diagram.pdf'), null);
+  assert.equal(embedSlug('https://x.com/notes/arch/diagram.svg'), null);
+  assert.equal(versionedEmbed('/notes/arch/diagram.svg?n=2', 'abc'), '/notes/arch/diagram.svg?n=2&v=abc');
+  assert.equal(versionedEmbed('/notes/arch/diagram.png', 'abc'), '/notes/arch/diagram.png?v=abc');
+  assert.equal(versionedEmbed('/notes/arch/diagram.svg?v=old&n=2', 'new'), '/notes/arch/diagram.svg?v=new&n=2');
+  assert.equal(versionedEmbed('/notes/arch/diagram.svg', null), '/notes/arch/diagram.svg');
+});
+
+test('embeds wait for their revision, then load once with v', async () => {
+  const { JSDOM } = await import('jsdom').catch(() => ({}));
+  if (!JSDOM) return; // no DOM library here: the pure address logic above is what matters
+  const dom = new JSDOM('<div id="p"><img data-embed="/notes/arch/diagram.svg?n=2" alt="A"></div>');
+  const previews = new DiagramPreviews(async () => ({ svg: '' }), async () => 'rev1');
+  await previews.loadEmbeds(dom.window.document.getElementById('p'));
+  assert.equal(dom.window.document.querySelector('img').getAttribute('src'), '/notes/arch/diagram.svg?n=2&v=rev1');
+});

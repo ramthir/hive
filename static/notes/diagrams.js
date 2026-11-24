@@ -1,9 +1,28 @@
 /* PlantUML previews: ```plantuml / ```puml fences become figures that show the rendered image once known. */
 
+const EMBED = /^\/notes\/([A-Za-z0-9._-]+)\/diagram\.(svg|png)(\?[^#]*)?$/;
+
+/** The slug an image address embeds (`/notes/<slug>/diagram.svg?n=2`), or null for any other address. */
+export function embedSlug(src) {
+  return EMBED.exec(src || '')?.[1] ?? null;
+}
+
+/** The embed address with `v=<revision>` (replacing an author's own `v`), so a changed note is fetched again and an unchanged one is kept. */
+export function versionedEmbed(src, revision) {
+  const m = EMBED.exec(src || '');
+  if (!m || !revision) return src;
+  const query = new URLSearchParams(m[3] || '');
+  query.set('v', revision);
+  return `/notes/${m[1]}/diagram.${m[2]}?${query}`;
+}
+
 export class DiagramPreviews {
-  /** `render(source)` resolves to `{ svg }` or rejects with an error that may carry `status`. */
-  constructor(render) {
+  /** `render(source)` resolves to `{ svg }` or rejects with an error that may carry `status`.
+   *  `revision(slug)` resolves to the note's revision (for the embeds' `v=`); without it embeds load unversioned. */
+  constructor(render, revision = null) {
     this.render = render;
+    this.revision = revision;
+    this.versioned = new Map(); // embed address -> address with v=, so a redraw (every keystroke) does not look again
     this.cache = new Map();
     this.errors = new Map();
     this.inflight = new Map();
@@ -58,6 +77,40 @@ export class DiagramPreviews {
         figure.appendChild(note);
       }
       pre.replaceWith(figure);
+    });
+  }
+
+  // `![](/notes/<slug>/diagram.svg?n=2)`: held back (no src) until the note's revision is known, so the image loads once, with `v=`.
+  markEmbeds(parsed) {
+    parsed.querySelectorAll('img[src]').forEach((img) => {
+      const src = img.getAttribute('src');
+      if (!embedSlug(src)) return;
+      img.classList.add('notes-diagram-img', 'notes-diagram-embed');
+      img.setAttribute('data-embed', src);
+      img.removeAttribute('src');
+      if (this.versioned.has(src)) img.setAttribute('src', this.versioned.get(src));
+    });
+  }
+
+  async loadEmbeds(preview) {
+    const pending = [...preview.querySelectorAll('img[data-embed]:not([src])')];
+    if (!pending.length) return;
+    const revisions = new Map();
+    await Promise.all([...new Set(pending.map((img) => embedSlug(img.dataset.embed)))].map(async (slug) => {
+      try { revisions.set(slug, await this.revision?.(slug)); } catch (_error) { /* shown unversioned; the image reports its own error */ }
+    }));
+    pending.forEach((img) => {
+      const src = img.dataset.embed;
+      const next = versionedEmbed(src, revisions.get(embedSlug(src)));
+      this.versioned.set(src, next);
+      if (this.versioned.size > 200) this.versioned.delete(this.versioned.keys().next().value);
+      img.addEventListener('error', () => {
+        const note = img.ownerDocument.createElement('p');
+        note.className = 'notes-diagram-error';
+        note.textContent = `Could not load this diagram (${img.getAttribute('alt') || embedSlug(src)}): the note, the diagram number or PlantUML is missing.`;
+        img.replaceWith(note);
+      }, { once: true });
+      img.setAttribute('src', next);
     });
   }
 

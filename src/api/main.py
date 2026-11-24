@@ -199,6 +199,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.add_exception_handler(DiagramError, diagram_error)
     app.include_router(notes.router, prefix="/api")
     app.include_router(diagrams.router, prefix="/api")
+    app.include_router(diagrams.embeds)  # /notes/{slug}/diagram.svg: before the note page's catch-all below
     app.include_router(system.router, prefix="/api")
     app.include_router(agents.router, prefix="/api")
     app.include_router(colab_routes.router, prefix="/api")

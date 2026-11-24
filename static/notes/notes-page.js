@@ -58,7 +58,7 @@ class NotesApp extends HTMLElement {
     });
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
     // PlantUML previews: rendered diagrams are cached by source; failed sources are not retried until edited.
-    this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }));
+    this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }), async (slug) => (await api(`/notes/${encodeURIComponent(slug)}`)).revision);
     this._diagramMenuHandler = (event) => {
       const figure = event.target.closest?.('.notes-diagram[data-diagram]');
       const theme = event.detail?.action;
