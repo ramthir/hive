@@ -2164,6 +2164,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(cards.nth(0).locator(".spec-statement mark")).to_have_text("SHALL")
     expect(cards.nth(1)).to_have_class(re.compile("spec-req--weak"))  # no SHALL or MUST
     expect(page.locator(".spec-check li")).to_have_count(1)
+    assert page.evaluate("Boolean(customElements.get('app-dropdown-menu'))")  # the diagram menu (Download PNG) works here too
     expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/spine-users?mode=edit")

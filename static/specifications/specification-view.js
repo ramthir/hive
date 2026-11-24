@@ -1,3 +1,4 @@
+import '/static/components/dropdown-menu.js'; // the menu on a rendered diagram (Download PNG)
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import { copyTextToClipboard } from '/static/clipboard.js';

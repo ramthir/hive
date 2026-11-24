@@ -50,7 +50,7 @@ specifications-app {
 .spec-outline a.on { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 12%, transparent); }
 .spec-count { color: var(--color-dimmed3); font-variant-numeric: tabular-nums; }
 
-.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-width: 60rem; }
+.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
 
 .spec-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: 0.3rem; }
 .spec-pill {
@@ -75,7 +75,7 @@ specifications-app {
 
 .spec-section { display: flex; flex-direction: column; gap: var(--space-3); scroll-margin-top: var(--space-5); min-width: 0; }
 .spec-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
-.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); max-width: 46rem; }
+.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); }
 .spec-prose { min-width: 0; line-height: 1.6; }
 .spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 .spec-section--legacy .spec-prose { opacity: 0.85; }
@@ -96,7 +96,7 @@ specifications-app {
 .spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
 .spec-req-copy { opacity: 0; transition: opacity 0.15s; }
 .spec-req:hover .spec-req-copy, .spec-req-copy:focus-visible { opacity: 1; }
-.spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); max-width: 46rem; }
+.spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
 .spec-statement mark { background: transparent; color: var(--color-blue); font-weight: 600; }
 
 .spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
