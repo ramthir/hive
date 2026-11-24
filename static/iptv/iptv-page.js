@@ -24,7 +24,7 @@ class IptvApp extends HTMLElement {
             <app-autocomplete id="iptv-search" class="iptv-search" input-id="iptv-search-input" no-shortcut placeholder="Search ${esc(TYPES.find((t) => t.type === this.state.type).label.toLowerCase())}…" value="${esc(this.state.q)}">
               <div slot="help" class="iptv-search-help">
                 <strong class="autocomplete-help-title">Search</strong>
-                <p>Type a title, or filter by category with <code>group:</code>. Start typing it to pick a category. Star an item with its ★ and find it again with <code>is:starred</code>.</p>
+                <p>Type a title or category name. Choose a <code>group:</code> suggestion to filter by category. Type <code>is:</code> and choose <code>is:starred</code> to find items you starred with ★.</p>
                 <p><code>group:tamil</code> — categories containing "tamil"<br><code>group:"Tamil Movies"</code> — a category with spaces<br><code>raja group:tamil</code> — a title word and a category<br><code>is:starred</code> — only what you starred<br><code>is:starred group:tamil</code> — starred, in a category</p>
               </div>
             </app-autocomplete>
@@ -42,11 +42,12 @@ class IptvApp extends HTMLElement {
     const autocomplete = this.querySelector('#iptv-search');
     const search = autocomplete.input;
     this.groups = [];
-    this.loadGroups();
     const suggest = () => { const at = search.selectionStart ?? search.value.length; autocomplete.options = [...starredSuggestions(search.value, at), ...groupSuggestions(this.groups, search.value, at)]; };
+    this.loadGroups().then(() => { if (document.activeElement === search) suggest(); });
     let timer;
     const apply = () => { clearTimeout(timer); this.go({ q: search.value.trim() }); };
     search.addEventListener('input', () => { suggest(); clearTimeout(timer); timer = setTimeout(apply, 250); });
+    search.addEventListener('focus', suggest);
     search.addEventListener('click', suggest);
     search.addEventListener('search', apply);
     autocomplete.addEventListener('select', (event) => {

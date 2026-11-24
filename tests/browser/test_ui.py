@@ -2632,6 +2632,50 @@ def test_library_search_is_the_autocomplete_and_slash_focuses_it(library_server)
         p.stop()
 
 
+@pytest.mark.parametrize("kind", ["vod", "series", "live"])
+def test_iptv_autocompletes_starred_search(library_server, kind):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/iptv?type={kind}")
+        cards = page.locator(".iptv-card")
+        cards.first.locator("[data-star]").click()
+        expect(cards.first.locator("[data-star]")).to_have_attribute("aria-pressed", "true")
+
+        field = page.locator("#iptv-search-input")
+        field.fill("is:")
+        option = page.get_by_role("option", name="is:starred", exact=False)
+        expect(option).to_be_visible()
+        expect(option).to_be_in_viewport()
+        field.press("ArrowDown")
+        field.press("Enter")
+        expect(field).to_have_value("is:starred ")
+        expect(option).to_be_hidden()
+        expect(cards).to_have_count(1)
+        expect(cards.first.locator("[data-star]")).to_have_attribute("aria-pressed", "true")
+    finally:
+        browser.close()
+        p.stop()
+
+
+def test_iptv_group_autocomplete_shows_operator_and_accepts_keyboard_selection(library_server):
+    p, browser, page = library_page(library_server)
+    try:
+        page.goto(f"{library_server}/iptv")
+        field = page.locator("#iptv-search-input")
+        field.fill("ronin ac")
+        option = page.get_by_role("option", name="group:Action", exact=False)
+        expect(option).to_be_visible()
+        field.press("ArrowDown")
+        field.press("Enter")
+        expect(field).to_have_value("ronin group:Action ")
+        cards = page.locator(".iptv-card")
+        expect(cards).to_have_count(1)
+        expect(cards.first).to_contain_text("Ronin")
+    finally:
+        browser.close()
+        p.stop()
+
+
 def test_typing_group_suggests_categories_and_picking_one_filters(library_server):
     p, browser, page = library_page(library_server)
     try:

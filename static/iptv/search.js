@@ -9,19 +9,28 @@ export function searchToken(value, cursor = value.length) {
 
 const MAX = 12;
 
-/** `groups` is [{name, count}]. A word that starts like `group:` (g, gr, group:, group:tam) offers the categories that contain what follows. */
+/** Offer matching categories for the current word or an explicit group: filter. */
 export function groupSuggestions(groups, value, cursor = value.length) {
   const { prefix } = searchToken(value, cursor);
   const lower = prefix.toLowerCase();
-  if (!lower || !('group:'.startsWith(lower) || lower.startsWith('group:'))) return [];
-  const fragment = lower.startsWith('group:') ? lower.slice(6).replace(/^"/, '') : '';
-  const matches = (groups || []).filter((g) => g.name.toLowerCase().includes(fragment));
-  const rank = (g) => (g.name.toLowerCase().startsWith(fragment) ? 0 : 1);
+  if (!lower || (lower.includes(':') && !lower.startsWith('group:'))) return [];
+  const fragment = lower.startsWith('group:')
+    ? lower.slice(6).replace(/^"/, '')
+    : 'group:'.startsWith(lower) ? '' : lower;
+  const matches = (groups || [])
+    .map((group) => ({ group, name: group.name.trim().toLowerCase() }))
+    .filter(({ name }) => name.includes(fragment));
+  const rank = (name) => {
+    if (name === fragment) return 0;
+    return name.startsWith(fragment) ? 1 : 2;
+  };
   return matches
-    .map((g, i) => ({ g, i }))
-    .sort((a, b) => rank(a.g) - rank(b.g) || a.i - b.i)
+    .sort((a, b) => rank(a.name) - rank(b.name))
     .slice(0, MAX)
-    .map(({ g }) => ({ value: groupTerm(g.name), label: g.name, badge: String(g.count) }));
+    .map(({ group }) => {
+      const term = groupTerm(group.name);
+      return { value: term, label: term, badge: String(group.count) };
+    });
 }
 
 /** `group:tamil`, or `group:"Tamil Movies"` when the name has spaces. */
@@ -42,8 +51,8 @@ export const STARRED_TERM = 'is:starred';
 export function starredSuggestions(value, cursor = value.length) {
   const { prefix } = searchToken(value, cursor);
   const lower = prefix.toLowerCase();
-  if (!lower || !STARRED_TERM.startsWith(lower) || /(^|\s)is:starred(\s|$)/i.test(value.slice(0, cursor - prefix.length) + ' ' + value.slice(cursor))) return [];
-  return [{ value: STARRED_TERM, label: 'Starred only', badge: '\u2605' }];
+  if (!lower || lower === STARRED_TERM || !STARRED_TERM.startsWith(lower) || /(^|\s)is:starred(\s|$)/i.test(value.slice(0, cursor - prefix.length) + ' ' + value.slice(cursor))) return [];
+  return [{ value: STARRED_TERM, label: STARRED_TERM, badge: '\u2605' }];
 }
 
 /** Does the search ask for the starred only? (The page then drops an item from view when it is unstarred.) */

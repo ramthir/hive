@@ -79,7 +79,15 @@ test('the sync line says what to do', () => {
 test('typing group: offers the categories, best matches first, and picking one replaces the word at the caret', async () => {
   const { groupSuggestions, groupTerm, insertTerm, searchToken } = await import('../../static/iptv/search.js');
   const groups = [{ name: 'IN | TAMIL', count: 5 }, { name: 'TAMIL MOVIES (VIP)', count: 3 }, { name: 'Drama', count: 9 }];
-  assert.deepEqual(groupSuggestions(groups, 'raja group:tam').map((s) => s.label), ['TAMIL MOVIES (VIP)', 'IN | TAMIL']);  // starts-with first
+  assert.deepEqual(groupSuggestions(groups, 'raja group:tam').map((s) => s.label), ['group:"TAMIL MOVIES (VIP)"', 'group:"IN | TAMIL"']);
+  const withExact = [...groups, { name: ' Tamil ', count: 2 }];
+  assert.deepEqual(groupSuggestions(withExact, 'group:tamil').map((s) => s.label), [
+    'group:Tamil', 'group:"TAMIL MOVIES (VIP)"', 'group:"IN | TAMIL"',
+  ]);
+  assert.deepEqual(groupSuggestions(groups, 'raja tam').map((s) => s.value), [
+    'group:"TAMIL MOVIES (VIP)"', 'group:"IN | TAMIL"',
+  ]);
+  assert.deepEqual(groupSuggestions(groups, 'is:'), []);
   assert.equal(groupSuggestions(groups, 'g').length, 3);
   assert.equal(groupSuggestions(groups, 'group:').length, 3);
   assert.deepEqual(groupSuggestions(groups, 'raja'), []);  // not a group: word
@@ -106,6 +114,8 @@ test('an episode title loses the provider\'s playlist attributes, the series nam
 
 test('typing is: offers the starred filter once, and wantsStarred reads it', async () => {
   const { starredSuggestions, wantsStarred } = await import('../../static/iptv/search.js');
+  assert.equal(starredSuggestions('is:')[0].label, 'is:starred');
+  assert.deepEqual(starredSuggestions('is:starred'), []);
   assert.deepEqual(starredSuggestions('i').map((s) => s.value), ['is:starred']);
   assert.deepEqual(starredSuggestions('raja IS:s').map((s) => s.value), ['is:starred']);
   assert.deepEqual(starredSuggestions('group:tamil is:starred is'), []);  // already asked for
