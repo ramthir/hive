@@ -2178,7 +2178,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     (notes_dir / "spine-users.md").write_text(
         "---\ntitle: 'Spine — Users'\ntype: specification\nstatus: Active\nverified: 2026-01-01\nupdated: 2026-03-03\n---\n\n"
         "# Spine — Users\n\n## Objective\n\nPeople can sign in.\n\n## Requirements\n\n"
-        "### Sign in\n\nThe system SHALL let a user sign in.\n\n- valid password -> a session starts\n- wrong password -> sign in is refused\n\n"
+        "### Sign in\n\nThe system SHALL let a user sign in and MUST verify the password.\n\n- valid password -> a session starts\n- wrong password -> sign in is refused\n\n"
         "### Sign out\n\nA user can sign out.\n\n## Open Questions\n\n- Single sign-on?\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "specification")
@@ -2195,7 +2195,18 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(cards.nth(0).locator(".spec-scenario")).to_have_count(2)
     expect(cards.nth(0).locator(".spec-sid")).to_have_text(["S1", "S2"])  # numbered, so a review can point at one
     expect(cards.nth(0).locator(".spec-scenario").first.locator(".spec-label")).to_have_text(["When", "Then"])  # two rows each
-    expect(cards.nth(0).locator(".spec-statement mark")).to_have_text("SHALL")
+    keywords = cards.nth(0).locator(".spec-statement mark")
+    expect(keywords).to_have_text(["SHALL", "MUST"])
+    for keyword in keywords.all():
+        expect(keyword).to_have_css("font-weight", "700")
+        expect(keyword).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+        assert keyword.evaluate("""el => {
+            const actual = getComputedStyle(el).color;
+            el.style.color = 'var(--color-orange)';
+            const expected = getComputedStyle(el).color;
+            el.style.removeProperty('color');
+            return actual === expected;
+        }""")
     expect(cards.nth(1)).to_have_class(re.compile("spec-req--weak"))  # no SHALL or MUST
     expect(page.locator(".spec-check li")).to_have_count(1)
     assert page.evaluate("Boolean(customElements.get('app-dropdown-menu'))")  # the diagram menu (Download PNG) works here too
