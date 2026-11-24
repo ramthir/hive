@@ -45,6 +45,20 @@
 .spec-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
 .spec-objective, .task-lead { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); }
 .spec-prose { min-width: 0; line-height: 1.6; }
+.spec-prose a[href] {
+  color: var(--color-blue);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  overflow-wrap: anywhere;
+}
+.spec-prose a[href]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.spec-prose a.notes-wikilink.unresolved { color: var(--color-dimmed3); text-decoration-style: dashed; }
+.spec-prose a[href][target="_blank"]::after {
+  content: '\f35d' / '';
+  display: inline-block;
+  margin-inline-start: 0.35em;
+  font: 900 0.7em 'Font Awesome 6 Free';
+}
 .spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 .spec-section--legacy .spec-prose { opacity: 0.85; }
 .spec-empty { margin: 0; color: var(--color-dimmed3); }
@@ -131,14 +145,6 @@
 .spec-section--refs .spec-prose {
   color: var(--color-dimmed1);
   overflow-wrap: anywhere;
-}
-.spec-section--refs .spec-prose a, .spec-section--refs .spec-prose a.notes-wikilink { color: var(--color-blue); text-decoration: none; border: 0; background: none; padding: 0; font-weight: inherit; }
-.spec-section--refs .spec-prose a:is(:hover, :focus-visible),
-.spec-section--refs .spec-prose a.notes-wikilink:is(:hover, :focus-visible) { text-decoration: underline; background: none; }
-.spec-section--refs .spec-prose a:focus-visible,
-.spec-section--refs .spec-prose a.notes-wikilink:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-offset);
 }
 .spec-section--refs .spec-prose code { background: transparent; border: 0; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
 

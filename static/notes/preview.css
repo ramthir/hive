@@ -333,8 +333,8 @@
   text-decoration: underline;
 }
 
-/* Shared wiki-link chip across note previews, specifications, tasks, tables and chat answers. */
-:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink {
+/* Shared wiki-link chip across note previews, tables and chat answers. */
+:is(.notes-preview-pane, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink {
   color: var(--color-accent5);
   text-decoration: none;
   border: 1px solid color-mix(in srgb, var(--color-accent5) 35%, transparent);
@@ -346,15 +346,15 @@
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink:hover,
-:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink:focus-visible {
+:is(.notes-preview-pane, .chat-answer, .notes-table-card) a.notes-wikilink:hover,
+:is(.notes-preview-pane, .chat-answer, .notes-table-card) a.notes-wikilink:focus-visible {
   background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
   border-color: var(--color-accent5);
   color: #a6f0fc;
   outline: none;
 }
 
-:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink.unresolved {
+:is(.notes-preview-pane, .chat-answer, .notes-table-card) :is(a, span).notes-wikilink.unresolved {
   color: var(--color-dimmed3, #908e90);
   border-color: var(--color-dimmed4);
   border-style: dashed;
@@ -362,7 +362,7 @@
   font-weight: normal;
 }
 
-:is(.notes-preview-pane, .spec-prose, .chat-answer, .notes-table-card) a.notes-wikilink.unresolved:hover {
+:is(.notes-preview-pane, .chat-answer, .notes-table-card) a.notes-wikilink.unresolved:hover {
   color: var(--color-accent3, #e6db74);
   border-color: var(--color-accent3, #e6db74);
   background: rgba(230, 219, 116, 0.1);

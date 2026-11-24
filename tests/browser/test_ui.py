@@ -2217,6 +2217,7 @@ def test_read_pages_show_references_as_a_list(page, server, notes_dir, note_type
     (notes_dir / "reference-example.md").write_text(
         f"---\ntitle: Reference example\ntype: {note_type}\n---\n\n"
         "# Reference example\n\n## Objective\n\nDocument the feature.\n\n"
+        "## Background\n\nSee [[Alpha]] for context.\n\n"
         "## References\n\n- [Design document](https://example.com/design) — current design\n"
         f"- `{path}`\n"
     )
@@ -2233,8 +2234,16 @@ def test_read_pages_show_references_as_a_list(page, server, notes_dir, note_type
     expect(rows.nth(1).locator("code")).to_have_text(path)
     assert rows.nth(1).evaluate("(row) => row.scrollWidth <= row.clientWidth")
     link = rows.first.get_by_role("link", name="Design document")
+    expect(link).to_have_css("text-decoration-line", "underline")
+    assert link.evaluate("(link) => getComputedStyle(link, '::after').fontFamily") == '"Font Awesome 6 Free"'
     link.focus()
     expect(link).to_have_css("outline-style", "solid")
+    wiki_link = page.locator(".spec-prose").get_by_role("link", name="Alpha")
+    expect(wiki_link).to_have_attribute("href", "/notes/alpha")
+    expect(wiki_link).to_have_css("text-decoration-line", "underline")
+    expect(wiki_link).to_have_css("border-top-width", "0px")
+    expect(wiki_link).to_have_css("padding-inline-start", "0px")
+    assert wiki_link.evaluate("(link) => getComputedStyle(link, '::after').content") == "none"
 
 
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
