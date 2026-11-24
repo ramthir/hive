@@ -11,7 +11,7 @@ const CHECK = /^\s*[-*+]\s+\[([ xX])\]\s+\S/;
 export const isTaskNote = (note) => (note?.types || []).some((type) => String(type).toLowerCase() === 'task');
 
 /** The heading's name without leading emoji or symbols, lower case: "✅ Deliverables" -> "deliverables". */
-export const plainName = (name) => String(name || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase().replace(/\s+/g, ' ');
+const plainName = (name) => String(name || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 const KINDS = {
   'open questions': 'questions',
@@ -33,7 +33,7 @@ const KINDS = {
 export const sectionKind = (name) => KINDS[plainName(name)] || '';
 
 /** `{done, total}` of the checklist items in a text, ignoring code fences. */
-export function checklist(content) {
+function checklist(content) {
   let done = 0;
   let total = 0;
   for (const { text, plain } of lines(content)) {

@@ -111,7 +111,6 @@
 .task-scope-group--out .task-scope-label { color: var(--color-red); }
 .task-scope-group--out { color: var(--color-dimmed2); }
 .task-section--scope .task-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
-.task-scope-group .spec-prose > p:has(+ ul), .task-scope-group > p:has(+ ul) { text-transform: none; }
 
 /* Plan: a numbered list is a row of steps joined by a line; text before or after it (an example, a table) stays prose. */
 .task-steps { margin: 0 0 var(--space-4); padding: 0; list-style: none; display: flex; flex-direction: column; }

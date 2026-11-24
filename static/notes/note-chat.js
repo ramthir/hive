@@ -73,9 +73,24 @@ export class NoteChatDock {
     }
     dock.hidden = !this.open;
     this.host.classList.toggle('chat-docked', this.open);
+    if (this.options.fixed) this.followHeader(dock);
     if (this.chat.getAttribute('note') !== slug) this.chat.setAttribute('note', slug);
     if (this.chat.parentElement !== dock) dock.appendChild(this.chat);
     if (refocus && this.open) this.chat.focusInput();
+  }
+
+  /** A fixed dock starts under the page's header, as the note page's dock does, and follows it while the page scrolls (at the top of
+   *  the window once the header has scrolled away). */
+  followHeader(dock) {
+    const place = () => {
+      const header = this.host.querySelector('app-header');
+      dock.style.top = `${Math.max(0, Math.round(header?.getBoundingClientRect().bottom ?? 0))}px`;
+    };
+    place();
+    if (this._followHeader) return;
+    this._followHeader = place;
+    window.addEventListener('scroll', place, { passive: true });
+    window.addEventListener('resize', place);
   }
 
   setOpen(open) {
