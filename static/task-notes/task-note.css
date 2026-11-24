@@ -7,6 +7,8 @@
 .task-priority--must { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
 .task-priority--important { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
 .task-priority--nice-to-have { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.task-ticket { color: var(--color-blue); text-decoration: none; }
+.task-ticket:hover, .task-ticket:focus-visible { background: color-mix(in srgb, var(--color-blue) 24%, transparent); }
 .task-project { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
 
 .task-lead { padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; color: var(--color-text); }

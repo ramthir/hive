@@ -74,13 +74,21 @@ function projectName(task) {
   return (project.startsWith('[[') && project.endsWith(']]') ? project.slice(2, -2) : project).trim();
 }
 
+const JIRA = 'https://socialedge.atlassian.net/browse/';
+
+/** The Jira address of a task's ticket: only CreatorIQ tickets that look like `APIM-66` have one, otherwise ''. */
+export function ticketUrl(task) {
+  const ticket = String(task?.ticket ?? '').trim();
+  return projectName(task || {}).toLowerCase() === 'creatoriq' && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket) ? `${JIRA}${ticket.toUpperCase()}` : '';
+}
+
 function renderTicketChip(task) {
   const ticket = String(task.ticket ?? '').trim();
   if (!ticket) return '';
-  const project = projectName(task).toLowerCase();
   const content = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
-  if (project === 'creatoriq' && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket)) {
-    return `<a class="board-chip board-chip--ticket board-chip--link" href="https://socialedge.atlassian.net/browse/${ticket.toUpperCase()}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${content}</a>`;
+  const url = ticketUrl(task);
+  if (url) {
+    return `<a class="board-chip board-chip--ticket board-chip--link" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${content}</a>`;
   }
   return `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}">${content}</span>`;
 }

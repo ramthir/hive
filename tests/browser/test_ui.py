@@ -2179,7 +2179,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
 
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
     (notes_dir / "fix-login.md").write_text(
-        "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: Acme\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
+        "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
         "# Fix login\n\nSafari users cannot sign in.\n\n## Acceptance Criteria\n\n- [x] Cookie is set\n- [ ] Works on Safari\n\n"
         "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n")
     git(notes_dir, "add", "-A")
@@ -2190,7 +2190,11 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator("app-header")).to_have_attribute("heading", "Fix login")
     expect(page.locator("app-header .task-status--in-progress")).to_have_text("In Progress")
     expect(page.locator("app-header .task-priority--must")).to_have_text("Must")
-    expect(page.locator("app-header .task-project")).to_have_text("Acme")
+    expect(page.locator("app-header .task-project")).to_have_text("CreatorIQ")
+    ticket = page.locator("app-header .task-ticket")
+    expect(ticket).to_have_text("APIM-66")  # opens the Jira task, as the board's ticket chip does
+    expect(ticket).to_have_attribute("href", "https://socialedge.atlassian.net/browse/APIM-66")
+    expect(ticket).to_have_attribute("target", "_blank")
     expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
     expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")

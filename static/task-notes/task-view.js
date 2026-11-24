@@ -3,7 +3,7 @@ import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { chatButtonHtml } from '/static/notes/note-chat.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
-import { COLUMNS, PRIORITIES } from '/static/tasks/card.js';
+import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { parseTask, planSteps, projectName, scopeGroups, visibleTags } from '/static/task-notes/task-note.js';
 
@@ -28,7 +28,7 @@ export class TaskView extends SpecificationView {
       this.progressChip(),
       priority ? `<span class="spec-pill task-priority--${priority.value}" title="Priority ${priority.rank}"><i class="${priority.icon}" aria-hidden="true"></i>${esc(priority.label)}</span>` : '',
       project ? `<span class="spec-pill task-project"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>${esc(project)}</span>` : '',
-      ticket ? `<span class="spec-pill" title="Ticket"><i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}</span>` : '',
+      this.ticketChip(ticket, project),
       note.week ? `<span class="spec-pill" title="Week finished"><i class="fa-regular fa-calendar" aria-hidden="true"></i>${esc(note.week)}</span>` : '',
       ...visibleTags(note.tags, project).map((tag) => `<span class="spec-pill"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`),
     ].join('');
@@ -76,6 +76,16 @@ export class TaskView extends SpecificationView {
     })) host.querySelector(`#${id}`)?.addEventListener('click', () => this.actions[run]());
     this.wireOutline();
     this.decorate(host.querySelector('#spec-main'));
+  }
+
+  // The ticket: a link to Jira where the board links it too (same rule, `ticketUrl`), otherwise plain.
+  ticketChip(ticket, project) {
+    if (!ticket) return '';
+    const inner = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
+    const url = ticketUrl({ ticket, project });
+    return url
+      ? `<a class="spec-pill task-ticket" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${inner}</a>`
+      : `<span class="spec-pill" title="Ticket">${inner}</span>`;
   }
 
   // "1 of 8 done" with a thin bar: a chip of the header, since it says where the task stands like the status does.
