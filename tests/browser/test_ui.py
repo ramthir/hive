@@ -687,7 +687,7 @@ def test_spotlight_rows_show_an_icon_for_the_notes_type(page, server, notes_dir)
 # --- Pandora's shell: header and sidebar --------------------------------------------------------------------------------
 
 def test_library_is_its_own_app_with_only_its_three_links(page, server):
-    page.goto(f"{server}/library?type=series")
+    page.goto(f"{server}/iptv?type=series")
     expect(page.locator("app-sidebar .logo-text")).to_have_text("Media Library")
     links = page.locator("app-sidebar .nav-link")
     expect(links).to_have_text(["Movies", "Series", "Television"])
@@ -2495,7 +2495,7 @@ def library_page(server):
 def test_copy_icon_copies_the_stream_url_and_a_toast_says_so(library_server):
     p, browser, page = library_page(library_server)
     try:
-        page.goto(f"{library_server}/library?type=vod")
+        page.goto(f"{library_server}/iptv?type=vod")
         card = page.locator(".iptv-card", has_text="Heat")
         expect(card.locator(".iptv-copy")).to_have_css("opacity", "0")  # shown only on hover
         card.hover()
@@ -2513,14 +2513,14 @@ def test_copy_icon_copies_the_stream_url_and_a_toast_says_so(library_server):
 def test_a_series_card_opens_a_drawer_with_facts_seasons_and_episodes_to_copy(library_server):
     p, browser, page = library_page(library_server)
     try:
-        page.goto(f"{library_server}/library?type=series")
+        page.goto(f"{library_server}/iptv?type=series")
         page.locator(".iptv-card", has_text="The Wire").click()
         drawer = page.locator(".iptv-series-drawer")
         expect(drawer.locator(".modal-title")).to_have_text("The Wire")
         expect(drawer.locator(".iptv-plot")).to_have_text("Baltimore, told from every side.")
         expect(drawer.locator(".iptv-facts")).to_have_text("2002★ 9.3")
         expect(drawer.locator(".iptv-trailer")).to_have_attribute("href", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        assert page.url.endswith("/library?type=series")  # no page change: the list stays behind the drawer
+        assert page.url.endswith("/iptv?type=series")  # no page change: the list stays behind the drawer
         expect(drawer.locator(".iptv-seasons .tab-bar-item")).to_have_text(["The Buy", "Season 2"])
         episodes = drawer.locator(".iptv-episode")
         expect(episodes).to_have_count(2)
@@ -2547,7 +2547,7 @@ def test_a_series_card_opens_a_drawer_with_facts_seasons_and_episodes_to_copy(li
 def test_a_long_episode_list_scrolls_in_the_drawer_and_leaves_the_season_tabs_whole(library_server):
     p, browser, page = library_page(library_server)
     try:
-        page.goto(f"{library_server}/library?type=series")
+        page.goto(f"{library_server}/iptv?type=series")
         page.locator(".iptv-card", has_text="Long Show").click()
         drawer = page.locator(".iptv-series-drawer")
         expect(drawer.locator(".iptv-episode")).to_have_count(20)
@@ -2564,7 +2564,7 @@ def test_a_long_episode_list_scrolls_in_the_drawer_and_leaves_the_season_tabs_wh
 def test_library_search_is_the_autocomplete_and_slash_focuses_it(library_server):
     p, browser, page = library_page(library_server)
     try:
-        page.goto(f"{library_server}/library")
+        page.goto(f"{library_server}/iptv")
         field = page.locator("#iptv-search-input")
         expect(field).to_have_attribute("placeholder", "Search movies…")
         page.keyboard.press("/")
@@ -2580,7 +2580,7 @@ def test_library_search_is_the_autocomplete_and_slash_focuses_it(library_server)
 def test_typing_group_suggests_categories_and_picking_one_filters(library_server):
     p, browser, page = library_page(library_server)
     try:
-        page.goto(f"{library_server}/library")
+        page.goto(f"{library_server}/iptv")
         expect(page.locator(".iptv-card")).to_have_count(2)
         field = page.locator("#iptv-search-input")
         field.click()
@@ -2626,7 +2626,7 @@ def big_library_server(notes_dir, tmp_path):
 def test_library_loads_more_cards_as_the_page_is_scrolled(big_library_server):
     p, browser, page = library_page(big_library_server)
     try:
-        page.goto(f"{big_library_server}/library")
+        page.goto(f"{big_library_server}/iptv")
         cards = page.locator(".iptv-card")
         expect(cards).not_to_have_count(0)
         assert page.locator("app-pagination").count() == 0  # no page buttons

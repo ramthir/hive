@@ -90,15 +90,14 @@ def test_a_failed_sync_keeps_the_old_catalogue_and_hides_the_password(tmp_path):
         assert "401" in status["error"] and "wrong" not in status["error"] and status["counts"]["vod"] == 2
 
 
-def test_the_library_page_is_its_own_app_and_iptv_redirects_to_it(tmp_path):
+def test_the_iptv_page_is_its_own_app_and_library_is_gone(tmp_path):
     app, _ = make_app(tmp_path)
     with TestClient(app) as c:
-        page = c.get("/library").text
-        assert "iptv-app" in page and 'app="library"' in page
-        moved = c.get("/iptv?type=vod", follow_redirects=False)
-        assert moved.status_code == 301 and moved.headers["location"] == "/library?type=vod"
+        page = c.get("/iptv").text
+        assert "iptv-app" in page and 'app="iptv"' in page
+        assert c.get("/library", follow_redirects=False).status_code == 404
     sidebar = open("static/sidebar.js").read()
-    assert all(href in sidebar for href in ("'/library'", "'/library?type=series'", "'/library?type=live'"))
+    assert all(href in sidebar for href in ("'/iptv'", "'/iptv?type=series'", "'/iptv?type=live'"))
 
 
 def test_static_files_are_revalidated_so_a_fixed_script_is_not_served_from_an_old_cache(tmp_path):
