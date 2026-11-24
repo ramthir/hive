@@ -9,7 +9,7 @@ import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { api } from '/static/notes/api.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import {
-  parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
+  parseSpecification, scopeGroups, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
 } from '/static/specifications/specification-note.js';
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
@@ -37,6 +37,19 @@ export class SpecificationView {
       isRoute: () => false,
       decorate: (parsed) => { this.diagrams.markBlocks(parsed); this.diagrams.markEmbeds(parsed); },
     });
+  }
+
+  // "In scope:" and "Out of scope:" lines inside Scope each start a labelled group; without them the text is drawn as it is.
+  scope(text) {
+    const groups = scopeGroups(text);
+    if (!groups.some((group) => group.kind)) return this.markdown(text);
+    const LABELS = { in: ['In scope', 'fa-circle-check'], out: ['Out of scope', 'fa-ban'] };
+    return groups.map(({ kind, body }) => {
+      const [label, icon] = LABELS[kind] || [];
+      return `<div class="spec-scope-group${kind ? ` spec-scope-group--${kind}` : ''}">
+        ${label ? `<h3 class="spec-scope-label"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</h3>` : ''}
+        ${body ? this.markdown(body) : '<p class="spec-empty">Nothing listed.</p>'}</div>`;
+    }).join('');
   }
 
   render(note, { typeLabel, typeIconName }) {
@@ -110,9 +123,9 @@ export class SpecificationView {
         </section>`);
         continue;
       }
-      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
+      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', scope: ' spec-section--scope', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
       parts.push(`<section id="${slugOf(section.name)}" class="spec-section${tone}"><h2 class="spec-heading">${esc(section.name)}</h2>
-        <div class="notes-preview-body spec-prose">${this.markdown(section.body)}</div></section>`);
+        <div class="notes-preview-body spec-prose">${section.key === 'scope' ? this.scope(section.body) : this.markdown(section.body)}</div></section>`);
     }
     if (!parts.length) parts.push(`<div class="notes-preview-body spec-prose">${this.markdown(this.note.content)}</div>`);
     return parts.join('');

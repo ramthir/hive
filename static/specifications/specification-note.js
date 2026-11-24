@@ -79,6 +79,22 @@ function requirement(name, body) {
   return { name, statement: statementText, strong: STRONG.test(statementText), scenarios, rest: trimBlank(rest).join('\n') };
 }
 
+const SCOPE_MARK = /^\s*(?:\*\*|__)?\s*(in|out of)[ -]scope\s*:?\s*(?:\*\*|__)?\s*:?\s*$/i;
+
+/** A Scope section's text split at its "In scope:" / "Out of scope:" lines: `[{kind: 'in' | 'out' | '', body}]` in file order
+    (text before the first such line has kind ''). A section with no such line comes back as one group of kind ''. */
+export function scopeGroups(body) {
+  const groups = [{ kind: '', lines: [] }];
+  for (const { text, plain } of lines(body)) {
+    const mark = plain ? SCOPE_MARK.exec(text) : null;
+    if (mark) groups.push({ kind: mark[1].toLowerCase() === 'in' ? 'in' : 'out', lines: [] });
+    else groups[groups.length - 1].lines.push(text);
+  }
+  return groups
+    .map((group) => ({ kind: group.kind, body: trimBlank(group.lines).join('\n') }))
+    .filter((group, index) => group.body || (group.kind && index > 0));
+}
+
 /** Non-blank lines of the note's text, not counting PlantUML diagrams: a diagram is long to write but says one thing, so it
     does not make a specification cover more than one capability. */
 export function specificationLines(content) {

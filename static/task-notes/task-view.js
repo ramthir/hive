@@ -4,11 +4,11 @@ import { renderSearchTrigger, wireSearchTrigger } from '/static/components/searc
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
 import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
-import { parseTask, planSteps, projectName, scopeGroups, visibleTags } from '/static/task-notes/task-note.js';
+import { parseTask, planSteps, projectName, visibleTags } from '/static/task-notes/task-note.js';
 
 const STATUS_TONE = { TODO: ['todo', 'neutral'], IN_PROGRESS: ['in-progress', 'blue'], DONE: ['done', 'green'] };
 const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green' };
-const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' task-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
+const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' spec-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
     its checklists and a card per section. The page, markdown, diagrams and outline behave as on the specification page. */
@@ -121,19 +121,6 @@ export class TaskView extends SpecificationView {
         <span class="task-step-no" aria-hidden="true">${index + 1}</span>
         <div class="task-step-main">${step.name ? `<h3 class="task-step-name">${esc(step.name)}</h3>` : ''}${step.body ? `<div class="task-step-text">${this.markdown(step.body)}</div>` : ''}</div></li>`).join('')}</ol>
       ${after ? this.markdown(after) : ''}`;
-  }
-
-  // "In scope:" and "Out of scope:" lines inside Scope each start a labelled group; without them the text is drawn as it is.
-  scope(text) {
-    const groups = scopeGroups(text);
-    if (!groups.some((group) => group.kind)) return this.markdown(text);
-    const LABELS = { in: ['In scope', 'fa-circle-check'], out: ['Out of scope', 'fa-ban'] };
-    return groups.map(({ kind, body }) => {
-      const [label, icon] = LABELS[kind] || [];
-      return `<div class="task-scope-group${kind ? ` task-scope-group--${kind}` : ''}">
-        ${label ? `<h3 class="task-scope-label"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</h3>` : ''}
-        ${body ? this.markdown(body) : '<p class="spec-empty">Nothing listed.</p>'}</div>`;
-    }).join('');
   }
 
   body() {

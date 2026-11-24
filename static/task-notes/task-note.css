@@ -63,37 +63,6 @@
 .task-section--criteria .spec-prose li ul li { display: list-item; padding: 0; border: 0; background: none; }
 .task-section--criteria .spec-prose li ul li::before { content: none; }
 
-/* Scope: what the task covers, the counterpart of Out of Scope (a dashed edge, red dots): a solid card with blue dots. */
-.task-section--scope .spec-heading::before { content: '\f140'; font-family: 'Font Awesome 6 Free'; font-weight: 900; letter-spacing: 0; color: var(--color-blue); }
-.task-section--scope > .spec-prose.notes-preview-body {
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-blue) 4%, transparent);
-}
-.task-section--scope .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
-.task-section--scope .spec-prose li { position: relative; padding-left: 1.4rem; }
-.task-section--scope .spec-prose li::before {
-  content: '';
-  position: absolute;
-  left: 0.2rem;
-  top: 0.62em;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--color-blue);
-}
-/* A lead-in such as "In scope:" is a label for the list under it. */
-.task-section--scope .spec-prose > p:has(+ ul) { margin-bottom: var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dimmed3); }
-
-/* In scope / Out of scope inside Scope: two labelled groups in the one card, the second dimmed with red dots. */
-.task-scope-group + .task-scope-group { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px dashed var(--color-border); }
-.task-scope-label { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-.task-scope-group--in .task-scope-label { color: var(--color-blue); }
-.task-scope-group--out .task-scope-label { color: var(--color-red); }
-.task-scope-group--out { color: var(--color-dimmed2); }
-.task-section--scope .task-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
-
 /* Plan: a numbered list is a row of steps joined by a line; text before or after it (an example, a table) stays prose. */
 .task-steps { margin: 0 0 var(--space-4); padding: 0; list-style: none; display: flex; flex-direction: column; }
 .task-steps:last-child { margin-bottom: 0; }

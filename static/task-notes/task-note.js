@@ -84,22 +84,6 @@ export function visibleTags(tags, project = '') {
 /** `[[Acme]]` or `Acme` -> `Acme`. */
 export const projectName = (value) => String(value || '').replace(/^\[\[|\]\]$/g, '').trim();
 
-const SCOPE_MARK = /^\s*(?:\*\*|__)?\s*(in|out of)[ -]scope\s*:?\s*(?:\*\*|__)?\s*:?\s*$/i;
-
-/** A Scope section's text split at its "In scope:" / "Out of scope:" lines: `[{kind: 'in' | 'out' | '', body}]` in file order
-    (text before the first such line has kind ''). A section with no such line comes back as one group of kind ''. */
-export function scopeGroups(body) {
-  const groups = [{ kind: '', lines: [] }];
-  for (const { text, plain } of lines(body)) {
-    const mark = plain ? SCOPE_MARK.exec(text) : null;
-    if (mark) groups.push({ kind: mark[1].toLowerCase() === 'in' ? 'in' : 'out', lines: [] });
-    else groups[groups.length - 1].lines.push(text);
-  }
-  return groups
-    .map((group) => ({ kind: group.kind, body: trimBlank(group.lines).join('\n') }))
-    .filter((group, index) => group.body || (group.kind && index > 0));
-}
-
 const STEP = /^\d+[.)]\s+(.*)$/;
 const FENCE_LINE = /^\s*(```|~~~)/;
 const LEAD = /^\*\*(.+?)\*\*\s*([.:])?\s*(.*)$/s;

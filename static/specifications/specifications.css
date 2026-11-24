@@ -112,23 +112,26 @@
 .spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
 .spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
 
-/* Out of Scope: what this specification leaves alone, set apart with a dashed edge and red dot markers. */
-.spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
+/* Scope and Out of Scope, shared by specifications and tasks. Scope is a solid card with blue dots; the older Out of Scope
+   section is a dashed, dimmed card with red dots. Inside Scope, "In scope:" / "Out of scope:" lines make labelled groups. */
+.spec-section--scope .spec-heading::before, .spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
   margin-right: var(--space-2);
   letter-spacing: 0;
 }
+.spec-section--scope .spec-heading::before { content: '\f140'; color: var(--color-blue); }
 .spec-section--out .spec-heading::before { content: '\f05e'; color: var(--color-red); }
-.spec-section--out .spec-prose {
+.spec-section--scope .spec-prose, .spec-section--out .spec-prose {
   padding: var(--space-3) var(--space-4);
-  border: 1px dashed var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  color: var(--color-dimmed2);
 }
-.spec-section--out .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
-.spec-section--out .spec-prose li { position: relative; padding-left: 1.4rem; }
-.spec-section--out .spec-prose li::before {
+.spec-section--scope .spec-prose { padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--color-blue) 4%, transparent); }
+.spec-section--out .spec-prose { border-style: dashed; color: var(--color-dimmed2); }
+.spec-section--scope .spec-prose ul, .spec-section--out .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.spec-section--scope .spec-prose li, .spec-section--out .spec-prose li { position: relative; padding-left: 1.4rem; }
+.spec-section--scope .spec-prose li::before, .spec-section--out .spec-prose li::before {
   content: '';
   position: absolute;
   left: 0.2rem;
@@ -136,9 +139,16 @@
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: var(--color-red);
-  opacity: 0.8;
+  background: var(--color-blue);
 }
+.spec-section--out .spec-prose li::before, .spec-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
+/* A lead-in such as "In scope:" is a label for the list under it. */
+.spec-section--scope .spec-prose > p:has(+ ul) { margin-bottom: var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dimmed3); }
+.spec-scope-group + .spec-scope-group { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px dashed var(--color-border); }
+.spec-scope-label { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.spec-scope-group--in .spec-scope-label { color: var(--color-blue); }
+.spec-scope-group--out .spec-scope-label { color: var(--color-red); }
+.spec-scope-group--out { color: var(--color-dimmed2); }
 
 /* References share a compact list across task and specification pages. */
 .spec-section--refs .spec-heading::before { content: '\f0c1'; color: var(--color-blue); }
