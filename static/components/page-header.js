@@ -34,6 +34,44 @@ export function isRedundantBreadcrumb(breadcrumbs = []) {
   return Array.isArray(breadcrumbs) && breadcrumbs.length === 1;
 }
 
+const TONE_LEGACY_CLASS = { green: 'spec-pill--ok', orange: 'spec-pill--warn' };
+
+/**
+ * One chip in a page header's chip row (under the title in `<app-header bottom>`).
+ * `tone`: 'blue' | 'green' | 'orange' | 'red' | 'neutral'. `href` renders an external link chip.
+ */
+export function renderHeaderChip(chip) {
+  if (!chip) return '';
+  if (typeof chip === 'string') return chip;
+  const { label = '', html = '', icon = '', tone = '', href = '', title = '', role = '', ariaLabel = '', className = '' } = chip;
+  if (!label && !html) return '';
+  const classes = [
+    'header-chip',
+    'spec-pill',
+    tone ? `header-chip--${tone}` : '',
+    TONE_LEGACY_CLASS[tone] || '',
+    className,
+  ].filter(Boolean).join(' ');
+  const attrs = [
+    `class="${escapeHtml(classes)}"`,
+    title ? `title="${escapeHtml(title)}"` : '',
+    role ? `role="${escapeHtml(role)}"` : '',
+    ariaLabel ? `aria-label="${escapeHtml(ariaLabel)}"` : '',
+    href ? `href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"` : '',
+  ].filter(Boolean).join(' ');
+  const body = `${icon ? `<i class="${escapeHtml(icon)}" aria-hidden="true"></i>` : ''}${html || escapeHtml(label)}`;
+  const tag = href ? 'a' : 'span';
+  return `<${tag} ${attrs}>${body}</${tag}>`;
+}
+
+/** The slotted subtitle row of chips for `<app-header bottom>`. */
+export function renderHeaderChips(chips = [], { className = '' } = {}) {
+  const body = chips.map(renderHeaderChip).filter(Boolean).join('');
+  if (!body) return '';
+  const classes = ['header-chips', className].filter(Boolean).join(' ');
+  return `<div slot="subtitle" class="${escapeHtml(classes)}">${body}</div>`;
+}
+
 export function renderPageHeader({
   title = '',
   subtitle = '',

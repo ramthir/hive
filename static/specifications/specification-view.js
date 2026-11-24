@@ -1,6 +1,7 @@
 import '/static/components/dropdown-menu.js'; // the menu on a rendered diagram (Download PNG)
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
+import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
@@ -14,7 +15,7 @@ import {
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
-const STATUS_TONE = { draft: 'draft', active: 'active', deprecated: 'deprecated' };
+const STATUS_TONE = { draft: 'neutral', active: 'green', deprecated: 'red' };
 
 /** The read view of a specification note: the objective, one card per requirement and the other sections, with an outline. */
 export class SpecificationView {
@@ -47,16 +48,20 @@ export class SpecificationView {
     const status = statusLabel(note.status);
     const age = verifiedAge(note.extra?.verified);
     const project = String(note.extra?.project || '').replace(/^\[\[|\]\]$/g, '').trim();
-    const chips = [
-      status ? `<span class="spec-pill spec-status spec-status--${STATUS_TONE[status.toLowerCase()] || 'other'}">${esc(status)}</span>` : '',
-      project ? `<span class="spec-pill spec-project"><i class="fa-solid fa-hammer" aria-hidden="true"></i>${esc(project)}</span>` : '',
-      spec.requirements.length ? `<span class="spec-pill">${spec.requirements.length} requirement${spec.requirements.length === 1 ? '' : 's'}</span>` : '',
-      `<span class="spec-pill ${verifiedStale(age) ? 'spec-pill--warn' : 'spec-pill--ok'}" title="When it was last checked against the code (the verified property)">${age === null ? 'Never verified' : age === 0 ? 'Verified today' : `Verified ${age} day${age === 1 ? '' : 's'} ago`}</span>`,
-    ].join('');
+    const chips = renderHeaderChips([
+      status && { label: status, tone: STATUS_TONE[status.toLowerCase()], className: `spec-status spec-status--${status.toLowerCase()}` },
+      project && { label: project, icon: 'fa-solid fa-hammer', tone: 'blue', className: 'spec-project' },
+      spec.requirements.length && { label: `${spec.requirements.length} requirement${spec.requirements.length === 1 ? '' : 's'}` },
+      {
+        label: age === null ? 'Never verified' : age === 0 ? 'Verified today' : `Verified ${age} day${age === 1 ? '' : 's'} ago`,
+        tone: verifiedStale(age) ? 'orange' : 'green',
+        title: 'When it was last checked against the code (the verified property)',
+      },
+    ]);
     host.innerHTML = `
       <section class="notes-page spec-page">
         <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
-          <div slot="subtitle" class="spec-chips">${chips}</div>
+          ${chips}
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
         <div class="spec-workspace">

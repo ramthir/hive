@@ -148,6 +148,31 @@
 }
 .header-search-input::placeholder { color: var(--search-text-color); opacity: 1; }
 .header-search-input::-webkit-search-cancel-button { cursor: pointer; }
+
+/* Standard header & metadata chips (slotted into `<app-header bottom>` via `renderHeaderChips` in page-header.js). */
+.header-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: 0.3rem; }
+.header-chip, .spec-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem; padding: 0 10px; min-height: 1.5rem;
+  border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600;
+  color: var(--color-dimmed1); background: color-mix(in srgb, var(--color-dimmed3) 18%, transparent);
+  text-decoration: none;
+}
+.header-chip--neutral { color: var(--color-dimmed1); }
+.header-chip--blue, .spec-project, .task-project, .task-status--in-progress, .task-ticket {
+  color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent);
+}
+a.header-chip--blue:hover, a.header-chip--blue:focus-visible, .task-ticket:hover, .task-ticket:focus-visible {
+  background: color-mix(in srgb, var(--color-blue) 24%, transparent);
+}
+.header-chip--green, .spec-pill--ok, .spec-status--active, .task-status--done, .task-priority--nice-to-have {
+  color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent);
+}
+.header-chip--orange, .spec-pill--warn, .task-priority--important {
+  color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent);
+}
+.header-chip--red, .spec-status--deprecated, .task-priority--must {
+  color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent);
+}
 .hive-version-day { position: relative; margin: .6rem .6rem .15rem 3.4rem; font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .55; }
 .hive-version-day:first-child { margin-top: 0; }
 .hive-version-row[hidden], .hive-version-day[hidden] { display: none; }

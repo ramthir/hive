@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { parseUtcDate, formatRelativeTime } from '/static/relative-time.js';
+import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { chatButtonHtml } from '/static/notes/note-chat.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
@@ -7,7 +8,8 @@ import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
 import { parseTask, planSteps, projectName, scopeGroups, visibleTags } from '/static/task-notes/task-note.js';
 
-const STATUS_TONE = { TODO: 'todo', IN_PROGRESS: 'in-progress', DONE: 'done' };
+const STATUS_TONE = { TODO: ['todo', 'neutral'], IN_PROGRESS: ['in-progress', 'blue'], DONE: ['done', 'green'] };
+const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green' };
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' task-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
@@ -17,25 +19,25 @@ export class TaskView extends SpecificationView {
     const { host } = this;
     this.note = note;
     this.task = parseTask(note.content);
-    const { task } = this;
     const status = COLUMNS.find((column) => column.value === note.task_status);
+    const [statusSlug, statusTone] = STATUS_TONE[status?.value] || [];
     const priority = PRIORITIES.find((item) => item.value === note.priority);
     const project = projectName(note.extra?.project);
     const ticket = String(note.extra?.ticket || '').trim();
     const logged = loggedLabel(note.time);
-    const chips = [
-      status ? `<span class="spec-pill task-status--${STATUS_TONE[status.value]}" title="Status">${esc(status.label)}</span>` : '',
+    const chips = renderHeaderChips([
+      status && { label: status.label, tone: statusTone, title: 'Status', className: `task-status--${statusSlug}` },
       this.progressChip(),
-      priority ? `<span class="spec-pill task-priority--${priority.value}" title="Priority ${priority.rank}"><i class="${priority.icon}" aria-hidden="true"></i>${esc(priority.label)}</span>` : '',
-      project ? `<span class="spec-pill task-project"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>${esc(project)}</span>` : '',
+      priority && { label: priority.label, icon: priority.icon, tone: PRIORITY_TONE[priority.value], title: `Priority ${priority.rank}`, className: `task-priority--${priority.value}` },
+      project && { label: project, icon: 'fa-solid fa-briefcase', tone: 'blue', className: 'task-project' },
       this.ticketChip(ticket, project),
-      note.week ? `<span class="spec-pill" title="Week finished"><i class="fa-regular fa-calendar" aria-hidden="true"></i>${esc(note.week)}</span>` : '',
-      ...visibleTags(note.tags, project).map((tag) => `<span class="spec-pill"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`),
-    ].join('');
+      note.week && { label: note.week, icon: 'fa-regular fa-calendar', title: 'Week finished' },
+      ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag' })),
+    ]);
     host.innerHTML = `
       <section class="notes-page spec-page">
         <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
-          <div slot="subtitle" class="spec-chips task-chips">${chips}</div>
+          ${chips}
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
         <div class="spec-workspace">
@@ -80,20 +82,28 @@ export class TaskView extends SpecificationView {
 
   // The ticket: a link to Jira where the board links it too (same rule, `ticketUrl`), otherwise plain.
   ticketChip(ticket, project) {
-    if (!ticket) return '';
-    const inner = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
-    const url = ticketUrl({ ticket, project });
-    return url
-      ? `<a class="spec-pill task-ticket" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${inner}</a>`
-      : `<span class="spec-pill" title="Ticket">${inner}</span>`;
+    if (!ticket) return null;
+    const href = ticketUrl({ ticket, project });
+    return {
+      label: ticket,
+      icon: 'fa-solid fa-ticket',
+      ...(href ? { href, tone: 'blue', title: `Open ${ticket} in Jira`, className: 'task-ticket' } : { title: 'Ticket' }),
+    };
   }
 
   // "1 of 8 done" with a thin bar: a chip of the header, since it says where the task stands like the status does.
   progressChip() {
     const { done, total } = this.task.progress;
-    if (!total) return '';
+    if (!total) return null;
     const complete = done === total;
-    return `<span class="spec-pill task-progress${complete ? ' spec-pill--ok' : ''}" role="img" aria-label="${done} of ${total} items done" title="Checklist items done"><span class="task-bar${complete ? ' task-bar--done' : ''}"><span style="width:${Math.round((done / total) * 100)}%"></span></span>${done} of ${total} done</span>`;
+    return {
+      html: `<span class="task-bar${complete ? ' task-bar--done' : ''}"><span style="width:${Math.round((done / total) * 100)}%"></span></span>${done} of ${total} done`,
+      tone: complete ? 'green' : '',
+      role: 'img',
+      ariaLabel: `${done} of ${total} items done`,
+      title: 'Checklist items done',
+      className: 'task-progress',
+    };
   }
 
   outline() {

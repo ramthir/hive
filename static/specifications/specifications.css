@@ -11,7 +11,7 @@ specifications-app, task-note-app {
   box-sizing: border-box;
 }
 
-.spec-page { --search-width: 16rem; padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
+.spec-page { padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem)); }
 
 .spec-workspace {
   display: grid;
@@ -55,25 +55,6 @@ specifications-app, task-note-app {
 .spec-count { color: var(--color-dimmed3); font-variant-numeric: tabular-nums; }
 
 .spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
-
-.spec-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: 0.3rem; }
-.spec-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0 10px;
-  min-height: 1.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-dimmed1);
-  background: color-mix(in srgb, var(--color-dimmed3) 18%, transparent);
-}
-.spec-pill--ok { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
-.spec-pill--warn { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
-.spec-status--active { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
-.spec-status--deprecated { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
-.spec-project { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
 
 .spec-legacy { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); line-height: 1.5; color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 

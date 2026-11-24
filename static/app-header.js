@@ -55,7 +55,12 @@ const COMPONENT_CSS = `
 
                 /* bottom: for a header whose heading block has a second line (chips under the heading). The heading stays
                    where it is in a header without one (the min-height is the usual 4.5625rem plus that line), the second
-                   line ends just above the bottom border, and the actions keep to the middle. */
+                   line ends just above the bottom border, the actions keep to the middle, and the search box is shorter
+                   so the chips have room. */
+                :host([bottom]) {
+                    --search-width: var(--search-width-compact, 16rem);
+                }
+
                 :host([bottom]) .page-header-content {
                     align-items: flex-end;
                     min-height: 5.0625rem;
@@ -163,7 +168,10 @@ const COMPONENT_CSS = `
                 }
 
                 ::slotted([slot="subtitle"]) {
-                    display: inline-flex;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: var(--space-2, 0.5rem);
+                    align-items: center;
                     margin-top: 0.3rem;
                 }
 
