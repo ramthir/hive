@@ -491,7 +491,7 @@ def test_editing_the_note_type_is_a_combobox_that_saves_and_clears_the_type(page
     assert "\ntype: task\n" in (notes_dir / "alpha.md").read_text()
     expect(page.locator("#note-properties-btn")).to_have_count(1)  # task: the type's properties appear without a reload
     page.click("#edit-note-btn")
-    expect(page.locator(".notes-type-name")).to_have_text(["task"])
+    page.wait_for_url("**/tasks/alpha")  # a task is read on its own page
     # Clearing it removes the key again.
     page.click("#edit-note-btn")
     page.locator("#note-type .combobox-clear").click()
@@ -914,6 +914,7 @@ def property_notes(notes_dir):
 
 def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, property_notes):
     page.goto(f"{server}/notes/fix-it")
+    page.wait_for_url("**/tasks/fix-it")
     before = len(git(property_notes, "rev-list", "HEAD").split())
     page.click("#note-properties-btn")
     drawer = page.locator(".notes-properties-drawer")
@@ -930,7 +931,8 @@ def test_properties_drawer_saves_a_tasks_fields_as_one_commit(page, server, prop
     assert "project: Acme" in text and "assignee: Bo" in text and "status: IN_PROGRESS" in text
     assert "priority: must" in text and "tags: [todo]" in text
     assert len(git(property_notes, "rev-list", "HEAD").split()) == before + 1
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["todo"])
+    expect(page.locator("app-header .task-status--in-progress")).to_have_text("In Progress")  # the header chips follow the drawer
+    expect(page.locator("app-header .task-priority--must")).to_have_text("Must")
     page.click("#note-properties-btn")  # reopened: shows what was saved
     expect(page.locator('.notes-properties-drawer [data-key="project"] .combobox-input')).to_have_value("Acme")
     assert page.errors == []
@@ -1341,11 +1343,13 @@ def test_a_tag_changed_by_the_properties_drawer_updates_the_footer_tags(page, se
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "bare")
     page.goto(f"{server}/notes/bare")
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["must", "work"])
+    expect(page.locator("app-header .task-priority--must")).to_have_text("Must")  # the tag is read as the priority, not shown twice
+    expect(page.locator("app-header .spec-pill").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
     page.click("#note-properties-btn")
     pick_field(page.locator(".notes-properties-drawer"), "priority", "Important")
     page.locator('.notes-properties-drawer [data-action="save"]').click()
-    expect(page.locator("#note-tags .notes-tag-chip")).to_have_text(["work"])
+    expect(page.locator("app-header .task-priority--important")).to_have_text("Important")
+    expect(page.locator("app-header .spec-pill").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
     assert "priority: important" in (notes_dir / "bare.md").read_text()
     assert page.errors == []
 
@@ -2170,6 +2174,39 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/spine-users?mode=edit")
+    assert page.errors == []
+
+
+def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
+    (notes_dir / "fix-login.md").write_text(
+        "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: Acme\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
+        "# Fix login\n\nSafari users cannot sign in.\n\n## Acceptance Criteria\n\n- [x] Cookie is set\n- [ ] Works on Safari\n\n"
+        "## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n")
+    git(notes_dir, "add", "-A")
+    git(notes_dir, "commit", "-qm", "task")
+
+    page.goto(f"{server}/notes/fix-login")
+    page.wait_for_url("**/tasks/fix-login")  # a task note is read on its own page
+    expect(page.locator("app-header")).to_have_attribute("heading", "Fix login")
+    expect(page.locator("app-header .task-status--in-progress")).to_have_text("In Progress")
+    expect(page.locator("app-header .task-priority--must")).to_have_text("Must")
+    expect(page.locator("app-header .task-project")).to_have_text("Acme")
+    expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
+    expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
+    expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
+    expect(page.locator("app-header .task-progress")).to_have_text("1 of 2 done")  # a chip of the header, not a row above the content
+    expect(page.locator(".task-section")).to_have_count(3)
+    expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)
+    expect(page.locator(".task-section--criteria")).to_have_count(1)  # Acceptance Criteria is drawn as rows
+    expect(page.locator(".task-section--criteria li")).to_have_count(2)
+    expect(page.locator(".task-section--verified")).to_contain_text("Checked by hand.")
+    expect(page.locator(".spec-outline a[href='#task-s1']")).to_have_text("Verification")
+    expect(page.locator(".spec-outline a[href='#task-s2'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    page.click("#log-time-btn")  # a task takes time: the dialog and the footer chip work here too
+    expect(page.locator(".log-time-title")).to_have_text("Fix login")
+    page.keyboard.press("Escape")
+    page.click("#edit-note-btn")
+    page.wait_for_url("**/notes/fix-login?mode=edit")
     assert page.errors == []
 
 

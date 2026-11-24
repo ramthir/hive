@@ -1,0 +1,112 @@
+/* Task notes: the sections of a `type: task` note as cards. Layout, outline, pills and prose come from specifications.css. */
+
+.task-chips { margin-top: 0.3rem; }
+.task-status--todo { color: var(--color-dimmed1); }
+.task-status--in-progress { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
+.task-status--done { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.task-priority--must { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
+.task-priority--important { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
+.task-priority--nice-to-have { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.task-project { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
+
+.task-lead { padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; color: var(--color-text); }
+
+.task-progress { gap: 0.5rem; }
+.task-bar { width: 3rem; height: 0.3125rem; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--color-dimmed3) 30%, transparent); }
+.task-bar > span { display: block; height: 100%; background: var(--color-blue); }
+.task-bar--done > span { background: var(--color-green); }
+
+.task-section .spec-heading { display: flex; align-items: center; gap: var(--space-3); }
+.task-section .spec-heading .spec-pill { text-transform: none; letter-spacing: 0; }
+
+/* Checklists: a plain list with the boxes shown as they are in the note (read-only). */
+.task-section--checks .spec-prose ul { list-style: none; padding-left: 0; }
+.task-section--checks .spec-prose li { display: flex; align-items: baseline; gap: var(--space-3); }
+.task-section--checks .spec-prose input[type='checkbox'] { flex: none; margin: 0; accent-color: var(--color-green); }
+.task-section--checks .spec-prose li:has(input:checked) { color: var(--color-dimmed2); }
+
+/* Verification: what was checked once the work was done. */
+.task-section--verified .spec-prose { padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-green); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-green) 7%, transparent); }
+.task-section--verified .spec-heading::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: var(--space-2); letter-spacing: 0; color: var(--color-green); }
+
+.task-section:not(.spec-section--out, .spec-section--questions, .task-section--verified, .task-section--refs) > .spec-prose {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Acceptance criteria: one row per criterion, a ring that fills green with a tick when it is met (a plain bullet is shown as a met-able row too). */
+.task-section.task-section--criteria > .spec-prose.notes-preview-body { padding: 0; overflow: hidden; }
+.task-section--criteria .spec-prose > ul { margin: 0; gap: 0; }
+.task-section--criteria .spec-prose > ul > li {
+  position: relative;
+  display: block;
+  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + 1.75rem);
+  line-height: 1.5;
+}
+.task-section--criteria .spec-prose > ul > li + li { border-top: 1px solid var(--color-border); }
+.task-section--criteria .spec-prose > ul > li:has(input:checked) { background: color-mix(in srgb, var(--color-green) 5%, transparent); }
+.task-section--criteria .spec-prose > ul > li:has(input:checked) > :not(ul) { color: var(--color-dimmed2); }
+.task-section--criteria .spec-prose input[type='checkbox'],
+.task-section--criteria .spec-prose > ul > li:not(:has(> input[type='checkbox']))::before {
+  appearance: none;
+  position: absolute;
+  left: var(--space-4);
+  top: calc(var(--space-3) + 0.2em);
+  box-sizing: border-box;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  border: 1.5px solid var(--color-dimmed3);
+  border-radius: 50%;
+  background: transparent;
+}
+.task-section--criteria .spec-prose > ul > li:not(:has(> input[type='checkbox']))::before { content: ''; }
+.task-section--criteria .spec-prose input[type='checkbox']:checked {
+  border-color: var(--color-green);
+  background: var(--color-green);
+}
+.task-section--criteria .spec-prose input[type='checkbox']:checked::after {
+  content: '\f00c';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 900 0.55rem 'Font Awesome 6 Free';
+  color: var(--color-background);
+}
+.task-section--criteria .spec-prose li ul { margin-top: var(--space-2); padding-left: 1.25rem; list-style: disc; display: flex; flex-direction: column; gap: var(--space-1); }
+.task-section--criteria .spec-prose li ul li { display: list-item; padding: 0; border: 0; background: none; }
+.task-section--criteria .spec-prose li ul li::before { content: none; }
+
+/* Scope: what the task covers, the counterpart of Out of Scope (a dashed edge, red dots): a solid card with blue dots. */
+.task-section--scope .spec-heading::before { content: '\f140'; font-family: 'Font Awesome 6 Free'; font-weight: 900; letter-spacing: 0; color: var(--color-blue); }
+.task-section--scope > .spec-prose.notes-preview-body {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-blue) 4%, transparent);
+}
+.task-section--scope .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
+.task-section--scope .spec-prose li { position: relative; padding-left: 1.4rem; }
+.task-section--scope .spec-prose li::before {
+  content: '';
+  position: absolute;
+  left: 0.2rem;
+  top: 0.62em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--color-blue);
+}
+/* A lead-in such as "In scope:" is a label for the list under it. */
+.task-section--scope .spec-prose > p:has(+ ul) { margin-bottom: var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dimmed3); }
+
+/* In scope / Out of scope inside Scope: two labelled groups in the one card, the second dimmed with red dots. */
+.task-scope-group + .task-scope-group { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px dashed var(--color-border); }
+.task-scope-label { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.task-scope-group--in .task-scope-label { color: var(--color-blue); }
+.task-scope-group--out .task-scope-label { color: var(--color-red); }
+.task-scope-group--out { color: var(--color-dimmed2); }
+.task-section--scope .task-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
+.task-scope-group .spec-prose > p:has(+ ul), .task-scope-group > p:has(+ ul) { text-transform: none; }
