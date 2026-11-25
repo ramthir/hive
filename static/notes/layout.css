@@ -3,7 +3,8 @@ notes-app,
 tables-app,
 timelines-app,
 specifications-app,
-task-note-app {
+task-note-app,
+meeting-minutes-app {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -23,7 +24,7 @@ task-note-app {
   width: 100%;
 }
 
-/* Read pages (/tables, /timelines, /specifications, /tasks): leave room for the fixed footer bar and pad their workspace. */
+/* Read pages (/tables, /timelines, /specifications, /tasks, /meeting-minutes): leave room for the fixed footer bar and pad their workspace. */
 :is(.notes-table-page, .timeline-page, .spec-page) {
   padding-bottom: calc(var(--space-6) + var(--footer-bar-height, 3.75rem));
 }

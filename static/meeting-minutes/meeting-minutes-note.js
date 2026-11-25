@@ -7,6 +7,7 @@ export const isMeetingMinutesNote = (note) =>
 const SECTION = /^ {0,3}##[ \t]+(.+?)\s*$/;
 const TONES = new Map([
   ['decisions', 'decisions'],
+  ['key decision points', 'decision-points'],
   ['action items', 'actions'],
   ['open questions', 'questions'],
 ]);

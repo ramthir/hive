@@ -76,7 +76,9 @@ test('meeting minutes accept the type picker aliases and preserve existing read-
   for (const type of ['meeting_minutes', 'meeting-minutes', 'Meeting Minutes']) {
     assert.equal(readPagePath({ slug: 'kickoff', types: [type] }), '/meeting-minutes/kickoff');
   }
-  assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting'] }), '');
+  assert.equal(readPagePath({ slug: 'kickoff', types: ['Meeting'] }), '/meetings/kickoff');
+  assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting', 'meeting-minutes'] }), '/meeting-minutes/kickoff');
+  assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting', 'task'] }), '/tasks/kickoff');
   assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting_minutes', 'task'] }), '/tasks/kickoff');
 });
 

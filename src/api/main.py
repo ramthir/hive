@@ -232,6 +232,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
         ("specifications", "specifications.html"),
         ("tasks", "task-note.html"),
         ("meeting-minutes", "meeting-minutes.html"),
+        ("meetings", "meeting-minutes.html"),
     ):
         def read_page(slug: str, html: str = html) -> FileResponse:
             return FileResponse(static / html, headers={"Cache-Control": "no-cache"})

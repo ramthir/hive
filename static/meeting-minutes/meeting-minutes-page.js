@@ -4,7 +4,7 @@ import { MeetingMinutesView } from '/static/meeting-minutes/meeting-minutes-view
 
 defineReadPage({
   tag: 'meeting-minutes-app',
-  type: 'meeting_minutes',
+  type: window.location.pathname.startsWith('/meetings/') ? 'meeting' : 'meeting_minutes',
   View: MeetingMinutesView,
   viewOptions: (app) => ({ logTime: () => logReadPageTime(app) }),
   onSaved: (app, saved) => app.draw(saved),

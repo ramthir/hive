@@ -1,3 +1,4 @@
+import { normalizeType } from '/static/type-icons.js';
 import { isMeetingMinutesNote } from '/static/meeting-minutes/meeting-minutes-note.js';
 import { isTableNote } from '/static/tables/table-note.js';
 import { isTimelineNote } from '/static/timelines/timeline-note.js';
@@ -12,6 +13,11 @@ export const READ_PAGES = [
   { type: 'specification', path: '/specifications', matches: isSpecificationNote },
   { type: 'task', path: '/tasks', matches: isTaskNote },
   { type: 'meeting_minutes', path: '/meeting-minutes', matches: isMeetingMinutesNote },
+  {
+    type: 'meeting',
+    path: '/meetings',
+    matches: (note) => (note?.types || []).some((type) => normalizeType(type) === 'meeting'),
+  },
 ];
 
 /** The address a note is read at, or '' when the note page shows it. */

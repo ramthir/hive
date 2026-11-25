@@ -1,10 +1,20 @@
+.minutes-workspace > .spec-main:only-child { grid-column: 1 / -1; }
+
 .minutes-section--decisions { --minutes-accent: var(--color-green); }
 .minutes-section--actions { --minutes-accent: var(--color-blue); }
 .minutes-section--questions { --minutes-accent: var(--color-orange); }
 
 .minutes-section:is(.minutes-section--decisions, .minutes-section--actions, .minutes-section--questions) > .spec-prose {
   padding: var(--space-3) var(--space-4);
-  border-inline-start: 2px solid var(--minutes-accent);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--minutes-accent) 8%, transparent);
 }
+
+.minutes-section:is(.minutes-section--decisions, .minutes-section--questions) > .spec-prose {
+  border-inline-start: 2px solid var(--minutes-accent);
+}
+
+.minutes-section--decision-points .spec-prose strong { color: var(--color-yellow); }
+
+.minutes-section--actions .spec-prose li::marker { color: var(--color-red); }
+.minutes-action-owner { color: var(--color-blue); }

@@ -2,8 +2,40 @@ import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
+import { api } from '/static/notes/api.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
-import { parseMeetingMinutes } from '/static/meeting-minutes/meeting-minutes-note.js';
+import { isMeetingMinutesNote, parseMeetingMinutes } from '/static/meeting-minutes/meeting-minutes-note.js';
+
+function referenceTarget(value) {
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  return (/^\[\[([^|\]#]+)(?:[|#][^\]]*)?\]\]$/.exec(text)?.[1] ?? text).trim();
+}
+
+async function showBreadcrumbs(header, note) {
+  const targets = [
+    referenceTarget(note.extra?.project),
+    isMeetingMinutesNote(note) && referenceTarget(note.extra?.series),
+  ].filter(Boolean);
+  if (!targets.length) return;
+
+  const setTrail = (resolved) => {
+    if (!header.isConnected) return;
+    const parents = [...new Set(targets)].flatMap((target) => {
+      const hit = resolved?.[target];
+      if (hit?.slug === note.slug) return [];
+      return [{
+        label: hit?.title ?? target,
+        href: hit ? `/notes/${encodeURIComponent(hit.slug)}` : '',
+      }];
+    });
+    header.breadcrumbs = [...parents, { label: note.title }];
+  };
+  setTrail();
+  const query = new URLSearchParams(targets.map((target) => ['target', target]));
+  const resolved = await api(`/resolve?${query}`).catch(() => null);
+  if (resolved) setTrail(resolved);
+}
 
 export class MeetingMinutesView extends SpecificationView {
   render(note, { typeLabel, typeIconName }) {
@@ -15,27 +47,43 @@ export class MeetingMinutesView extends SpecificationView {
 
     const chips = renderHeaderChips([
       note.extra?.date && { label: String(note.extra.date), icon: 'fa-regular fa-calendar', title: 'Meeting date' },
-      note.extra?.project && { label: String(note.extra.project), icon: 'fa-solid fa-briefcase', tone: 'blue' },
     ]);
     host.innerHTML = `
       <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
+        <app-header heading="${esc(note.title)}" variant="flush" bottom attached breadcrumbs-in-top-padding>
           ${chips}
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
-        <div class="spec-workspace">
+        <div class="spec-workspace minutes-workspace">
           <div class="spec-main" id="minutes-main">
             ${entries.map((entry) => this.section(entry)).join('') ||
-              '<p class="spec-empty">These minutes have no text yet. Use the pencil to add it.</p>'}
+              '<p class="spec-empty">This note has no text yet. Use the pencil to add it.</p>'}
           </div>
-          ${this.outline(entries)}
+          ${sections.length > 2 ? this.outline(entries, typeLabel) : ''}
         </div>
         ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
       </section>`;
+    showBreadcrumbs(host.querySelector('app-header'), note);
     wireSearchTrigger(host);
     wireReadActionBar(host, this.actions);
     this.wireOutline();
     this.decorate(host.querySelector('#minutes-main'));
+  }
+
+  decorate(root) {
+    if (!root) return;
+    for (const item of root.querySelectorAll('.minutes-section--actions .spec-prose > :is(ul, ol) > li')) {
+      const body = item.querySelector(':scope > p') || item;
+      // The vault uses a trailing em dash followed by the owner's name.
+      const tail = [...body.childNodes].findLast((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+      const owner = tail?.textContent.match(/\s—\s+([^—]+?)\s*$/u);
+      if (!owner) continue;
+      const label = document.createElement('em');
+      label.className = 'minutes-action-owner';
+      label.textContent = owner[1].replace(/\s+/g, ' ');
+      tail.splitText(owner.index + owner[0].indexOf(owner[1])).replaceWith(label);
+    }
+    super.decorate(root);
   }
 
   section({ id, name, body, tone }) {
@@ -45,9 +93,9 @@ export class MeetingMinutesView extends SpecificationView {
     </section>`;
   }
 
-  outline(entries) {
-    if (entries.length < 2) return '<nav class="spec-outline" aria-hidden="true"></nav>';
-    return `<nav class="spec-outline" aria-label="Meeting minutes sections">
+  outline(entries, typeLabel) {
+    const label = typeLabel === 'Meeting' ? 'Meeting sections' : 'Meeting minutes sections';
+    return `<nav class="spec-outline" aria-label="${label}">
       <b>Sections</b>
       ${entries.map(({ id, name }) => `<a href="#${id}" data-spec-link="${id}"><span>${esc(name)}</span></a>`).join('')}
     </nav>`;

@@ -2793,8 +2793,17 @@ def test_library_loads_more_cards_as_the_page_is_scrolled(big_library_server):
         p.stop()
 
 
-@pytest.mark.parametrize("types", ["meeting-minutes", "[meeting, meeting-minutes]"])
-def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_the_editor(page, server, notes_dir, types):
+@pytest.mark.parametrize(
+    ("types", "route", "outline", "can_log_time"),
+    [
+        ("meeting-minutes", "meeting-minutes", "Meeting minutes sections", False),
+        ("[meeting, meeting-minutes]", "meeting-minutes", "Meeting minutes sections", True),
+        ("meeting", "meetings", "Meeting sections", True),
+    ],
+)
+def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_the_editor(
+    page, server, notes_dir, types, route, outline, can_log_time
+):
     (notes_dir / "kickoff.md").write_text(
         f"---\ntitle: Kickoff\ntype: {types}\ndate: 2026-11-25\nproject: Alpha\n---\n\n"
         "# Kickoff\n\nTeam kickoff.\n\n## Attendees\n\n- Mira\n\n"
@@ -2804,15 +2813,103 @@ def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_t
     git(notes_dir, "commit", "-qm", "meeting minutes")
 
     page.goto(f"{server}/notes/kickoff")
-    page.wait_for_url("**/meeting-minutes/kickoff")
+    page.wait_for_url(f"**/{route}/kickoff")
     expect(page.locator("app-header")).to_have_attribute("heading", "Kickoff")
+    shell = page.locator("app-shell .page-main").bounding_box()
+    minutes = page.locator("meeting-minutes-app").bounding_box()
+    assert minutes["x"] == pytest.approx(shell["x"], abs=1)
+    assert minutes["y"] == pytest.approx(shell["y"], abs=1)
+    assert minutes["width"] == pytest.approx(shell["width"], abs=1)
+    assert minutes["height"] >= shell["height"] - 1
     expect(page.locator("app-header [title='Meeting date']")).to_have_text("2026-11-25")
-    expect(page.get_by_role("navigation", name="Meeting minutes sections").get_by_role("link")).to_have_text(
+    expect(page.get_by_role("navigation", name=outline).get_by_role("link")).to_have_text(
         ["Summary", "Attendees", "Decisions", "Action Items"]
     )
     expect(page.locator(".minutes-section--decisions")).to_contain_text("Ship on Friday.")
+    expect(page.locator(".minutes-section--decisions > .spec-prose")).to_have_css("border-inline-start-width", "2px")
+    expect(page.locator(".minutes-section--actions > .spec-prose")).to_have_css("border-inline-start-width", "0px")
     expect(page.locator(".minutes-section--actions input[type=checkbox]")).to_be_disabled()
     expect(page.locator(".minutes-section--actions .notes-wikilink")).to_have_text("Alpha")
-    expect(page.locator("#log-time-btn")).to_have_count(int(types.startswith("[")))
+    expect(page.locator("#log-time-btn")).to_have_count(int(can_log_time))
     page.click("#edit-note-btn")
     page.wait_for_url("**/notes/kickoff?mode=edit")
+
+
+def test_short_meeting_minutes_use_the_outline_space_for_content(page, server, notes_dir):
+    (notes_dir / "short-minutes.md").write_text(
+        "---\ntitle: Short minutes\ntype: meeting-minutes\n---\n\n"
+        "# Short minutes\n\nA brief summary.\n\n"
+        "## Key Decision Points\n\n- **Release:** Ship on Friday.\n\n## Action Items\n\n- [ ] **Send** the update —\n  Mira Patel\n- Verify the rollout.\n"
+    )
+    page.goto(f"{server}/meeting-minutes/short-minutes")
+    expect(page.locator(".minutes-section")).to_have_count(3)
+    expect(page.locator(".minutes-workspace .spec-outline")).to_have_count(0)
+    decision = page.locator(".minutes-section--decision-points strong")
+    expect(decision).to_have_text("Release:")
+    assert decision.evaluate("""(el) => {
+        const actual = getComputedStyle(el).color;
+        el.style.color = 'var(--color-yellow)';
+        const yellow = getComputedStyle(el).color;
+        el.style.removeProperty('color');
+        return actual === yellow && actual !== getComputedStyle(el.parentElement).color;
+    }""")
+    assert page.locator(".minutes-section--actions strong").evaluate(
+        "(el) => getComputedStyle(el).color === getComputedStyle(el.parentElement).color"
+    )
+    owner = page.locator(".minutes-action-owner")
+    expect(owner).to_have_text("Mira Patel")
+    expect(owner).to_have_css("font-style", "italic")
+    assert owner.evaluate("""(el) => {
+        const color = getComputedStyle(el).color;
+        el.style.color = 'var(--color-blue)';
+        return color === getComputedStyle(el).color;
+    }""")
+    bullet = page.locator(".minutes-section--actions li").last
+    assert bullet.evaluate("""(el) => {
+        const marker = getComputedStyle(el, '::marker').color;
+        el.style.color = 'var(--color-red)';
+        return marker === getComputedStyle(el).color;
+    }""")
+    workspace = page.locator(".minutes-workspace")
+    assert workspace.evaluate("""(el) => {
+        const style = getComputedStyle(el);
+        const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return Math.abs(el.querySelector('.spec-main').getBoundingClientRect().width - available) <= 1;
+    }""")
+
+
+def test_meeting_breadcrumbs_link_project_and_series(page, server, notes_dir):
+    (notes_dir / "alpha-platform.md").write_text("---\ntitle: Alpha Platform\n---\n# Alpha Platform\n")
+    (notes_dir / "kickoff.md").write_text(
+        "---\ntitle: Kickoff\ntype: meeting\nproject: '[[alpha-platform]]'\n---\n# Kickoff\n"
+    )
+    (notes_dir / "kickoff-minutes.md").write_text(
+        "---\ntitle: Kickoff Minutes\ntype: meeting-minutes\nproject: Alpha Platform\nseries: Kickoff\n---\n# Kickoff Minutes\n"
+    )
+
+    page.goto(f"{server}/meeting-minutes/kickoff-minutes")
+    trail = page.get_by_role("navigation", name="Breadcrumb")
+    expect(trail.get_by_role("link")).to_have_text(["Alpha Platform", "Kickoff"])
+    expect(trail.locator('[aria-current="page"]')).to_have_text("Kickoff Minutes")
+    heading = page.get_by_role("heading", name="Kickoff Minutes")
+    assert trail.bounding_box()["y"] < heading.bounding_box()["y"]
+    header_box = page.locator("app-header").bounding_box()
+    heading_box = heading.bounding_box()
+    assert trail.bounding_box()["y"] - header_box["y"] >= 4
+    assert header_box["y"] + header_box["height"] - heading_box["y"] - heading_box["height"] <= 24
+    assert heading.evaluate("""(heading) => {
+        const header = heading.getRootNode().host;
+        const before = heading.getBoundingClientRect().top;
+        const crumbs = header.breadcrumbs;
+        header.breadcrumbs = [];
+        const withoutTrail = heading.getBoundingClientRect().top;
+        header.breadcrumbs = crumbs;
+        return before === withoutTrail;
+    }""")
+    trail.get_by_role("link", name="Kickoff").click()
+
+    page.wait_for_url("**/meetings/kickoff")
+    expect(trail.get_by_role("link", name="Alpha Platform")).to_have_attribute("href", "/notes/alpha-platform")
+    expect(trail.locator('[aria-current="page"]')).to_have_text("Kickoff")
+    trail.get_by_role("link", name="Alpha Platform").click()
+    page.wait_for_url("**/notes/alpha-platform")

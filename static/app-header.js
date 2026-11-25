@@ -96,6 +96,26 @@ const COMPONENT_CSS = `
                     margin-bottom: 0.2rem;
                 }
 
+                :host([breadcrumbs-in-top-padding][bottom]) .page-header-content {
+                    min-height: 0;
+                    padding-top: 1.25rem;
+                }
+
+                :host([breadcrumbs-in-top-padding]) .page-header-title {
+                    align-self: flex-start;
+                    position: relative;
+                }
+
+                :host([breadcrumbs-in-top-padding]) .page-header-eyebrow {
+                    position: absolute;
+                    inset-inline: 0;
+                    bottom: 100%;
+                    margin: 0;
+                    line-height: 1rem;
+                    white-space: nowrap;
+                    overflow: hidden;
+                }
+
                 .page-header-breadcrumb {
                     display: flex;
                     align-items: center;
