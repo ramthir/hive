@@ -45,6 +45,7 @@ def test_each_type_gets_its_own_fields(client):
     keys = lambda slug: list(form(client, slug))
     assert keys(make(client, "T", "task")) == ["project", "specification", "ticket", "status", "priority", "assignee", "week", "tags"]
     assert keys(make(client, "M", "meeting")) == ["week", "project"]
+    assert keys(make(client, "Mm", "meeting-minutes")) == ["series", "project"]
     assert keys(make(client, "P", "project")) == ["billing"]
     assert keys(make(client, "Co", "company")) == ["billing"]
     assert keys(make(client, "C", "contact")) == ["role", "project", "team", "billing", "acting_for"]

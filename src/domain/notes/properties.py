@@ -106,6 +106,10 @@ CONTACT = Form(
 FORMS: dict[str, Form] = {
     "task": TASK,
     "meeting": Form("Meeting", fields=(Field("week", "Week", "calendar-week", "select", target="week", placeholder="No week"), _project())),
+    "meeting-minutes": Form("Meeting Minutes", fields=(
+        Field("series", "Series", "calendar-check", "note", note_types=("meeting",), placeholder="Select meeting..."),
+        _project(),
+    )),
     "project": Form("Project", fields=(ENGAGEMENT_BILLING,)),
     "company": Form("Company", fields=(ENGAGEMENT_BILLING,)),
     "contact": CONTACT,
