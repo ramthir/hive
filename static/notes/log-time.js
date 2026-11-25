@@ -2,6 +2,8 @@ import { escapeHtml as esc } from '/static/html.js';
 import '/static/components/combobox.js';
 import '/static/components/date-picker.js';
 import '/static/components/duration-picker.js';
+import { showToast } from '/static/toast.js';
+import { updateUpdatedStamp } from '/static/notes/status-bar.js';
 import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { formatDay, formatDuration, today } from '/static/time-entries/format.js';
@@ -92,5 +94,22 @@ export function openLogTime(note, { onLogged, onRemoved }) {
   form.addEventListener('submit', (event) => { event.preventDefault(); button.click(); });
   dialog.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); button.click(); }
+  });
+}
+
+// Logging time commits only the note's `time` key; the page keeps its text and redraws only the footer chip.
+export function logReadPageTime(app) {
+  const note = app.note;
+  if (!note) return;
+  const applied = (fresh) => {
+    if (app.note?.slug !== note.slug) return false;
+    app.note = { ...app.note, time: fresh.time, updated: fresh.updated, revision: fresh.revision };
+    updateUpdatedStamp(app, app.note);
+    updateLogged(app, app.note);
+    return true;
+  };
+  openLogTime(note, {
+    onLogged: (fresh, minutes) => { if (applied(fresh)) showToast(`Logged ${formatDuration(minutes)} · ${note.title}`, 'success'); },
+    onRemoved: (fresh, day) => { if (applied(fresh)) showToast(`Removed ${formatDay(day)} · ${note.title}`, 'success'); },
   });
 }
