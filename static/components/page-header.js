@@ -10,13 +10,14 @@ export function renderBreadcrumbTrail(breadcrumbs) {
   if (!breadcrumbs.length) return '';
 
   return `<nav class="page-header-breadcrumb" aria-label="Breadcrumb">${breadcrumbs
-    .map(({ url = '', href = '', label = '', icon = '' }, index) => {
+    .map(({ url = '', href = '', label = '', icon = '', title = '' }, index) => {
       const linkUrl = url || href;
       const content = `${icon ? `<i class="${escapeHtml(icon)}" aria-hidden="true"></i>` : ''}<span>${escapeHtml(label)}</span>`;
       const isLast = index === breadcrumbs.length - 1;
       const current = isLast ? ' aria-current="page"' : '';
       const separator = isLast ? '' : '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
-      return `${linkUrl ? `<a href="${escapeHtml(linkUrl)}"${current}>${content}</a>` : `<span class="page-header-crumb"${current}>${content}</span>`}${separator}`;
+      const hint = title ? ` title="${escapeHtml(title)}"` : '';
+      return `${linkUrl ? `<a href="${escapeHtml(linkUrl)}"${current}${hint}>${content}</a>` : `<span class="page-header-crumb"${current}${hint}>${content}</span>`}${separator}`;
     })
     .join('')}</nav>`;
 }

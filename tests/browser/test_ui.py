@@ -2826,9 +2826,9 @@ def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_t
         ["Summary", "Attendees", "Decisions", "Action Items 0/1"]
     )
     expect(page.locator(".minutes-section--decisions")).to_contain_text("Ship on Friday.")
-    expect(page.locator(".minutes-section--decisions > .spec-prose")).to_have_css("border-inline-start-width", "2px")
-    expect(page.locator(".minutes-section--actions > .spec-prose")).to_have_css("border-inline-start-width", "0px")
-    expect(page.locator(".minutes-section--actions input[type=checkbox]")).to_be_disabled()
+    expect(page.locator(".minutes-section--decisions")).to_have_css("border-inline-start-width", "2px")
+    expect(page.locator(".minutes-section--actions")).to_have_css("border-inline-start-width", "1px")
+    expect(page.locator(".minutes-section--actions input[type=checkbox]")).to_be_enabled()
     expect(page.locator(".minutes-section--actions .notes-wikilink")).to_have_text("Alpha")
     expect(page.locator("#log-time-btn")).to_have_count(int(can_log_time))
     page.click("#edit-note-btn")
@@ -2919,13 +2919,13 @@ def test_meeting_series_shows_latest_minutes_and_participants(page, server, note
     (notes_dir / "weekly.md").write_text(
         "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\nRecurring project sync.\n\n"
         "## Participants\n- [[Mira]] <mira@example.com>\n\n"
-        "## Minutes\n- [[Minutes — June 3, 2026]]\n- [[Minutes — November 18, 2026]]\n"
-        "- [[Minutes — July 8, 2026]]\n"
+        "## Minutes\n- [[Weekly Minutes — June 3, 2026]]\n- [[Weekly Minutes — November 18, 2026]]\n"
+        "- [[Weekly Minutes — July 8, 2026]]\n"
     )
     (notes_dir / "mira.md").write_text("# Mira\n")
     (notes_dir / "november-minutes.md").write_text(
-        "---\ntitle: 'Minutes — November 18, 2026'\ntype: meeting_minutes\n---\n"
-        "# Minutes — November 18, 2026\n\n## Key Decision Points\nShip on Friday.\n\n"
+        "---\ntitle: 'Weekly Minutes — November 18, 2026'\ntype: meeting_minutes\n---\n"
+        "# Weekly Minutes — November 18, 2026\n\n## Key Decision Points\nShip on Friday.\n\n"
         "## Action Items\n- [x] Confirm date.\n- [ ] Send invite.\n"
     )
 
@@ -2933,16 +2933,119 @@ def test_meeting_series_shows_latest_minutes_and_participants(page, server, note
     page.wait_for_url("**/meetings/weekly")
     participants = page.get_by_role("complementary", name="Participants")
     expect(participants.get_by_role("link", name="Mira")).to_have_attribute("data-slug", "mira")
-    expect(participants.get_by_role("link", name="mira@example.com")).to_be_hidden()
-    participants.get_by_text("Email", exact=True).click()
-    expect(participants.get_by_role("link", name="mira@example.com")).to_be_visible()
-    expect(page.locator(".minutes-archive ul li")).to_have_text(
-        ["Minutes — July 8, 2026", "Minutes — June 3, 2026"]
+    expect(participants.get_by_text("mira@example.com")).to_have_count(0)
+    summary = page.locator("#minutes-summary").bounding_box()
+    minutes, people = page.locator(".minutes-archive").bounding_box(), participants.bounding_box()
+    assert summary["y"] + summary["height"] <= minutes["y"] and summary["width"] > minutes["width"] + people["width"]
+    assert people["x"] > minutes["x"] + minutes["width"] and abs(people["y"] - minutes["y"]) < 40
+    expect(page.locator(".minutes-archive .minutes-list-title")).to_have_text(
+        ["Wednesday, November 18, 2026", "Wednesday, July 8, 2026", "Wednesday, June 3, 2026"]
     )
+    expect(page.locator(".minutes-archive .minutes-list-ago").first).not_to_be_empty()
+    expect(page.locator(".minutes-list-subtitle")).to_have_count(0)  # "Weekly" is the series name on every row
     expect(page.locator("#log-time-btn")).to_be_visible()
-    page.get_by_role("link", name="Open latest minutes").click()
+    page.get_by_role("link", name="Wednesday, November 18, 2026").click()
     page.wait_for_url("**/meeting-minutes/november-minutes")
-    highlights = page.get_by_role("navigation", name="Meeting highlights")
-    expect(highlights.get_by_role("link")).to_have_text(["Key Decision Points", "Action Items 1/2"])
+    expect(page.get_by_role("navigation", name="Meeting highlights")).to_have_count(0)
     page.get_by_role("navigation", name="Breadcrumb").get_by_role("link", name="Weekly").click()
+    page.wait_for_url("**/meetings/weekly")
+
+
+def test_meeting_summary_top_wikilinks_resolve_and_navigate(page, server, notes_dir):
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\nSync for [[Alpha]].\n\n"
+        "## Participants\n- [[Mira]]\n"
+    )
+    (notes_dir / "alpha.md").write_text("# Alpha\n")
+    (notes_dir / "mira.md").write_text("# Mira\n")
+
+    page.goto(f"{server}/meetings/weekly")
+    top_link = page.locator(".minutes-top").get_by_role("link", name="Alpha")
+    expect(top_link).to_have_attribute("data-slug", "alpha")
+    top_link.click()
+    page.wait_for_url("**/notes/alpha")
+
+
+def test_meeting_minutes_show_header_chips_action_meter_and_avatars(page, server, notes_dir):
+    (notes_dir / "sync-minutes.md").write_text(
+        "---\ntitle: Sync minutes\ntype: meeting_minutes\ndate: 2026-11-25\nproject: Alpha\n---\n"
+        "# Sync minutes\n\nShort recap.\n\n## Action Items\n- [x] Done thing.\n- [ ] Open thing — Mira Patel\n"
+    )
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\n## Participants\n- [[Mira]]\n- [[Noor]]\n"
+    )
+    page.goto(f"{server}/meeting-minutes/sync-minutes")
+    expect(page.locator("app-header [title='Action items']")).to_have_text("1/2 actions done")
+    expect(page.get_by_role("img", name="1 of 2 actions done")).to_be_visible()
+    expect(page.locator(".minutes-action-owner")).to_have_text("Mira Patel")
+    page.goto(f"{server}/meetings/weekly")
+    expect(page.locator(".minutes-avatar")).to_have_text(["M", "N"])
+
+
+def test_action_items_can_be_ticked_and_items_without_a_box_start_as_not_done(page, server, notes_dir):
+    (notes_dir / "sync-minutes.md").write_text(
+        "---\ntitle: Sync minutes\ntype: meeting_minutes\n---\n# Sync minutes\n\n## Decisions\n- [ ] Not an action.\n\n"
+        "## Action Items\n- [ ] Send invite\n- Verify the rollout\n- [x] Book room\n"
+    )
+    git(notes_dir, "add", "sync-minutes.md")
+    git(notes_dir, "commit", "-qm", "minutes")
+    page.goto(f"{server}/meeting-minutes/sync-minutes")
+    boxes = page.locator(".minutes-section--actions input[type=checkbox]")
+    expect(boxes).to_have_count(3)
+    expect(boxes.nth(1)).not_to_be_checked()
+    expect(page.locator("app-header [title='Action items']")).to_have_text("1/3 actions done")
+
+    boxes.nth(1).check()
+    expect(page.locator("app-header [title='Action items']")).to_have_text("2/3 actions done")
+    boxes.nth(0).check()
+    expect(page.locator("app-header [title='Action items']")).to_have_text("3/3 actions done")
+    expect(boxes.nth(1)).to_be_checked()
+    text = (notes_dir / "sync-minutes.md").read_text()
+    assert "- [x] Send invite\n- [x] Verify the rollout\n- [x] Book room" in text
+    assert "- [ ] Not an action." in text
+
+    boxes.nth(2).uncheck()
+    expect(page.locator("app-header [title='Action items']")).to_have_text("2/3 actions done")
+    assert "- [ ] Book room" in (notes_dir / "sync-minutes.md").read_text()
+
+
+def test_minutes_breadcrumb_is_the_date_under_its_series_and_the_full_title_otherwise(page, server, notes_dir):
+    (notes_dir / "cip-weekly.md").write_text("---\ntitle: CIP Weekly\ntype: meeting\n---\n# CIP Weekly\n")
+    (notes_dir / "cip-nov.md").write_text(
+        "---\ntitle: 'CIP Minutes — November 18, 2026'\ntype: meeting_minutes\nseries: CIP Weekly\n---\n"
+        "# CIP Minutes — November 18, 2026\n"
+    )
+    (notes_dir / "loose.md").write_text(
+        "---\ntitle: 'Loose Minutes — November 18, 2026'\ntype: meeting_minutes\n---\n# Loose Minutes — November 18, 2026\n"
+    )
+    page.goto(f"{server}/meeting-minutes/cip-nov")
+    trail = page.get_by_role("navigation", name="Breadcrumb")
+    expect(trail.get_by_role("link")).to_have_text(["CIP Weekly"])
+    expect(trail.locator('[aria-current="page"]')).to_have_text("Wednesday, November 18, 2026")
+    expect(trail.locator('[aria-current="page"]')).to_have_attribute("title", "CIP Minutes — November 18, 2026")
+    expect(page.get_by_role("heading", name="CIP Minutes — November 18, 2026")).to_be_visible()
+    page.goto(f"{server}/meeting-minutes/loose")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Loose Minutes — November 18, 2026")
+    expect(page.get_by_role("navigation", name="Breadcrumb")).to_have_count(0)  # one crumb is only the page itself
+
+
+def test_a_link_clicked_before_wiki_links_resolve_still_opens_the_read_page_directly(page, server, notes_dir):
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\n## Minutes\n- [[Weekly Minutes — November 18, 2026]]\n"
+    )
+    (notes_dir / "weekly-nov.md").write_text(
+        "---\ntitle: 'Weekly Minutes — November 18, 2026'\ntype: meeting_minutes\nseries: Weekly\n---\n"
+        "# Weekly Minutes — November 18, 2026\n"
+    )
+    held, visited = [], []
+    page.on("request", lambda request: visited.append(request.url) if request.is_navigation_request() else None)
+    page.route("**/api/resolve?*", lambda route: held.append(route) if not held else route.continue_())
+    page.goto(f"{server}/meetings/weekly")
+    expect(page.locator(".minutes-list a")).to_have_attribute("href", "#")  # the page's own lookup is still held back
+    page.locator(".minutes-list a").click()
+    page.wait_for_url("**/meeting-minutes/weekly-nov")  # straight to the read page, not through /notes/weekly-nov
+    assert not any(url.endswith("/notes/weekly-nov") for url in visited)
+    trail = page.get_by_role("navigation", name="Breadcrumb")
+    expect(trail.get_by_role("link", name="Weekly")).to_have_attribute("href", "/meetings/weekly")
+    trail.get_by_role("link", name="Weekly").click()
     page.wait_for_url("**/meetings/weekly")

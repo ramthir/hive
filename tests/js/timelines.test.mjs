@@ -118,3 +118,46 @@ test('meeting series sort dated minutes, retain undated links, and preserve rich
   assert.deepEqual(actionProgress('- [ ] Send invite\n- [x] Set date\n```md\n- [x] example\n```'),
     { done: 1, total: 2 });
 });
+
+test('minutes rows lead with the date, keep the rest of the title and say how far away it is', async () => {
+  const { minutesRow } = await import('/static/meeting-minutes/meeting-minutes-note.js');
+  const now = Date.UTC(2026, 10, 25, 15);
+  assert.deepEqual(minutesRow({ label: 'Minutes — November 18, 2026', date: Date.UTC(2026, 10, 18) }, now),
+    { title: 'Wednesday, November 18, 2026', subtitle: '', ago: '7 days ago' });
+  assert.deepEqual(minutesRow({ label: 'Q4 planning - 2026-11-25', date: Date.UTC(2026, 10, 25) }, now),
+    { title: 'Wednesday, November 25, 2026', subtitle: 'Q4 planning', ago: 'today' });
+  assert.equal(minutesRow({ label: 'x', date: Date.UTC(2026, 10, 24) }, now).ago, 'yesterday');
+  assert.equal(minutesRow({ label: 'x', date: Date.UTC(2026, 11, 2) }, now).ago, 'in 7 days');
+  assert.equal(minutesRow({ label: 'x', date: Date.UTC(2026, 5, 3) }, now).ago, '6 months ago');
+  assert.deepEqual(minutesRow({ label: 'Undated', date: null }, now), { title: 'Undated', subtitle: '', ago: '' });
+});
+
+test('meeting sections drop emoji from their names and still get their tone', async () => {
+  const { parseMeetingMinutes, withoutEmoji } = await import('/static/meeting-minutes/meeting-minutes-note.js');
+  const { sections } = parseMeetingMinutes('# T\n\n## ✅ Decisions\n- a\n\n## 📋 Action Items 🚀\n- [ ] b\n\n## 🎯\n');
+  assert.deepEqual(sections.map(({ name, tone }) => [name, tone]),
+    [['Decisions', 'decisions'], ['Action Items', 'actions'], ['🎯', '']]);
+  assert.equal(withoutEmoji('1️⃣ Intro 👩‍💻'), 'Intro');
+});
+
+test('action items without a box count as not done and can be ticked', async () => {
+  const { actionProgress, toggleAction } = await import('/static/meeting-minutes/meeting-minutes-note.js');
+  assert.deepEqual(actionProgress('- [x] a\n- b\n1. c\n  - sub\n  - [x] nested'), { done: 1, total: 3 });
+  const note = [
+    '## Decisions', '- [ ] not an action', '## ✅ Action Items', '- [ ] a', '- b', '```', '- fenced', '```', '1. c', '- [x] d',
+    '## Open Questions', '- q',
+  ].join('\n');
+  assert.equal(toggleAction(note, 1, true).split('\n')[4], '- [x] b');
+  assert.equal(toggleAction(note, 2, true).split('\n')[8], '1. [x] c');
+  assert.equal(toggleAction(note, 3, false).split('\n')[9], '- [ ] d');
+  assert.equal(toggleAction(note, 0, true).split('\n')[1], '- [ ] not an action');
+  assert.equal(toggleAction(note, 4, true), null);
+  assert.equal(toggleAction('- [ ] x\n', 0, true), null);
+});
+
+test('a minutes breadcrumb is the full date when the title ends in one', async () => {
+  const { shortMinutesDate } = await import('/static/meeting-minutes/meeting-minutes-note.js');
+  assert.equal(shortMinutesDate('CIP Minutes — November 18, 2026'), 'Wednesday, November 18, 2026');
+  assert.equal(shortMinutesDate('Weekly 2026-07-08'), 'Wednesday, July 8, 2026');
+  assert.equal(shortMinutesDate('Kickoff Minutes'), '');
+});

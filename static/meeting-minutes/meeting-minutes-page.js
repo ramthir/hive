@@ -6,6 +6,10 @@ defineReadPage({
   tag: 'meeting-minutes-app',
   type: window.location.pathname.startsWith('/meetings/') ? 'meeting' : 'meeting_minutes',
   View: MeetingMinutesView,
-  viewOptions: (app) => ({ logTime: () => logReadPageTime(app) }),
+  viewOptions: (app) => ({
+    logTime: () => logReadPageTime(app),
+    saved: (note) => app.draw(note),
+    reload: () => app.load(),
+  }),
   onSaved: (app, saved) => app.draw(saved),
 });

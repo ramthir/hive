@@ -3,15 +3,22 @@ import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { api } from '/static/notes/api.js';
+import { showToast } from '/static/toast.js';
+import { readPagePath } from '/static/notes/read-pages.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
 import { sectionKey } from '/static/specifications/specification-note.js';
 import { normalizeType } from '/static/type-icons.js';
-import { actionProgress, isMeetingMinutesNote, meetingArchive, meetingParticipants, parseMeetingMinutes } from '/static/meeting-minutes/meeting-minutes-note.js';
+import { actionProgress, isMeetingMinutesNote, meetingArchive, meetingParticipants, minutesRow, parseMeetingMinutes, shortMinutesDate, toggleAction } from '/static/meeting-minutes/meeting-minutes-note.js';
 
 function referenceTarget(value) {
   if (typeof value !== 'string') return '';
   const text = value.trim();
   return (/^\[\[([^|\]#]+)(?:[|#][^\]]*)?\]\]$/.exec(text)?.[1] ?? text).trim();
+}
+
+function initial(link) {
+  const [, target, alias] = /^\[\[([^\]|]+)(?:\|([^\]]*))?\]\]$/.exec(link) || [];
+  return ((alias || target || '?').trim()[0] || '?').toUpperCase();
 }
 
 async function showBreadcrumbs(header, note) {
@@ -20,6 +27,7 @@ async function showBreadcrumbs(header, note) {
     isMeetingMinutesNote(note) && referenceTarget(note.extra?.series),
   ].filter(Boolean);
 
+  let series = isMeetingMinutesNote(note) ? referenceTarget(note.extra?.series) : '';
   const setTrail = (resolved) => {
     if (!header.isConnected) return;
     const parents = [...new Set(targets)].flatMap((target) => {
@@ -27,10 +35,12 @@ async function showBreadcrumbs(header, note) {
       if (hit?.slug === note.slug) return [];
       return [{
         label: hit?.title ?? target,
-        href: hit ? `/notes/${encodeURIComponent(hit.slug)}` : '',
+        href: hit ? readPagePath(hit) || `/notes/${encodeURIComponent(hit.slug)}` : '',
       }];
     });
-    header.breadcrumbs = [...parents, { label: note.title }];
+    // Under its series the last crumb is just the date: the crumb before it names the meeting and the heading has the full title.
+    const short = series && parents.length ? shortMinutesDate(note.title) : '';
+    header.breadcrumbs = [...parents, short ? { label: short, title: note.title } : { label: note.title }];
   };
   if (isMeetingMinutesNote(note) && !referenceTarget(note.extra?.series)) {
     const links = await api(`/notes/${encodeURIComponent(note.slug)}/backlinks`).catch(() => null);
@@ -39,19 +49,25 @@ async function showBreadcrumbs(header, note) {
       !isMeetingMinutesNote({ types })) || [];
     if (meetings.length === 1) {
       const { slug } = meetings[0];
-      const series = await api(`/notes/${encodeURIComponent(slug)}`).catch(() => null);
-      const archive = series && parseMeetingMinutes(series.content).sections.find(({ name }) => sectionKey(name) === 'minutes');
+      const seriesNote = await api(`/notes/${encodeURIComponent(slug)}`).catch(() => null);
+      const archive = seriesNote && parseMeetingMinutes(seriesNote.content).sections.find(({ name }) => sectionKey(name) === 'minutes');
       if (archive && meetingArchive(archive.body).some(({ destination }) => {
         const target = destination.split('#', 1)[0].trim().toLowerCase();
         return target === note.slug || target === note.title.toLowerCase();
-      })) targets.push(slug);
+      })) { targets.push(slug); series = slug; }
     }
   }
   if (!targets.length) return;
-  setTrail();
+  // The trail waits for the answer: until then its parents would be plain text that looks like links and does nothing when clicked.
   const query = new URLSearchParams(targets.map((target) => ['target', target]));
-  const resolved = await api(`/resolve?${query}`).catch(() => null);
-  if (resolved) setTrail(resolved);
+  setTrail(await api(`/resolve?${query}`).catch(() => null));
+}
+
+function scrollParent(element) {
+  for (let node = element?.parentElement; node; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight && /(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
 }
 
 export class MeetingMinutesView extends SpecificationView {
@@ -66,11 +82,17 @@ export class MeetingMinutesView extends SpecificationView {
     const people = !isMinutes && entries.find(({ name }) => ['participants', 'attendees'].includes(sectionKey(name)));
     const participants = people ? meetingParticipants(people.body) : [];
     const main = participants.length ? entries.filter((entry) => entry !== people) : [...entries];
-    const shortcuts = isMinutes ? entries.filter(({ tone }) => ['decisions', 'decision-points', 'actions'].includes(tone)) : [];
-    if (lead) main.unshift({ id: 'minutes-summary', name: 'Summary', body: lead, tone: '' });
+    const summary = lead ? { id: 'minutes-summary', name: 'Summary', body: lead, tone: '' } : null;
+    // With a participants column the summary spans the full width above both columns.
+    const top = summary && participants.length ? summary : null;
+    if (summary && !top) main.unshift(summary);
 
+    const actionEntry = entries.find(({ tone }) => tone === 'actions');
+    const { done, total } = actionEntry ? actionProgress(actionEntry.body) : { done: 0, total: 0 };
     const chips = renderHeaderChips([
       note.extra?.date && { label: String(note.extra.date), icon: 'fa-regular fa-calendar', title: 'Meeting date' },
+      participants.length > 0 && { label: `${participants.length} participant${participants.length === 1 ? '' : 's'}`, icon: 'fa-solid fa-user-group', tone: 'neutral' },
+      total > 0 && { label: `${done}/${total} actions done`, icon: 'fa-solid fa-list-check', tone: done === total ? 'green' : 'orange', title: 'Action items' },
     ]);
     host.innerHTML = `
       <section class="notes-page spec-page">
@@ -78,11 +100,9 @@ export class MeetingMinutesView extends SpecificationView {
           ${chips}
           <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
         </app-header>
+        ${top ? `<div class="minutes-top">${this.section(top)}</div>` : ''}
         <div class="spec-workspace minutes-workspace">
           <div class="spec-main" id="minutes-main">
-            ${shortcuts.length ? `<nav class="minutes-shortcuts" aria-label="Meeting highlights">
-              ${shortcuts.map(({ id, name, body, tone }) => `<a href="#${id}">${esc(name)}${tone === 'actions' ? this.progress(body) : ''}</a>`).join('')}
-            </nav>` : ''}
             ${main.map((entry) => entry === archive && archiveRows.length
               ? this.archive(entry, archiveRows) : this.section(entry)).join('') ||
               '<p class="spec-empty">This note has no text yet. Use the pencil to add it.</p>'}
@@ -96,11 +116,76 @@ export class MeetingMinutesView extends SpecificationView {
     wireSearchTrigger(host);
     wireReadActionBar(host, this.actions);
     this.wireOutline();
-    this.decorate(host.querySelector('.minutes-workspace'));
+    this.decorate(host.querySelector('.notes-page'));
+  }
+
+  busy() {
+    return this.saving ? 'saving' : '';
+  }
+
+  // Every action item gets a box that works: one written without [ ] shows as not done and is written as [x] when ticked.
+  enableActions(root) {
+    let index = 0; // across every Action Items section, as toggleAction counts
+    for (const prose of root.querySelectorAll('.minutes-section--actions > .spec-prose')) {
+      for (const item of prose.querySelectorAll(':scope > :is(ul, ol) > li')) {
+        const holder = item.querySelector(':scope > p') || item;
+        let box = item.querySelector(':scope > input[type=checkbox], :scope > p > input[type=checkbox]');
+        if (!box) {
+          box = document.createElement('input');
+          box.type = 'checkbox';
+          holder.prepend(box, ' ');
+        }
+        box.disabled = false;
+        box.dataset.actionIndex = String(index++);
+        box.setAttribute('aria-label', 'Done');
+      }
+    }
+    root.addEventListener('change', (event) => {
+      const box = event.target.closest?.('input[data-action-index]');
+      if (box) this.markAction(box);
+    });
+  }
+
+  // Ticks are saved one after the other (each is a commit on the latest text); the page is drawn again when the last one is in.
+  markAction(box) {
+    const index = Number(box.dataset.actionIndex);
+    const done = box.checked;
+    this.pending = (this.pending || 0) + 1;
+    this.saving = true;
+    this.queue = (this.queue || Promise.resolve()).then(() => this.saveAction(index, done, box)).finally(() => {
+      this.pending -= 1;
+      if (!this.pending) this.saving = false;
+    });
+  }
+
+  async saveAction(index, done, box) {
+    const content = toggleAction(this.note.content, index, done);
+    if (content === null) { box.checked = !done; return; }
+    const slug = this.note.slug;
+    const scroller = scrollParent(box);
+    const top = scroller?.scrollTop ?? 0;
+    try {
+      const saved = await api(`/notes/${encodeURIComponent(slug)}`, { method: 'PUT', body: { content, revision: this.note.revision } });
+      if (this.note?.slug !== slug) return;
+      this.note = saved;
+      if (this.pending > 1) return; // more ticks are waiting: draw once, after the last
+      this.actions.saved(saved);
+      const fresh = scrollParent(this.host.querySelector('.minutes-workspace'));
+      if (fresh) fresh.scrollTop = top;
+    } catch (error) {
+      box.checked = !done;
+      if (error.status === 412) {
+        showToast('This note changed elsewhere, so it was loaded again. Tick the item again.', 'info');
+        this.actions.reload();
+      } else {
+        showToast(error.message || 'Could not save the action item.', 'error');
+      }
+    }
   }
 
   decorate(root) {
     if (!root) return;
+    this.enableActions(root);
     for (const item of root.querySelectorAll('.minutes-section--actions .spec-prose > :is(ul, ol) > li')) {
       const body = item.querySelector(':scope > p') || item;
       // The vault uses a trailing em dash followed by the owner's name.
@@ -121,31 +206,49 @@ export class MeetingMinutesView extends SpecificationView {
   }
 
   archive({ id, name }, rows) {
-    const [latest] = rows;
+    const parts = rows.map((row) => minutesRow(row));
+    const dated = parts.filter((_, index) => rows[index].date !== null);
+    const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+    // A subtitle every row repeats, or the series' own name, says nothing the heading and page title do not.
+    const shared = dated.length > 1 && dated.every(({ subtitle }) => same(subtitle, dated[0].subtitle));
+    const redundant = (subtitle) => shared || same(subtitle, this.note?.title ?? '') ||
+      (subtitle && (this.note?.title ?? '').toLowerCase().includes(subtitle.toLowerCase()));
     return `<section id="${id}" class="spec-section minutes-section minutes-archive">
       <h2 class="spec-heading">${esc(name)}</h2>
-      ${latest.date !== null ? `<div class="minutes-latest">
-        <strong>${esc(latest.label)}</strong>
-        <div class="notes-preview-body spec-prose">${this.markdown(`[[${latest.destination}|Open latest minutes]]`)}</div>
-      </div>` : ''}
-      <div class="notes-preview-body spec-prose">${this.markdown(
-        (latest.date !== null ? rows.slice(1) : rows).map(({ link }) => `- ${link}`).join('\n'))}</div>
+      <ul class="minutes-list">${rows.map((row, index) => {
+        const { title, subtitle: raw, ago } = parts[index];
+        const subtitle = redundant(raw) ? '' : raw;
+        const link = row.date === null ? row.link : `[[${row.destination}|${title}]]`;
+        return `<li>
+          <div class="notes-preview-body spec-prose minutes-list-title">${this.markdown(link)}</div>
+          ${subtitle ? `<span class="minutes-list-subtitle">${esc(subtitle)}</span>` : ''}
+          ${ago ? `<span class="minutes-list-ago">${esc(ago)}</span>` : ''}
+        </li>`;
+      }).join('')}</ul>
     </section>`;
   }
 
   participants({ id, name }, rows) {
     return `<aside id="${id}" class="minutes-participants" aria-labelledby="${id}-heading">
       <h2 id="${id}-heading" class="spec-heading">${esc(name)}</h2>
-      <ul>${rows.map(({ link, email }) => `<li>
+      <ul>${rows.map(({ link }) => `<li>
+        <span class="minutes-avatar" aria-hidden="true">${esc(initial(link))}</span>
         <div class="notes-preview-body spec-prose">${this.markdown(link)}</div>
-        ${email ? `<details><summary>Email</summary><a href="mailto:${esc(email)}">${esc(email)}</a></details>` : ''}
       </li>`).join('')}</ul>
     </aside>`;
   }
 
+  meter(body) {
+    const { done, total } = actionProgress(body);
+    if (!total) return '';
+    return `<div class="minutes-meter" role="img" aria-label="${done} of ${total} actions done">
+      <span style="width:${Math.round((done / total) * 100)}%"></span></div>`;
+  }
+
   section({ id, name, body, tone }) {
-    return `<section id="${id}" class="spec-section minutes-section${tone ? ` minutes-section--${tone}` : ''}">
-      ${id === 'minutes-summary' ? '' : `<h2 class="spec-heading">${esc(name)}</h2>`}
+    const lead = id === 'minutes-summary';
+    return `<section id="${id}" class="spec-section minutes-section${tone ? ` minutes-section--${tone}` : ''}${lead ? ' minutes-section--lead' : ''}">
+      ${lead ? '' : `<h2 class="spec-heading">${esc(name)}${tone === 'actions' ? `${this.meter(body)}${this.progress(body)}` : ''}</h2>`}
       <div class="notes-preview-body spec-prose">${this.markdown(body)}</div>
     </section>`;
   }

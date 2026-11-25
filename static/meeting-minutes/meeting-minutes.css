@@ -4,41 +4,12 @@
 .minutes-section--actions { --minutes-accent: var(--color-blue); }
 .minutes-section--questions { --minutes-accent: var(--color-orange); }
 
-.minutes-section:is(.minutes-section--decisions, .minutes-section--actions, .minutes-section--questions) > .spec-prose {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--minutes-accent) 8%, transparent);
-}
-
-.minutes-section:is(.minutes-section--decisions, .minutes-section--questions) > .spec-prose {
-  border-inline-start: 2px solid var(--minutes-accent);
-}
 
 .minutes-section--decision-points .spec-prose strong { color: var(--color-yellow); }
 
 .minutes-section--actions .spec-prose li::marker { color: var(--color-red); }
 .minutes-action-owner { color: var(--color-blue); }
 
-.minutes-shortcuts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.minutes-shortcuts a,
-.minutes-latest {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-blue) 10%, transparent);
-}
-
-.minutes-latest {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-}
 
 .minutes-participants { align-self: start; min-width: 0; }
 .minutes-participants ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; }
@@ -46,3 +17,152 @@
 .minutes-participants :is(p, details) { margin: 0; overflow-wrap: anywhere; }
 .minutes-participants details { font-size: 0.8125rem; color: var(--color-dimmed2); }
 .minutes-participants summary { cursor: pointer; }
+
+/* Refinements: lead, section icons, action meter, owner pills, archive timeline and people cards. */
+.minutes-section--lead > .spec-prose {
+  padding-inline-start: var(--space-4);
+  border-inline-start: 3px solid var(--color-blue);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.minutes-section > .spec-heading { display: flex; align-items: center; gap: var(--space-2); }
+.minutes-section > .spec-heading .spec-count {
+  margin-inline-start: auto;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-blue) 14%, transparent);
+  color: var(--color-blue);
+  letter-spacing: 0;
+}
+
+
+.minutes-meter {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-blue) 16%, transparent);
+  overflow: hidden;
+}
+.spec-heading > .minutes-meter { flex: 1; min-width: 3rem; margin-inline: var(--space-2); }
+.minutes-meter span { display: block; height: 100%; border-radius: inherit; background: var(--color-green); transition: width 0.3s ease; }
+
+.minutes-section--actions .spec-prose > :is(ul, ol) { list-style: none; padding-left: 0; gap: 0; }
+.minutes-section--actions .spec-prose > :is(ul, ol) > li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid color-mix(in srgb, var(--color-blue) 14%, transparent);
+}
+.minutes-section--actions .spec-prose > :is(ul, ol) > li:first-child { border-top: 0; padding-top: 0; }
+.minutes-section--actions .spec-prose > :is(ul, ol) > li:last-child { padding-bottom: 0; }
+.minutes-section--actions .spec-prose li:has(> input:checked, > p > input:checked) { color: var(--color-dimmed3); }
+/* A round box that hangs in the item's left padding, so wrapped lines stay level with the first word and never run under it. */
+.minutes-section--actions .spec-prose > :is(ul, ol) > li { padding-inline-start: 1.875rem; }
+.minutes-section--actions .spec-prose input[type=checkbox] {
+  appearance: none;
+  float: left;
+  box-sizing: border-box;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2em 0 0 -1.875rem;
+  border: 2px solid var(--color-dimmed4);
+  border-radius: 50%;
+  background: transparent center / 70% no-repeat;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.minutes-section--actions .spec-prose input[type=checkbox]:hover { border-color: var(--color-green); }
+.minutes-section--actions .spec-prose input[type=checkbox]:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 2px; }
+.minutes-section--actions .spec-prose input[type=checkbox]:checked {
+  border-color: var(--color-green);
+  background-color: var(--color-green);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5'/%3E%3C/svg%3E");
+}
+.minutes-section--actions .spec-prose input[type=checkbox]:disabled { cursor: default; }
+
+.minutes-action-owner {
+  display: inline-block;
+  margin-inline-start: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-blue) 12%, transparent);
+  font-size: 0.8125rem;
+}
+
+
+.minutes-list { margin: 0; padding: 0; list-style: none; }
+.minutes-list li {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+}
+.minutes-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.95em;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-dimmed4);
+}
+/* The line joins one dot to the next, so it neither starts above the first nor runs past the last. */
+.minutes-list li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: calc(0.95em + 4px);
+  bottom: calc(-0.95em - 4px);
+  width: 2px;
+  background: var(--color-border);
+}
+.minutes-list-title { flex: none; min-width: 15rem; font-variant-numeric: tabular-nums; }
+.minutes-list-title p { margin: 0; }
+.minutes-list-subtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-dimmed2); font-size: 0.875rem; }
+.minutes-list-ago { margin-inline-start: auto; color: var(--color-dimmed3); font-size: 0.8125rem; white-space: nowrap; }
+
+.minutes-archive,
+.minutes-participants {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.minutes-participants li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.minutes-participants li > div { flex: 1 1 0; min-width: 0; }
+.minutes-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-blue) 18%, transparent);
+  color: var(--color-blue);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.minutes-top { padding: var(--space-5) var(--space-6) 0; }
+.minutes-top + .minutes-workspace { padding-top: var(--space-5); }
+.minutes-workspace:has(.minutes-participants) { grid-template-columns: minmax(0, 1fr) 16rem; }
+.chat-docked .minutes-workspace:has(.minutes-participants) { grid-template-columns: minmax(0, 1fr); }
+
+/* Plain sections (Agenda, Discussion, Notes...) are cards like Minutes and Participants. */
+.minutes-section--agenda { --minutes-accent: var(--color-purple); }
+.minutes-section--discussion { --minutes-accent: var(--color-blue); }
+.minutes-section--next { --minutes-accent: var(--color-green); }
+.minutes-section:not(.minutes-section--lead) {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.minutes-section:is(.minutes-section--agenda, .minutes-section--discussion, .minutes-section--next, .minutes-section--decisions, .minutes-section--actions, .minutes-section--questions) {
+  background: color-mix(in srgb, var(--minutes-accent) 5%, transparent);
+  border-color: color-mix(in srgb, var(--minutes-accent) 22%, var(--color-border));
+}
+.minutes-participants > .spec-heading { display: flex; align-items: center; gap: var(--space-2); }
+.minutes-section--agenda .spec-prose li::marker { color: var(--color-purple); }
+
+/* Decisions and open questions carry an accent bar; action items do not. */
+.minutes-section:is(.minutes-section--decisions, .minutes-section--questions) { border-inline-start: 2px solid var(--minutes-accent); }

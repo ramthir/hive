@@ -37,6 +37,57 @@ test('changes are passed on, a bad payload and a reconnect mean look again, and 
   assert.equal(source.closed, true);
 });
 
+test('watchChanges closes on pagehide/hidden and reconnects with reset on visible/pageshow', () => {
+  const docHandlers = {};
+  const winHandlers = {};
+  const created = [];
+  const origDoc = globalThis.document;
+  const origWin = globalThis.window;
+  const origES = globalThis.EventSource;
+  try {
+    globalThis.document = {
+      visibilityState: 'visible',
+      addEventListener: (name, fn) => { docHandlers[name] = fn; },
+      removeEventListener: (name, fn) => { if (docHandlers[name] === fn) delete docHandlers[name]; },
+    };
+    globalThis.window = {
+      addEventListener: (name, fn) => { winHandlers[name] = fn; },
+      removeEventListener: (name, fn) => { if (winHandlers[name] === fn) delete winHandlers[name]; },
+    };
+    globalThis.EventSource = class extends FakeSource {
+      constructor(url) { super(); this.url = url; created.push(this); }
+    };
+    const heard = [];
+    const watch = watchChanges({ note: 'a' }, (event) => heard.push(event));
+    assert.equal(created.length, 1);
+
+    globalThis.document.visibilityState = 'hidden';
+    docHandlers.visibilitychange();
+    assert.equal(created[0].closed, true);
+
+    globalThis.document.visibilityState = 'visible';
+    docHandlers.visibilitychange();
+    assert.equal(created.length, 2);
+    assert.deepEqual(heard, [{ reset: true }]);
+
+    winHandlers.pagehide();
+    assert.equal(created[1].closed, true);
+
+    winHandlers.pageshow({ persisted: true });
+    assert.equal(created.length, 3);
+    assert.deepEqual(heard, [{ reset: true }, { reset: true }]);
+
+    watch.close();
+    assert.equal(created[2].closed, true);
+    assert.equal(docHandlers.visibilitychange, undefined);
+    assert.equal(winHandlers.pagehide, undefined);
+  } finally {
+    globalThis.document = origDoc;
+    globalThis.window = origWin;
+    globalThis.EventSource = origES;
+  }
+});
+
 test('a burst of calls runs once, and cancel drops it', async () => {
   let runs = 0;
   const run = debounce(() => { runs += 1; }, 10);

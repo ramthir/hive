@@ -1,3 +1,4 @@
+import { readPagePath } from '/static/notes/read-pages.js';
 import { showToast } from '/static/toast.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderMarkdownPreview as renderMarkdown } from '/static/notes/markdown.js';
@@ -95,7 +96,9 @@ export class Preview {
       }
       link.classList.remove('unresolved');
       link.dataset.slug = hit.slug;
-      link.setAttribute('href', `/notes/${encodeURIComponent(hit.slug)}`);
+      // Straight to the read page of a table, task, meeting...: going through /notes/{slug} only to be sent on is a second page load.
+      link.dataset.path = readPagePath({ slug: hit.slug, types: hit.types }) || `/notes/${encodeURIComponent(hit.slug)}`;
+      link.setAttribute('href', link.dataset.path);
       if (link.dataset.autoLabel === 'true') link.textContent = hit.title;
     }
   }
@@ -108,7 +111,7 @@ export class Preview {
     const target = wikilink.dataset.target || '';
     if (target.startsWith('#')) return;
     if (wikilink.dataset.slug) {
-      const url = `/notes/${encodeURIComponent(wikilink.dataset.slug)}`;
+      const url = wikilink.dataset.path || `/notes/${encodeURIComponent(wikilink.dataset.slug)}`;
       if (event.metaKey || event.ctrlKey || event.button === 1) window.open(url, '_blank');
       else this.go(url);
       return;

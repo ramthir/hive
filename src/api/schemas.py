@@ -243,6 +243,7 @@ class BacklinksOut(BaseModel):
 class ResolvedLink(BaseModel):
     slug: str
     title: str
+    types: list[str] = []  # lets a page link straight to a note's read page instead of going through /notes/{slug}
 
 
 class TaskOut(NoteSummary):

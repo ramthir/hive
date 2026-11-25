@@ -124,7 +124,7 @@ def resolve(request: Request, target: list[str] = Query(default=[])):
     out: dict[str, ResolvedLink | None] = {}
     for t in target:
         slug = index.resolve(t)
-        out[t] = ResolvedLink(slug=slug, title=index.notes[slug].title) if slug else None
+        out[t] = ResolvedLink(slug=slug, title=index.notes[slug].title, types=list(index.notes[slug].types)) if slug else None
     return out
 
 

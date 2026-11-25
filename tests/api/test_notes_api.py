@@ -147,9 +147,16 @@ def test_external_edit_visible_after_reindex(client, root):
 def test_resolve_and_snippet(client):
     make(client, "ADR: Standard", content="Some *body* text")
     r = client.get("/api/resolve", params=[("target", "adr-standard"), ("target", "ADR Standard"), ("target", "nope")]).json()
-    assert r == {"adr-standard": {"slug": "adr-standard", "title": "ADR: Standard"},
-                 "ADR Standard": {"slug": "adr-standard", "title": "ADR: Standard"}, "nope": None}
+    assert r == {"adr-standard": {"slug": "adr-standard", "title": "ADR: Standard", "types": []},
+                 "ADR Standard": {"slug": "adr-standard", "title": "ADR: Standard", "types": []}, "nope": None}
     assert client.get("/api/notes").json()[0]["snippet"] == "ADR: Standard Some body text"
+
+
+def test_resolve_gives_the_types_so_a_page_can_link_to_the_read_page(client, root):
+    (root / "weekly.md").write_text("---\ntitle: Weekly\ntype: [meeting, meeting-minutes]\n---\n\nhi\n")
+    client.post("/api/reindex")
+    r = client.get("/api/resolve", params=[("target", "Weekly")]).json()
+    assert r["Weekly"]["types"] == ["meeting", "meeting-minutes"]
 
 
 def test_spa_and_static_served(client):
