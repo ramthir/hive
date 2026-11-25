@@ -97,7 +97,7 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
       // Ranked search over title, tags and content; with no query, the notes edited most recently.
       const url = trimmed
         ? `/api/notes?q=${encodeURIComponent(trimmed)}&limit=10`
-        : '/api/notes?sort=recent&limit=8';
+        : '/api/notes?sort=recent&limit=10';
       try {
         const res = await fetch(url, { signal: controller.signal });
         const notes = res.ok ? await res.json() : [];
@@ -170,19 +170,25 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
             display: none;
           }
           .spotlight-backdrop {
+            --spotlight-top-gap: 12vh;
+            --spotlight-bottom-gap: 2rem;
             position: fixed;
             inset: 0;
             z-index: 2000;
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding: 12vh 1rem 2rem;
+            padding: var(--spotlight-top-gap) 1rem var(--spotlight-bottom-gap);
             background: rgba(0, 0, 0, 0.65);
             backdrop-filter: blur(var(--dialog-overlay-blur));
             -webkit-backdrop-filter: blur(var(--dialog-overlay-blur));
           }
           .spotlight-panel {
-            width: min(38rem, 100%);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            width: min(52rem, 100%);
+            max-height: calc(100vh - var(--spotlight-top-gap) - var(--spotlight-bottom-gap));
             background: var(--color-dark1);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-xl);
@@ -193,6 +199,7 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
           }
           .spotlight-header {
             display: flex;
+            flex-shrink: 0;
             align-items: center;
             gap: var(--space-3, 0.75rem);
             padding: 0.875rem 1rem;
@@ -252,7 +259,6 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
             flex-shrink: 0;
           }
           .spotlight-results {
-            max-height: min(24rem, 56vh);
             overflow-y: auto;
             padding: 0.375rem;
           }

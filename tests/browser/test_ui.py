@@ -139,6 +139,44 @@ def test_empty_notes_repo_opens_a_new_note(page, tmp_path_factory):
         thread.join(5)
 
 
+def test_spotlight_uses_more_width_and_fits_the_window(page, server):
+    page.set_viewport_size({"width": 1280, "height": 800})
+    page.goto(f"{server}/notes/alpha")
+    page.keyboard.press("Control+k")
+    panel = page.locator("note-spotlight .spotlight-panel")
+    expect(panel).to_have_css("width", "832px")
+
+    page.set_viewport_size({"width": 800, "height": 800})
+    bounds = panel.bounding_box()
+    assert bounds["x"] >= 16
+    assert bounds["x"] + bounds["width"] <= 784
+
+
+def test_spotlight_shows_up_to_ten_recent_notes_and_matches(page, server, notes_dir):
+    page.set_viewport_size({"width": 1280, "height": 720})
+    for number in range(12):
+        title = f"Spotlight Match {number}"
+        (notes_dir / f"spotlight-match-{number}.md").write_text(f"---\ntitle: {title}\n---\n\n# {title}\n")
+    page.request.post(f"{server}/api/reindex")
+    page.goto(f"{server}/notes/alpha")
+    page.keyboard.press("Control+k")
+    rows = page.locator("note-spotlight .spotlight-item")
+    expect(rows).to_have_count(10)
+
+    with page.expect_response(lambda response: "/api/notes?q=" in response.url) as search:
+        page.fill("note-spotlight .spotlight-input", "Spotlight Match")
+    assert len(search.value.json()) == 10
+    expect(rows.filter(has_text="Spotlight Match")).to_have_count(10)
+
+    results = page.locator("note-spotlight .spotlight-results")
+    assert results.evaluate("(list) => list.scrollHeight === list.clientHeight")
+    page.set_viewport_size({"width": 1280, "height": 380})
+    assert results.evaluate("(list) => list.scrollHeight > list.clientHeight")
+    page.keyboard.press("ArrowUp")
+    expect(rows.last).to_have_attribute("aria-selected", "true")
+    assert results.evaluate("(list) => list.scrollTop > 0")
+
+
 def test_spotlight_lists_recent_notes_then_filters(page, server):
     page.goto(f"{server}/notes/alpha")
     expect(page.locator("app-header")).to_have_count(1)
