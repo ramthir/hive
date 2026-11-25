@@ -206,7 +206,12 @@ def test_view_note_resolves_links_and_backlinks(page, server):
     good = page.locator('.notes-wikilink[data-target="beta"]')
     expect(good).to_have_text("Beta Note")  # auto-label replaced by the target's title
     expect(good).to_have_attribute("href", "/notes/beta")
-    expect(page.locator('.notes-wikilink[data-target="Nope"]')).to_have_class("notes-wikilink unresolved")
+    expect(good).to_have_css("text-decoration-line", "underline")
+    expect(good).to_have_css("border-top-width", "0px")
+    expect(good).to_have_css("padding-inline-start", "0px")
+    missing = page.locator('.notes-wikilink[data-target="Nope"]')
+    expect(missing).to_have_class("notes-wikilink unresolved")
+    expect(missing).to_have_css("text-decoration-style", "dashed")
     expect(page.locator(".notes-copy-code-btn")).to_have_count(1)
     expect(page.locator("#notes-backlinks")).to_contain_text("Broken links")
     good.click()
