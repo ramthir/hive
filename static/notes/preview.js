@@ -1,11 +1,8 @@
-import { readPagePath } from '/static/notes/read-pages.js';
 import { showToast } from '/static/toast.js';
-import { escapeHtml as esc } from '/static/html.js';
 import { renderMarkdownPreview as renderMarkdown } from '/static/notes/markdown.js';
-import { api } from '/static/notes/api.js';
-import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { notesRouter } from '/static/notes/notes-router.js';
+import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
 
 export class Preview {
   getTitleFromContent(content) {
@@ -75,73 +72,26 @@ export class Preview {
   }
 
   // Resolve [[targets]] against the notes on disk: link them, label them, or mark them broken.
-  async decorateWikilinks(preview) {
-    const links = [...preview.querySelectorAll('.notes-wikilink')];
-    const targets = [...new Set(links.map((link) => link.dataset.target).filter((target) => target && !target.startsWith('#')))];
-    for (const link of links) if (link.dataset.target?.startsWith('#')) link.classList.remove('unresolved');
-    if (!targets.length) return;
-    let resolved;
-    try {
-      resolved = await api(`/resolve?${targets.map((target) => `target=${encodeURIComponent(target)}`).join('&')}`);
-    } catch (error) {
-      console.error('Failed to resolve wikilinks:', error);
-      return;
-    }
-    if (!preview.isConnected) return;
-    for (const link of links) {
-      const hit = resolved[link.dataset.target];
-      if (!hit) {
-        if (!link.dataset.target.startsWith('#')) link.classList.add('unresolved');
-        continue;
-      }
-      link.classList.remove('unresolved');
-      link.dataset.slug = hit.slug;
-      // Straight to the read page of a table, task, meeting...: going through /notes/{slug} only to be sent on is a second page load.
-      link.dataset.path = readPagePath({ slug: hit.slug, types: hit.types }) || `/notes/${encodeURIComponent(hit.slug)}`;
-      link.setAttribute('href', link.dataset.path);
-      if (link.dataset.autoLabel === 'true') link.textContent = hit.title;
-    }
+  decorateWikilinks(preview) {
+    return decorateWikilinks(preview);
   }
 
   handlePreviewClick(event) {
-    const wikilink = event.target.closest('.notes-wikilink');
-    if (!wikilink) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const target = wikilink.dataset.target || '';
-    if (target.startsWith('#')) return;
-    if (wikilink.dataset.slug) {
-      const url = wikilink.dataset.path || `/notes/${encodeURIComponent(wikilink.dataset.slug)}`;
-      if (event.metaKey || event.ctrlKey || event.button === 1) window.open(url, '_blank');
-      else this.go(url);
-      return;
-    }
-    if (wikilink.classList.contains('unresolved')) this.promptCreateNoteFromWikilink(target);
+    return handleWikilinkClick(event, {
+      onNavigate: (url) => this.go(url),
+      onCreate: (target) => this.promptCreateNoteFromWikilink(target),
+      stopPropagation: true,
+    });
   }
 
   promptCreateNoteFromWikilink(target) {
-    const title = target.split('#', 1)[0].trim();
-    if (!title) return;
-    const { dialog, close } = openDialog(`
-      ${dialogHeader('Create Note')}
-      <div class="modal-body">Note &ldquo;<strong>${esc(title)}</strong>&rdquo; does not exist yet. Would you like to create it?</div>
-      <div class="modal-footer">
-        <button type="button" class="crud-drawer-btn" data-action="cancel">Cancel</button>
-        <button type="button" class="crud-drawer-btn primary" data-action="confirm-create"><i class="fa-solid fa-plus" aria-hidden="true"></i> Create Note</button>
-      </div>`, { initialFocus: '[data-action="confirm-create"]' });
-    dialog.querySelector('[data-action="confirm-create"]').addEventListener('click', async (event) => {
-      const button = event.currentTarget;
-      button.disabled = true;
-      try {
-        const created = await api('/notes', { method: 'POST', body: { content: `# ${title}\n\n`, tags: [] } });
-        close();
+    promptCreateNote(target, {
+      onCreated: (created) => {
         if (this.saveStatus === 'dirty') showToast(`Created ${created.slug}. Your unsaved edits are still here.`, 'success');
         else notesRouter.navigate(`/notes/${encodeURIComponent(created.slug)}?mode=edit`);
         if (this.selectedNote) this.refreshBacklinks(), this.setupPreviewEvents();
-      } catch (error) {
-        button.disabled = false;
-        this.showAlert('Could Not Create Note', error.message);
-      }
+      },
+      onError: (error) => this.showAlert('Could Not Create Note', error.message),
     });
   }
 }

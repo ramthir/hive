@@ -21,7 +21,12 @@ function initial(link) {
   return ((alias || target || '?').trim()[0] || '?').toUpperCase();
 }
 
-async function showBreadcrumbs(header, note) {
+async function showBreadcrumbs(header, note, cache) {
+  const key = `${note.slug}\0${note.title}\0${note.extra?.project ?? ''}\0${note.extra?.series ?? ''}`;
+  if (cache?.key === key) {
+    if (cache.trail?.length) header.breadcrumbs = cache.trail;
+    return;
+  }
   const targets = [
     referenceTarget(note.extra?.project),
     isMeetingMinutesNote(note) && referenceTarget(note.extra?.series),
@@ -40,7 +45,9 @@ async function showBreadcrumbs(header, note) {
     });
     // Under its series the last crumb is just the date: the crumb before it names the meeting and the heading has the full title.
     const short = series && parents.length ? shortMinutesDate(note.title) : '';
-    header.breadcrumbs = [...parents, short ? { label: short, title: note.title } : { label: note.title }];
+    const trail = [...parents, short ? { label: short, title: note.title } : { label: note.title }];
+    if (cache) { cache.key = key; cache.trail = trail; }
+    header.breadcrumbs = trail;
   };
   if (isMeetingMinutesNote(note) && !referenceTarget(note.extra?.series)) {
     const links = await api(`/notes/${encodeURIComponent(note.slug)}/backlinks`).catch(() => null);
@@ -57,7 +64,10 @@ async function showBreadcrumbs(header, note) {
       })) { targets.push(slug); series = slug; }
     }
   }
-  if (!targets.length) return;
+  if (!targets.length) {
+    if (cache) { cache.key = key; cache.trail = null; }
+    return;
+  }
   // The trail waits for the answer: until then its parents would be plain text that looks like links and does nothing when clicked.
   const query = new URLSearchParams(targets.map((target) => ['target', target]));
   setTrail(await api(`/resolve?${query}`).catch(() => null));
@@ -112,7 +122,8 @@ export class MeetingMinutesView extends SpecificationView {
         </div>
         ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
       </section>`;
-    showBreadcrumbs(host.querySelector('app-header'), note);
+    this._breadcrumbCache = this._breadcrumbCache || {};
+    showBreadcrumbs(host.querySelector('app-header'), note, this._breadcrumbCache);
     wireSearchTrigger(host);
     wireReadActionBar(host, this.actions);
     this.wireOutline();

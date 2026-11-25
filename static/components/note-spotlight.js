@@ -1,4 +1,5 @@
 import { noteTypeIcon, noteTypeColor } from '../type-icons.js';
+import { readPagePath } from '../notes/read-pages.js';
 
 const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -116,11 +117,12 @@ if (typeof HTMLElement !== 'undefined' && !customElements.get('note-spotlight'))
     _navigateTo(note) {
       if (!note?.slug) return;
       this.close();
+      const path = readPagePath(note) || `/notes/${encodeURIComponent(note.slug)}`;
       // A page that handles the selection itself (in-place navigation) calls preventDefault();
-      // on every other page we go to the note.
-      const event = new CustomEvent(SPOTLIGHT_SELECT_EVENT, { detail: { slug: note.slug }, cancelable: true });
+      // on every other page we go straight to the note (or its dedicated read page).
+      const event = new CustomEvent(SPOTLIGHT_SELECT_EVENT, { detail: { slug: note.slug, types: note.types, path }, cancelable: true });
       window.dispatchEvent(event);
-      if (!event.defaultPrevented) window.location.assign(`/notes/${encodeURIComponent(note.slug)}`);
+      if (!event.defaultPrevented) window.location.assign(path);
     }
 
     _moveSelection(delta) {

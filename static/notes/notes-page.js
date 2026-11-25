@@ -94,7 +94,7 @@ class NotesApp extends HTMLElement {
     this._shellRoot?.addEventListener('click', this._sidebarClick, true);
     this._spotlightHandler = (event) => {
       event.preventDefault();
-      this.go(`/notes/${encodeURIComponent(event.detail.slug)}`);
+      this.go(event.detail.path || `/notes/${encodeURIComponent(event.detail.slug)}`);
     };
     window.addEventListener(SPOTLIGHT_SELECT_EVENT, this._spotlightHandler);
     this._keydownHandler = (event) => this.handleGlobalKeydown(event);

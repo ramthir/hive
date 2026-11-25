@@ -2966,6 +2966,54 @@ def test_meeting_summary_top_wikilinks_resolve_and_navigate(page, server, notes_
     page.wait_for_url("**/notes/alpha")
 
 
+def test_spotlight_navigates_directly_to_read_page_and_read_page_creates_missing_wikilink(page, server, notes_dir):
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\nFollow up with [[Missing Person]].\n"
+    )
+    (notes_dir / "home.md").write_text("# Home\n\nJust a regular note.\n")
+
+    page.goto(f"{server}/notes/home")
+    page.get_by_role("button", name="Search notes").click()
+    spotlight = page.locator("note-spotlight")
+    spotlight.locator(".spotlight-input").fill("Weekly")
+    spotlight.locator(".spotlight-item", has_text="Weekly").click()
+    page.wait_for_url("**/meetings/weekly")
+
+    broken = page.locator(".minutes-workspace").get_by_role("link", name="Missing Person")
+    expect(broken).to_have_class(re.compile(r"\bunresolved\b"))
+    broken.click()
+    dialog = page.locator("app-dialog")
+    expect(dialog).to_be_visible()
+    dialog.get_by_role("button", name="Create Note").click()
+    page.wait_for_url("**/notes/missing-person?mode=edit")
+
+
+def test_meeting_minutes_breadcrumbs_stay_cached_when_ticking_action(page, server, notes_dir):
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\n## Minutes\n- [[Weekly — Nov 18]]\n"
+    )
+    (notes_dir / "weekly-nov-18.md").write_text(
+        "---\ntitle: 'Weekly — Nov 18'\ntype: meeting_minutes\n---\n"
+        "# Weekly — Nov 18\n\n## Action Items\n- [ ] Send notes.\n"
+    )
+
+    page.goto(f"{server}/meeting-minutes/weekly-nov-18")
+    crumb = page.get_by_role("navigation", name="Breadcrumb").get_by_role("link", name="Weekly")
+    expect(crumb).to_be_visible()
+
+    backlinks_calls = 0
+    def count_backlinks(route):
+        nonlocal backlinks_calls
+        backlinks_calls += 1
+        route.continue_()
+
+    page.route("**/api/notes/*/backlinks", count_backlinks)
+    page.get_by_role("checkbox", name="Done").click()
+    expect(page.get_by_role("checkbox", name="Done")).to_be_checked()
+    expect(crumb).to_be_visible()
+    assert backlinks_calls == 0
+
+
 def test_meeting_minutes_show_header_chips_action_meter_and_avatars(page, server, notes_dir):
     (notes_dir / "sync-minutes.md").write_text(
         "---\ntitle: Sync minutes\ntype: meeting_minutes\ndate: 2026-11-25\nproject: Alpha\n---\n"

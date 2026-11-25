@@ -4,11 +4,10 @@ import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
-import { Preview } from '/static/notes/preview.js';
+import { Preview } from '/static/notes/preview.js'; // used for downloadDiagramPng
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { api } from '/static/notes/api.js';
-import { showToast } from '/static/toast.js';
-import { readPagePath } from '/static/notes/read-pages.js';
+import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import {
   parseSpecification, scopeGroups, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
@@ -182,37 +181,18 @@ export class SpecificationView {
   // Wiki links, diagrams and code blocks inside the rendered markdown behave as in the note preview.
   decorate(root) {
     if (!root) return;
-    Preview.prototype.decorateWikilinks.call({}, root);
+    decorateWikilinks(root);
     this.diagrams.decorate(root, { editing: false });
     this.diagrams.loadEmbeds(root);
     setupCodeBlockActions(root);
     root.removeEventListener('dropdown-select', this.onMenu);
     root.addEventListener('dropdown-select', this.onMenu);
-    root.addEventListener('click', async (event) => {
-      const link = event.target.closest?.('.notes-wikilink');
-      if (!link) return;
-      const target = link.dataset.target || '';
-      if (!link.dataset.slug && link.classList.contains('unresolved')) { event.preventDefault(); return; }
-      // A link not yet resolved (the answer of /resolve is still on its way) is looked up now, so an early click is never lost.
-      if (!link.dataset.slug && (!target || target.startsWith('#'))) return;
-      event.preventDefault();
-      const open = event.metaKey || event.ctrlKey || event.button === 1;
-      let url = link.dataset.path || (link.dataset.slug ? `/notes/${encodeURIComponent(link.dataset.slug)}` : '');
-      if (!url) {
-        if (link.dataset.resolving) return;
-        link.dataset.resolving = '1';
-        let hit = null;
-        try {
-          hit = (await api(`/resolve?target=${encodeURIComponent(target)}`))[target];
-        } catch { /* reported below */ } finally {
-          delete link.dataset.resolving;
-        }
-        if (!hit) { showToast(`Could not open "${target}".`, 'error'); return; }
-        url = readPagePath(hit) || `/notes/${encodeURIComponent(hit.slug)}`;
-      }
-      if (open) window.open(url, '_blank');
-      else window.location.assign(url);
-    });
+    root.addEventListener('click', (event) => handleWikilinkClick(event, {
+      onNavigate: (url) => window.location.assign(url),
+      onCreate: (target) => promptCreateNote(target, {
+        onCreated: (created) => window.location.assign(`/notes/${encodeURIComponent(created.slug)}?mode=edit`),
+      }),
+    }));
   }
 
   // The outline marks the section in view.
