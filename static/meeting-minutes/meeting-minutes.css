@@ -18,3 +18,31 @@
 
 .minutes-section--actions .spec-prose li::marker { color: var(--color-red); }
 .minutes-action-owner { color: var(--color-blue); }
+
+.minutes-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.minutes-shortcuts a,
+.minutes-latest {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-blue) 10%, transparent);
+}
+
+.minutes-latest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.minutes-participants { align-self: start; min-width: 0; }
+.minutes-participants ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.minutes-participants li + li { margin-top: var(--space-2); }
+.minutes-participants :is(p, details) { margin: 0; overflow-wrap: anywhere; }
+.minutes-participants details { font-size: 0.8125rem; color: var(--color-dimmed2); }
+.minutes-participants summary { cursor: pointer; }

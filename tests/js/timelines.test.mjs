@@ -98,3 +98,23 @@ test('meeting minutes preserve the lead, checklist, custom sections and fenced h
   });
   assert.deepEqual(parseMeetingMinutes('# Empty'), { lead: '', sections: [] });
 });
+
+test('meeting series sort dated minutes, retain undated links, and preserve rich sections', async () => {
+  const { actionProgress, meetingArchive, meetingParticipants } =
+    await import('/static/meeting-minutes/meeting-minutes-note.js');
+  const rows = meetingArchive([
+    '- [[Minutes — June 3, 2026]]',
+    '- [[Undated]]',
+    '- [[minutes-2026-11-18#Decisions|November minutes]]',
+    '- [[Minutes — July 8, 2026]]',
+  ].join('\n'));
+  assert.deepEqual(rows.map(({ label }) => label),
+    ['November minutes', 'Minutes — July 8, 2026', 'Minutes — June 3, 2026', 'Undated']);
+  assert.equal(rows[0].destination, 'minutes-2026-11-18#Decisions');
+  assert.deepEqual(meetingArchive('Notes about this list\n- [[Minutes]]'), []);
+  assert.deepEqual(meetingParticipants('- [[Mira]] <mira@example.com>\n- [[Lee]]'), [
+    { link: '[[Mira]]', email: 'mira@example.com' }, { link: '[[Lee]]', email: undefined },
+  ]);
+  assert.deepEqual(actionProgress('- [ ] Send invite\n- [x] Set date\n```md\n- [x] example\n```'),
+    { done: 1, total: 2 });
+});

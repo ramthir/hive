@@ -2823,7 +2823,7 @@ def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_t
     assert minutes["height"] >= shell["height"] - 1
     expect(page.locator("app-header [title='Meeting date']")).to_have_text("2026-11-25")
     expect(page.get_by_role("navigation", name=outline).get_by_role("link")).to_have_text(
-        ["Summary", "Attendees", "Decisions", "Action Items"]
+        ["Summary", "Attendees", "Decisions", "Action Items 0/1"]
     )
     expect(page.locator(".minutes-section--decisions")).to_contain_text("Ship on Friday.")
     expect(page.locator(".minutes-section--decisions > .spec-prose")).to_have_css("border-inline-start-width", "2px")
@@ -2913,3 +2913,36 @@ def test_meeting_breadcrumbs_link_project_and_series(page, server, notes_dir):
     expect(trail.locator('[aria-current="page"]')).to_have_text("Kickoff")
     trail.get_by_role("link", name="Alpha Platform").click()
     page.wait_for_url("**/notes/alpha-platform")
+
+
+def test_meeting_series_shows_latest_minutes_and_participants(page, server, notes_dir):
+    (notes_dir / "weekly.md").write_text(
+        "---\ntitle: Weekly\ntype: meeting\n---\n# Weekly\n\nRecurring project sync.\n\n"
+        "## Participants\n- [[Mira]] <mira@example.com>\n\n"
+        "## Minutes\n- [[Minutes — June 3, 2026]]\n- [[Minutes — November 18, 2026]]\n"
+        "- [[Minutes — July 8, 2026]]\n"
+    )
+    (notes_dir / "mira.md").write_text("# Mira\n")
+    (notes_dir / "november-minutes.md").write_text(
+        "---\ntitle: 'Minutes — November 18, 2026'\ntype: meeting_minutes\n---\n"
+        "# Minutes — November 18, 2026\n\n## Key Decision Points\nShip on Friday.\n\n"
+        "## Action Items\n- [x] Confirm date.\n- [ ] Send invite.\n"
+    )
+
+    page.goto(f"{server}/notes/weekly")
+    page.wait_for_url("**/meetings/weekly")
+    participants = page.get_by_role("complementary", name="Participants")
+    expect(participants.get_by_role("link", name="Mira")).to_have_attribute("data-slug", "mira")
+    expect(participants.get_by_role("link", name="mira@example.com")).to_be_hidden()
+    participants.get_by_text("Email", exact=True).click()
+    expect(participants.get_by_role("link", name="mira@example.com")).to_be_visible()
+    expect(page.locator(".minutes-archive ul li")).to_have_text(
+        ["Minutes — July 8, 2026", "Minutes — June 3, 2026"]
+    )
+    expect(page.locator("#log-time-btn")).to_be_visible()
+    page.get_by_role("link", name="Open latest minutes").click()
+    page.wait_for_url("**/meeting-minutes/november-minutes")
+    highlights = page.get_by_role("navigation", name="Meeting highlights")
+    expect(highlights.get_by_role("link")).to_have_text(["Key Decision Points", "Action Items 1/2"])
+    page.get_by_role("navigation", name="Breadcrumb").get_by_role("link", name="Weekly").click()
+    page.wait_for_url("**/meetings/weekly")
