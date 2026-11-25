@@ -70,3 +70,29 @@ test('phaseMarkdown writes a phase back as a heading, paragraph and bullets', ()
   assert.equal(md, '## July 2025 — Kickoff\n\nStarted.\n\n- One\n- Two');
   assert.equal(t.phaseMarkdown({ label: '', title: 'Solo', summary: '', tasks: [] }), '## Solo');
 });
+
+test('meeting minutes accept the type picker aliases and preserve existing read-page precedence', async () => {
+  const { readPagePath } = await import('/static/notes/read-pages.js');
+  for (const type of ['meeting_minutes', 'meeting-minutes', 'Meeting Minutes']) {
+    assert.equal(readPagePath({ slug: 'kickoff', types: [type] }), '/meeting-minutes/kickoff');
+  }
+  assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting'] }), '');
+  assert.equal(readPagePath({ slug: 'kickoff', types: ['meeting_minutes', 'task'] }), '/tasks/kickoff');
+});
+
+test('meeting minutes preserve the lead, checklist, custom sections and fenced headings', async () => {
+  const { parseMeetingMinutes } = await import('/static/meeting-minutes/meeting-minutes-note.js');
+  const fence = '~~~~\n~~~\n## Example\n~~~\n~~~~';
+  const note = ['# Kickoff', 'We discussed [[Alpha]].', '## Decisions', '- Launch Friday', '## Action Items ##',
+    '- [ ] Sam to share the plan', '## Parking lot', fence, '## Parking lot', 'Second topic'].join('\n\n');
+  assert.deepEqual(parseMeetingMinutes(note), {
+    lead: 'We discussed [[Alpha]].',
+    sections: [
+      { name: 'Decisions', body: '- Launch Friday', tone: 'decisions' },
+      { name: 'Action Items', body: '- [ ] Sam to share the plan', tone: 'actions' },
+      { name: 'Parking lot', body: fence, tone: '' },
+      { name: 'Parking lot', body: 'Second topic', tone: '' },
+    ],
+  });
+  assert.deepEqual(parseMeetingMinutes('# Empty'), { lead: '', sections: [] });
+});

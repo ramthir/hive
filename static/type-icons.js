@@ -64,19 +64,19 @@ export const DEFAULT_TYPE = 'note';
 export const FALLBACK_ICON = 'file-lines';
 
 // "Meeting Minutes", "meeting-minutes" and "meeting_minutes" are the same type.
-const normalize = (type) => String(type ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+export const normalizeType = (type) => String(type ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 
 /** Icon for one type; an unknown type gets a plain file icon. */
-export const typeIcon = (type) => TYPE_ICONS[normalize(type)] || FALLBACK_ICON;
+export const typeIcon = (type) => TYPE_ICONS[normalizeType(type)] || FALLBACK_ICON;
 
 /** Icon for a note: that of its first type, or of the default type when it has none. */
-export const noteTypeIcon = (types) => typeIcon((types || []).find((t) => normalize(t)) ?? DEFAULT_TYPE);
+export const noteTypeIcon = (types) => typeIcon((types || []).find((t) => normalizeType(t)) ?? DEFAULT_TYPE);
 
 /** CSS colour of one type's icon, or '' (the muted default) for a type without one. */
-export const typeColor = (type) => (TYPE_COLORS[normalize(type)] ? `var(--color-${TYPE_COLORS[normalize(type)]})` : '');
+export const typeColor = (type) => (TYPE_COLORS[normalizeType(type)] ? `var(--color-${TYPE_COLORS[normalizeType(type)]})` : '');
 
 /** Icon colour for a note: that of its first type, or of the default type when it has none. */
-export const noteTypeColor = (types) => typeColor((types || []).find((t) => normalize(t)) ?? DEFAULT_TYPE);
+export const noteTypeColor = (types) => typeColor((types || []).find((t) => normalizeType(t)) ?? DEFAULT_TYPE);
 
 /** `meeting_minutes` -> `Meeting Minutes`: how a type is shown; the stored value stays as typed. */
 export const typeLabel = (type) => String(type).trim().split(/[\s_-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');

@@ -2786,3 +2786,28 @@ def test_library_loads_more_cards_as_the_page_is_scrolled(big_library_server):
     finally:
         browser.close()
         p.stop()
+
+
+@pytest.mark.parametrize("types", ["meeting-minutes", "[meeting, meeting-minutes]"])
+def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_the_editor(page, server, notes_dir, types):
+    (notes_dir / "kickoff.md").write_text(
+        f"---\ntitle: Kickoff\ntype: {types}\ndate: 2026-11-25\nproject: Alpha\n---\n\n"
+        "# Kickoff\n\nTeam kickoff.\n\n## Attendees\n\n- Mira\n\n"
+        "## Decisions\n\n- Ship on Friday.\n\n## Action Items\n\n- [ ] Mira to notify [[Alpha]].\n"
+    )
+    git(notes_dir, "add", "kickoff.md")
+    git(notes_dir, "commit", "-qm", "meeting minutes")
+
+    page.goto(f"{server}/notes/kickoff")
+    page.wait_for_url("**/meeting-minutes/kickoff")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Kickoff")
+    expect(page.locator("app-header [title='Meeting date']")).to_have_text("2026-11-25")
+    expect(page.get_by_role("navigation", name="Meeting minutes sections").get_by_role("link")).to_have_text(
+        ["Summary", "Attendees", "Decisions", "Action Items"]
+    )
+    expect(page.locator(".minutes-section--decisions")).to_contain_text("Ship on Friday.")
+    expect(page.locator(".minutes-section--actions input[type=checkbox]")).to_be_disabled()
+    expect(page.locator(".minutes-section--actions .notes-wikilink")).to_have_text("Alpha")
+    expect(page.locator("#log-time-btn")).to_have_count(int(types.startswith("[")))
+    page.click("#edit-note-btn")
+    page.wait_for_url("**/notes/kickoff?mode=edit")

@@ -6,7 +6,7 @@
 
 const H2 = /^##\s+(.+?)\s*#*\s*$/;
 const H3 = /^###\s+(.+?)\s*#*\s*$/;
-const FENCE = /^\s*(```|~~~)/;
+const FENCE = /^\s*(`{3,}|~{3,})(.*)$/;
 const BULLET = /^\s*[-*+]\s+(.*\S)\s*$/;
 const ARROW = /\s*(?:->|→)\s*/;
 // "Given a user, when they sign in, then a session starts" (given is optional; bold or a colon after a keyword is fine).
@@ -26,11 +26,13 @@ export const sectionKey = (name) => String(name || '').trim().toLowerCase().repl
 
 /** Lines outside code fences are the only ones that can start a heading or a bullet. */
 export function* lines(content) {
-  let fence = false;
+  let fence = '';
   for (const text of String(content || '').split(/\r?\n/)) {
-    const opens = FENCE.test(text);
+    const marker = FENCE.exec(text);
+    const opens = marker && (marker[1][0] === '~' || !marker[2].includes('`'));
     yield { text, plain: !fence && !opens };
-    if (opens) fence = !fence;
+    if (!fence && opens) fence = marker[1];
+    else if (fence && marker?.[1].startsWith(fence) && !marker[2].trim()) fence = '';
   }
 }
 
