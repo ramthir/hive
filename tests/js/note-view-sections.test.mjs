@@ -9,7 +9,7 @@ register('data:text/javascript,' + encodeURIComponent(`
   }
 `));
 
-const { renderSectionCard, renderSectionProse, renderChecklistBar } =
+const { renderSectionCard, renderSectionProse, renderChecklistBar, renderScopeSection } =
   await import('../../static/notes/note-view-sections.js');
 
 test('section cards escape headings and keep rendered controls and prose', () => {
@@ -29,4 +29,28 @@ test('checklist bars show rounded progress and omit empty checklists', () => {
   assert.match(bar, /aria-label="2 of 3 done"/);
   assert.match(bar, /width:67%/);
   assert.equal(renderChecklistBar({ done: 0, total: 0, className: 'progress' }), '');
+});
+
+test('Scope uses one card for grouped Markdown and view-specific heading controls', () => {
+  const html = renderScopeSection({
+    id: 'task-s1',
+    title: 'Scope',
+    body: 'In scope:\n- First\nOut of scope:\n- Second',
+    className: 'task-section task-section--checks',
+    headingHtml: '<span>1 of 2</span>',
+  }, (text) => `<p>${text}</p>`);
+  assert.match(html, /id="task-s1" class="spec-section task-section task-section--checks spec-section--scope"/);
+  assert.match(html, /Scope<span>1 of 2<\/span>/);
+  assert.match(html, /spec-scope-group--in[\s\S]*<p>- First<\/p>/);
+  assert.match(html, /spec-scope-group--out[\s\S]*<p>- Second<\/p>/);
+});
+
+test('Scope without group headings renders the original Markdown', () => {
+  const body = '- A plain list';
+  const html = renderScopeSection({ id: 'spec-scope', title: 'Scope', body }, (text) => {
+    assert.equal(text, body);
+    return '<ul><li>A plain list</li></ul>';
+  });
+  assert.match(html, /spec-prose"><ul><li>A plain list<\/li><\/ul>/);
+  assert.equal(html.includes('spec-scope-group'), false);
 });

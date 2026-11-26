@@ -1,4 +1,5 @@
 import { escapeHtml as esc } from '/static/html.js';
+import { scopeGroups } from '/static/notes/markdown-sections.js';
 
 /** Render a section card. Callers supply rendered body and optional heading controls. */
 export function renderSectionCard({ id, title, className = '', headingHtml = '', bodyHtml }) {
@@ -11,6 +12,30 @@ export function renderSectionCard({ id, title, className = '', headingHtml = '',
 /** Wrap rendered Markdown so preview styles and link/diagram decoration apply. */
 export function renderSectionProse(html, className = '') {
   return `<div class="notes-preview-body spec-prose${className ? ` ${esc(className)}` : ''}">${html}</div>`;
+}
+
+/** Render Scope text split into labelled In-scope / Out-of-scope groups when present. */
+function renderScopeGroups(text, renderMarkdown) {
+  const groups = scopeGroups(text);
+  if (!groups.some((group) => group.kind)) return renderMarkdown(text);
+  const LABELS = { in: ['In scope', 'fa-circle-check'], out: ['Out of scope', 'fa-ban'] };
+  return groups.map(({ kind, body }) => {
+    const [label, icon] = LABELS[kind] || [];
+    return `<div class="spec-scope-group${kind ? ` spec-scope-group--${kind}` : ''}">
+      ${label ? `<h3 class="spec-scope-label"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</h3>` : ''}
+      ${body ? renderMarkdown(body) : '<p class="spec-empty">Nothing listed.</p>'}</div>`;
+  }).join('');
+}
+
+/** Render a Scope card with shared styling and optional view-specific heading controls. */
+export function renderScopeSection({ id, title, body, className = '', headingHtml }, renderMarkdown) {
+  return renderSectionCard({
+    id,
+    title,
+    className: className ? `${className} spec-section--scope` : 'spec-section--scope',
+    headingHtml,
+    bodyHtml: renderSectionProse(renderScopeGroups(body, renderMarkdown)),
+  });
 }
 
 export function renderChecklistBar({ done, total, className, ariaLabel }) {

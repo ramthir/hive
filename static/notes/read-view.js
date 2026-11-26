@@ -8,7 +8,6 @@ import { DiagramPreviews, embedFileName, embedPngUrl } from '/static/notes/diagr
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
-import { scopeGroups } from '/static/notes/markdown-sections.js';
 
 /** Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi). */
 export function downloadDiagramPng(note, source, theme) {
@@ -96,19 +95,6 @@ export function renderOutline(entries, { ariaLabel = 'Sections', extraHtml = '' 
     ${entries.map(renderOutlineEntry).join('')}
     ${extraHtml}
   </nav>`;
-}
-
-/** Render a Scope section split into labelled In-scope / Out-of-scope groups when present. */
-export function renderScopeGroups(text, renderMarkdown) {
-  const groups = scopeGroups(text);
-  if (!groups.some((group) => group.kind)) return renderMarkdown(text);
-  const LABELS = { in: ['In scope', 'fa-circle-check'], out: ['Out of scope', 'fa-ban'] };
-  return groups.map(({ kind, body }) => {
-    const [label, icon] = LABELS[kind] || [];
-    return `<div class="spec-scope-group${kind ? ` spec-scope-group--${kind}` : ''}">
-      ${label ? `<h3 class="spec-scope-label"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</h3>` : ''}
-      ${body ? renderMarkdown(body) : '<p class="spec-empty">Nothing listed.</p>'}</div>`;
-  }).join('');
 }
 
 /**

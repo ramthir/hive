@@ -1,10 +1,10 @@
-import { highlightRequirementKeywords, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
+import { highlightRequirementKeywords, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { SPEC_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import {
-  ReadMarkdownSurface, renderOutline, renderOutlineEntry, renderReadPageShell, renderScopeGroups, wireReadPageShell,
+  ReadMarkdownSurface, renderOutline, renderOutlineEntry, renderReadPageShell, wireReadPageShell,
 } from '/static/notes/read-view.js';
 import {
   parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
@@ -26,11 +26,6 @@ export class SpecificationView {
 
   markdown(text) {
     return this.surface.markdown(text);
-  }
-
-  // "In scope:" and "Out of scope:" lines inside Scope each start a labelled group; without them the text is drawn as it is.
-  scope(text) {
-    return renderScopeGroups(text, (chunk) => this.markdown(chunk));
   }
 
   render(note, { typeLabel, typeIconName }) {
@@ -111,12 +106,20 @@ export class SpecificationView {
         }));
         continue;
       }
-      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', scope: ' spec-section--scope', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
+      if (section.key === 'scope') {
+        parts.push(renderScopeSection({
+          id: slugOf(section.name),
+          title: section.name,
+          body: section.body,
+        }, (chunk) => this.markdown(chunk)));
+        continue;
+      }
+      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
       parts.push(renderSectionCard({
         id: slugOf(section.name),
         title: section.name,
         className: tone.trim(),
-        bodyHtml: renderSectionProse(section.key === 'scope' ? this.scope(section.body) : this.markdown(section.body)),
+        bodyHtml: renderSectionProse(this.markdown(section.body)),
       }));
     }
     if (!parts.length) parts.push(renderSectionProse(this.markdown(this.note.content)));
