@@ -65,13 +65,12 @@
 
 /* Scope and Out of Scope, shared across note types. Scope is a solid card with blue dots; the older Out of Scope
    section is a dashed, dimmed card with red dots. Inside Scope, "In scope:" / "Out of scope:" lines make labelled groups. */
-.spec-section--scope .spec-heading::before, .spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
+.spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
   margin-right: var(--space-2);
   letter-spacing: 0;
 }
-.spec-section--scope .spec-heading::before { content: '\f140'; color: var(--color-blue); }
 .spec-section--out .spec-heading::before { content: '\f05e'; color: var(--color-red); }
 .spec-section--scope .spec-prose, .spec-section--out .spec-prose {
   padding: var(--space-3) var(--space-4);

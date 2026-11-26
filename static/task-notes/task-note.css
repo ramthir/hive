@@ -28,7 +28,6 @@
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-green) 5%, transparent);
 }
-.task-section--verified .spec-heading::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: var(--space-2); letter-spacing: 0; color: var(--color-green); }
 
 
 /* Acceptance criteria: one row per criterion, a ring that fills green with a tick when it is met (a plain bullet is shown as a met-able row too). */
