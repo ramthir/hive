@@ -2444,6 +2444,10 @@ def test_the_note_chat_saves_unsaved_text_first_and_sends_the_selection(page, ch
     assert "Typed before asking." in (chat_server.root / "alpha.md").read_text()  # saved before the agent was asked
     assert "<<<\nTyped before asking." in chat_server.runner.prompts[-1]  # the selection is quoted before the question
     expect(page.locator("#chat-context")).to_be_hidden()  # the selection belonged to that question
+    quote = page.locator(".chat-message.user .chat-user-quote")
+    expect(quote).to_contain_text("Typed before asking.")  # the history shows what was quoted with the question
+    page.reload()
+    expect(page.locator(".chat-message.user .chat-user-quote")).to_contain_text("Typed before asking.")  # and keeps it
 
 
 def test_the_note_chat_follows_a_rename_and_keeps_its_conversation(page, chat_server):

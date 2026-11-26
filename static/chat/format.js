@@ -89,6 +89,9 @@ export function selectionChip(text) {
 /** The selection as it is sent: trimmed and cut to what the server accepts. */
 export const selectionToSend = (text) => String(text ?? '').trim().slice(0, MAX_SELECTION);
 
+/** Whether a quoted selection in the history is long enough to be folded to a few lines (a click shows it all). */
+export const quoteIsLong = (text) => String(text ?? '').length > 240 || String(text ?? '').split('\n').length > 3;
+
 /** A Codex session id as the server sent it (a UUID), or '' for anything else: it is sent back with the next question. */
 export const sessionId = (value) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(value ?? '')) ? String(value) : '');
 const MAX_SAVED_TURNS = 40;
@@ -106,7 +109,10 @@ export function restoreTurns(raw) {
   if (!Array.isArray(saved)) return [];
   const turns = [];
   for (const turn of saved) {
-    if (turn?.role === 'user' && typeof turn.content === 'string') turns.push({ role: 'user', content: turn.content });
+    if (turn?.role === 'user' && typeof turn.content === 'string') {
+      const quote = typeof turn.quote === 'string' ? selectionToSend(turn.quote) : '';
+      turns.push({ role: 'user', content: turn.content, ...(quote ? { quote } : {}) });
+    }
     else if (turn?.role === 'assistant') {
       const base = newTurn();
       const status = ['done', 'error', 'stopped'].includes(turn.status) ? turn.status : 'stopped';

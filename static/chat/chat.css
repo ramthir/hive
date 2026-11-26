@@ -24,6 +24,11 @@ chat-app .chat-message.user .chat-avatar { background: var(--color-accent1); col
 chat-app .chat-message.assistant .chat-avatar { background: rgba(120, 220, 232, .1); color: var(--color-accent5); }
 chat-app .chat-body { flex: 1; min-width: 0; }
 chat-app .chat-sender { font-weight: 600; font-size: .85rem; margin-bottom: .2rem; color: var(--color-text); }
+chat-app .chat-user-quote { margin: .1rem 0 .4rem; padding: .3rem .6rem; border-left: 3px solid var(--color-accent5); border-radius: 0 6px 6px 0; background: var(--color-dark2);
+  color: var(--color-dimmed2); font-size: .8rem; font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere; }
+chat-app .chat-user-quote.long { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+chat-app .chat-user-quote.long.open { display: block; -webkit-line-clamp: unset; line-clamp: none; }
+chat-app .chat-user-quote.long:focus-visible { outline: 1px solid var(--color-accent5); }
 chat-app .chat-user-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text); }
 
 chat-app .chat-steps { list-style: none; margin: 0 0 .6rem; padding: 0; display: flex; flex-direction: column; gap: .15rem; font-size: .78rem; color: var(--color-dimmed2); }

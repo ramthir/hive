@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { friendlyLabel, workSummary, words, LIVE_STEPS } from '../../static/chat/steps.js';
-import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, parseSse, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, STORAGE_KEY, SESSION_KEY } from '../../static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, parseSse, quoteIsLong, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, STORAGE_KEY, SESSION_KEY } from '../../static/chat/format.js';
 
 test('parseSse returns whole events and keeps the unfinished tail', () => {
   const first = parseSse('data: {"type":"step","id":"1"}\n\ndata: {"type":"mess');
@@ -78,6 +78,22 @@ test('a saved conversation comes back as it was', () => {
   const turns = [{ role: 'user', content: 'q' }, { role: 'assistant', ...newTurn(), status: 'done', answer: 'a', narration: ['hm'],
     steps: [{ id: '1', tool: 'edit_note', label: 'Editing x', write: true, status: 'done' }], changed: [{ slug: 'x', title: 'X' }] }];
   assert.deepEqual(restoreTurns(serializeTurns(turns)), turns);
+});
+
+test('the text quoted from the note is kept with its question, checked and cut', () => {
+  const turns = [{ role: 'user', content: 'q', quote: 'the selected line' }, { role: 'assistant', ...newTurn(), status: 'done', answer: 'a' }];
+  assert.deepEqual(restoreTurns(serializeTurns(turns)), turns);
+  const [bad, long] = restoreTurns(JSON.stringify([{ role: 'user', content: 'q', quote: 42 }, { role: 'user', content: 'r', quote: 'z'.repeat(9000) }]));
+  assert.deepEqual(bad, { role: 'user', content: 'q' });
+  assert.equal(long.quote.length, 4000);
+  assert.deepEqual(historyFor(turns), [{ role: 'user', content: 'q' }, { role: 'assistant', content: 'a' }]); // the server gets it as `selection`
+});
+
+test('a long quote folds to a few lines', () => {
+  assert.equal(quoteIsLong('short'), false);
+  assert.equal(quoteIsLong('a\nb\nc'), false);
+  assert.equal(quoteIsLong('a\nb\nc\nd'), true);
+  assert.equal(quoteIsLong('x'.repeat(241)), true);
 });
 
 test('a turn that was running when the page closed comes back stopped, with its unfinished steps failed', () => {

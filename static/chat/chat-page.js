@@ -3,7 +3,7 @@ import '/static/components/action-bar.js';
 import { api } from '/static/notes/api.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { CURRENT_USER, initialsOf } from '/static/sidebar.js';
-import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, NOTE_SUGGESTIONS, parseSse, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
+import { applyEvent, finishTurn, historyFor, newTurn, noteKeys, NOTE_SUGGESTIONS, parseSse, quoteIsLong, restoreTurns, selectionChip, selectionToSend, serializeTurns, sessionId, stepIcon, SUGGESTIONS } from '/static/chat/format.js';
 import { friendlyLabel, LIVE_STEPS, workSummary } from '/static/chat/steps.js';
 
 /* Chat with the notes. The answers come from Codex (server side) in the notes folder with its own shell. A chat is one Codex session: the
@@ -58,6 +58,8 @@ class ChatApp extends HTMLElement {
     this.log.addEventListener('click', (event) => {
       const suggestion = event.target.closest('[data-suggestion]');
       if (suggestion) { this.submit(suggestion.dataset.suggestion); return; }
+      const quote = event.target.closest('.chat-user-quote.long');
+      if (quote && !String(window.getSelection?.() ?? '')) { quote.classList.toggle('open'); quote.setAttribute('aria-expanded', String(quote.classList.contains('open'))); return; }
       const history = event.target.closest('[data-history]');
       if (history) { this.dispatchEvent(new CustomEvent('chat-history', { bubbles: true, detail: { slug: history.dataset.history } })); return; }
       // Inside a note page a link to a note goes through the page (it asks about unsaved edits and does not reload).
@@ -66,6 +68,10 @@ class ChatApp extends HTMLElement {
         event.preventDefault();
         this.dispatchEvent(new CustomEvent('chat-navigate', { bubbles: true, detail: { href: link.getAttribute('href') } }));
       }
+    });
+    this.log.addEventListener('keydown', (event) => {
+      const quote = event.target.closest?.('.chat-user-quote.long');
+      if (quote && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); quote.click(); }
     });
     this.stick = true;  // follow the newest text until the reader scrolls up
     this.lastTop = 0;
@@ -246,7 +252,7 @@ class ChatApp extends HTMLElement {
     const selection = conv.slug ? this.selected : '';
     this.input.value = '';
     this.grow();
-    conv.turns.push({ role: 'user', content: question });
+    conv.turns.push({ role: 'user', content: question, ...(selection ? { quote: selection } : {}) });
     let turn = { role: 'assistant', ...newTurn(), startedAt: Date.now() };
     conv.turns.push(turn);
     this.save(conv);
@@ -332,10 +338,17 @@ class ChatApp extends HTMLElement {
     return `<div class="chat-changed"><span><i class="fa-solid fa-pen"></i> Changed</span>${items.join('')}</div>`;
   }
 
+  /** The text that was selected in the note when the question was asked, shown above it (a long one folds to a few lines). */
+  quoteHtml(quote) {
+    if (!quote) return '';
+    const long = quoteIsLong(quote);
+    return `<blockquote class="chat-user-quote${long ? ' long' : ''}"${long ? ' role="button" tabindex="0" aria-expanded="false" title="Show the whole selection"' : ''}>${esc(quote)}</blockquote>`;
+  }
+
   messageHtml(turn, index) {
     if (turn.role === 'user') {
       return `<div class="chat-message user" data-index="${index}"><div class="chat-avatar" title="${esc(CURRENT_USER.name)}">${esc(initialsOf(CURRENT_USER.name))}</div>
-        <div class="chat-body"><div class="chat-sender">Ramesh</div><div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
+        <div class="chat-body"><div class="chat-sender">Ramesh</div>${this.quoteHtml(turn.quote)}<div class="chat-user-text">${esc(turn.content)}</div></div></div>`;
     }
     const noteItem = (text) => `<li class="narration"><i class="fa-solid fa-comment-dots"></i><span title="${esc(text)}">${esc(text)}</span></li>`;
     const stepItem = (s) => {
