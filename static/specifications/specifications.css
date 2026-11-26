@@ -103,8 +103,10 @@
 .spec-prose p { margin: 0 0 var(--space-3); }
 .spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
 .spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
-.spec-prose :is(h3, h4):not(:first-child) { margin-top: var(--space-4); }
-.spec-section--scope .spec-prose :is(h3, h4) { margin-bottom: var(--space-2); }
+.spec-prose :is(h3, h4, h5, h6) { margin: var(--space-4) 0 var(--space-2); font-weight: 600; line-height: 1.35; color: var(--color-text); }
+.spec-prose :is(h3, h4, h5, h6):first-child { margin-top: 0; }
+.spec-prose h3 { font-size: 0.9375rem; }
+.spec-prose :is(h4, h5, h6) { font-size: 0.875rem; color: var(--color-dimmed1); }
 
 /* Scope and Out of Scope, shared by specifications and tasks. Scope is a solid card with blue dots; the older Out of Scope
    section is a dashed, dimmed card with red dots. Inside Scope, "In scope:" / "Out of scope:" lines make labelled groups. */
