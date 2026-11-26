@@ -1,3 +1,4 @@
+import { renderChecklistBar, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { renderChip } from '/static/components/chips.js';
@@ -149,7 +150,7 @@ export class MeetingMinutesView {
           <div class="spec-main" id="minutes-main">
             ${main.map((entry) => entry === archive && archiveRows.length
               ? this.archive(entry, archiveRows) : this.section(entry)).join('') ||
-              (lead ? `<section class="spec-section minutes-section"><div class="notes-preview-body spec-prose">${this.markdown(lead)}</div></section>`
+              (lead ? renderSectionCard({ className: 'minutes-section', bodyHtml: renderSectionProse(this.markdown(lead)) })
                 : '<p class="spec-empty">This note has no text yet. Use the pencil to add it.</p>')}
           </div>
           ${participants.length ? this.participants(people, participants) :
@@ -241,11 +242,6 @@ export class MeetingMinutesView {
     this.surface.decorate(root, this.note);
   }
 
-  progress(body) {
-    const { done, total } = actionProgress(body);
-    return total ? ` <span class="spec-count">${done}/${total}</span>` : '';
-  }
-
   archive({ id, name }, rows) {
     const parts = rows.map((row) => minutesRow(row));
     const dated = parts.filter((_, index) => rows[index].date !== null);
@@ -299,19 +295,16 @@ export class MeetingMinutesView {
     </aside>`;
   }
 
-  meter(body) {
-    const { done, total } = actionProgress(body);
-    if (!total) return '';
-    return `<div class="minutes-meter" role="img" aria-label="${done} of ${total} actions done">
-      <span style="width:${Math.round((done / total) * 100)}%"></span></div>`;
-  }
-
   section({ id, name, body, tone }) {
     const lead = id === 'minutes-summary';
-    return `<section id="${id}" class="spec-section minutes-section${tone ? ` minutes-section--${tone}` : ''}${lead ? ' minutes-section--lead' : ''}">
-      ${lead ? '' : `<h2 class="spec-heading">${esc(name)}${tone === 'actions' ? `${this.meter(body)}${this.progress(body)}` : ''}</h2>`}
-      <div class="notes-preview-body spec-prose">${this.markdown(body)}</div>
-    </section>`;
+    const { done, total } = tone === 'actions' ? actionProgress(body) : { done: 0, total: 0 };
+    return renderSectionCard({
+      id,
+      title: lead ? '' : name,
+      className: `minutes-section${tone ? ` minutes-section--${tone}` : ''}${lead ? ' minutes-section--lead' : ''}`,
+      headingHtml: total ? `${renderChecklistBar({ done, total, className: 'minutes-meter', ariaLabel: `${done} of ${total} actions done` })} <span class="spec-count">${done}/${total}</span>` : '',
+      bodyHtml: renderSectionProse(this.markdown(body)),
+    });
   }
 
   outline(entries, typeLabel) {

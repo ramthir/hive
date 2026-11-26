@@ -1,9 +1,10 @@
+import { highlightRequirementKeywords, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { SPEC_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import {
-  ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
+  ReadMarkdownSurface, renderOutline, renderOutlineEntry, renderReadPageShell, renderScopeGroups, wireReadPageShell,
 } from '/static/notes/read-view.js';
 import {
   parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
@@ -14,27 +15,6 @@ const LEGACY_NOTICE = 'This specification is in an older format. Edit it to matc
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
 
 const inlineMarkdown = (text, decorate) => renderMarkdownPreview(text, { inline: true, decorate });
-
-export function highlightRequirementKeywords(prose) {
-  const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => node.parentElement.closest('a, code, pre, mark, .katex, .notes-diagram')
-      ? NodeFilter.FILTER_REJECT
-      : NodeFilter.FILTER_ACCEPT,
-  });
-  const textNodes = [];
-  while (walker.nextNode()) textNodes.push(walker.currentNode);
-  for (const node of textNodes) {
-    const parts = node.data.split(/\b(SHALL|MUST)\b/);
-    if (parts.length === 1) continue;
-    node.replaceWith(...parts.map((part, index) => {
-      if (index % 2 === 0) return part;
-      const keyword = document.createElement('mark');
-      keyword.className = 'requirement-keyword';
-      keyword.textContent = part;
-      return keyword;
-    }));
-  }
-}
 
 /** The read view of a specification note: the objective, one card per requirement and the other sections, with an outline. */
 export class SpecificationView {
@@ -105,7 +85,8 @@ export class SpecificationView {
         : section.key === 'open questions' ? (section.body.match(/^\s*[-*+]\s/gm) || []).length : 0;
       sections.push({ id: slugOf(section.name), label: section.name, count });
     }
-    const requirements = spec.requirements.map((item, index) => `<a href="#spec-req-${index}" data-spec-link="spec-req-${index}"><span>${esc(item.name)}</span></a>`).join('');
+    const requirements = spec.requirements.map((item, index) =>
+      renderOutlineEntry({ id: `spec-req-${index}`, label: item.name })).join('');
     return renderOutline(sections, {
       ariaLabel: 'Specification sections',
       extraHtml: requirements ? `<b class="spec-outline-gap">Requirements</b>${requirements}` : '',
@@ -119,17 +100,26 @@ export class SpecificationView {
     for (const section of spec.sections) {
       if (section.key === 'objective') continue;
       if (section.key === 'requirements') {
-        parts.push(`<section id="${slugOf(section.name)}" class="spec-section"><h2 class="spec-heading">${esc(section.name)}</h2>
-          ${section.intro ? `<div class="notes-preview-body spec-prose">${this.markdown(section.intro)}</div>` : ''}
-          ${spec.requirements.map((item, index) => this.requirementCard(item, index)).join('') || '<p class="spec-empty">No requirements yet. Add a <code>### Name</code> heading with a SHALL or MUST statement under it.</p>'}
-        </section>`);
+        parts.push(renderSectionCard({
+          id: slugOf(section.name),
+          title: section.name,
+          bodyHtml: [
+            section.intro && renderSectionProse(this.markdown(section.intro)),
+            spec.requirements.map((item, index) => this.requirementCard(item, index)).join('') ||
+              '<p class="spec-empty">No requirements yet. Add a <code>### Name</code> heading with a SHALL or MUST statement under it.</p>',
+          ].filter(Boolean).join(''),
+        }));
         continue;
       }
       const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', scope: ' spec-section--scope', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
-      parts.push(`<section id="${slugOf(section.name)}" class="spec-section${tone}"><h2 class="spec-heading">${esc(section.name)}</h2>
-        <div class="notes-preview-body spec-prose">${section.key === 'scope' ? this.scope(section.body) : this.markdown(section.body)}</div></section>`);
+      parts.push(renderSectionCard({
+        id: slugOf(section.name),
+        title: section.name,
+        className: tone.trim(),
+        bodyHtml: renderSectionProse(section.key === 'scope' ? this.scope(section.body) : this.markdown(section.body)),
+      }));
     }
-    if (!parts.length) parts.push(`<div class="notes-preview-body spec-prose">${this.markdown(this.note.content)}</div>`);
+    if (!parts.length) parts.push(renderSectionProse(this.markdown(this.note.content)));
     return parts.join('');
   }
 

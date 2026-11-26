@@ -1,10 +1,6 @@
 /* Note & read page hosts: fill the shell edge to edge. */
 notes-app,
-tables-app,
-timelines-app,
-specifications-app,
-task-note-app,
-meeting-minutes-app {
+note-view-app {
   display: flex;
   flex: 1;
   flex-direction: column;

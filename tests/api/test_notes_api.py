@@ -481,29 +481,16 @@ def test_time_notes_lists_tasks_and_meetings_this_weeks_first(client, root):
         {"slug": "old", "title": "Old", "type": "task", "this_week": False}]
 
 
-def test_tables_page_is_its_own_document(client):
-    res = client.get("/tables/anything")
+@pytest.mark.parametrize("prefix", ["tables", "timelines", "specifications", "tasks", "meeting-minutes", "meetings"])
+def test_note_views_serve_the_shared_document(client, prefix):
+    res = client.get(f"/{prefix}/anything")
     assert res.status_code == 200
-    assert "<tables-app>" in res.text
+    assert "<note-view-app>" in res.text
+    assert "/static/notes/note-view-page.js" in res.text
 
 
-def test_timelines_page_is_its_own_document(client):
-    res = client.get("/timelines/anything")
-    assert res.status_code == 200
-    assert "<timelines-app>" in res.text
-
-
-def test_specifications_page_is_its_own_document(client):
-    res = client.get("/specifications/anything")
-    assert res.status_code == 200
-    assert "<specifications-app>" in res.text
-
-
-def test_task_page_is_its_own_document(client):
-    res = client.get("/tasks/anything")
-    assert res.status_code == 200
-    assert "<task-note-app>" in res.text
-    assert client.get("/tasks").text != res.text  # the board is another document
+def test_task_board_keeps_its_own_document(client):
+    assert "<note-view-app>" not in client.get("/tasks").text
 
 
 def test_a_task_note_carries_its_effective_status_and_priority(client):

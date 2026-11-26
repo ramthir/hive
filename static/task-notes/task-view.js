@@ -1,10 +1,10 @@
+import { highlightRequirementKeywords, renderChecklistBar, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { TASK_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import {
   ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
 } from '/static/notes/read-view.js';
-import { highlightRequirementKeywords } from '/static/specifications/specification-view.js';
 import { COLUMNS, taskChips } from '/static/tasks/card.js';
 import { parseTask, planSteps } from '/static/task-notes/task-note.js';
 
@@ -67,7 +67,7 @@ export class TaskView {
     if (!total) return null;
     const complete = done === total;
     return {
-      html: `<span class="task-bar${complete ? ' task-bar--done' : ''}"><span style="width:${Math.round((done / total) * 100)}%"></span></span>${done} of ${total} done`,
+      html: `${renderChecklistBar({ done, total, className: complete ? 'task-bar task-bar--done' : 'task-bar' })}${done} of ${total} done`,
       tone: complete ? 'green' : '',
       role: 'img',
       ariaLabel: `${done} of ${total} items done`,
@@ -98,12 +98,22 @@ export class TaskView {
   body() {
     const { task } = this;
     const parts = [];
-    if (task.lead) parts.push(`<section id="task-lead" class="spec-section"><div class="notes-preview-body spec-prose task-lead">${this.markdown(task.lead)}</div></section>`);
+    if (task.lead) parts.push(renderSectionCard({
+      id: 'task-lead',
+      bodyHtml: renderSectionProse(this.markdown(task.lead), 'task-lead'),
+    }));
     task.sections.forEach((section, index) => {
-      const pill = section.total ? renderChip({ label: `${section.done} of ${section.total}`, tone: section.done === section.total ? 'green' : '' }) : '';
-      parts.push(`<section id="task-s${index}" class="spec-section task-section${section.total ? ' task-section--checks' : ''}${SECTION_CLASS[section.kind] || ''}">
-        <h2 class="spec-heading">${esc(section.name)}${pill}</h2>
-        <div class="notes-preview-body spec-prose">${section.kind === 'scope' ? renderScopeGroups(section.body, (c) => this.markdown(c)) : section.kind === 'plan' ? this.plan(section.body) : this.markdown(section.body)}</div></section>`);
+      const { done, total, kind, body } = section;
+      const headingHtml = total ? renderChip({ label: `${done} of ${total}`, tone: done === total ? 'green' : '' }) : '';
+      const html = kind === 'scope' ? renderScopeGroups(body, (chunk) => this.markdown(chunk))
+        : kind === 'plan' ? this.plan(body) : this.markdown(body);
+      parts.push(renderSectionCard({
+        id: `task-s${index}`,
+        title: section.name,
+        className: `task-section${total ? ' task-section--checks' : ''}${SECTION_CLASS[kind] || ''}`,
+        headingHtml,
+        bodyHtml: renderSectionProse(html),
+      }));
     });
     if (!parts.length) parts.push('<p class="spec-empty">This task has no text yet. Use the pencil to write it.</p>');
     return parts.join('');

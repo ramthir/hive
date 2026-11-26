@@ -2226,8 +2226,8 @@ def test_with_the_chat_open_only_the_task_text_scrolls(page, server, notes_dir):
     page.goto(f"{server}/tasks/long-task")
     page.wait_for_selector(".task-section")
     page.click("#note-chat-btn")
-    expect(page.locator("task-note-app")).to_have_class(re.compile("chat-docked"))
-    sizes = page.evaluate("() => { const w = document.querySelector('.spec-workspace'); return { page: document.querySelector('task-note-app').getBoundingClientRect().height, window: innerHeight, text: w.scrollHeight, pane: w.clientHeight }; }")
+    expect(page.locator("note-view-app")).to_have_class(re.compile("chat-docked"))
+    sizes = page.evaluate("() => { const w = document.querySelector('.spec-workspace'); return { page: document.querySelector('note-view-app').getBoundingClientRect().height, window: innerHeight, text: w.scrollHeight, pane: w.clientHeight }; }")
     assert sizes["page"] <= sizes["window"]  # the page itself does not scroll...
     assert sizes["text"] > sizes["pane"]  # ...the text does
     header = page.locator("app-header").bounding_box()
@@ -2238,8 +2238,8 @@ def test_with_the_chat_open_only_the_task_text_scrolls(page, server, notes_dir):
     assert page.locator("app-header").bounding_box() == header  # the header stays,
     assert abs(page.locator(".notes-chat-dock").bounding_box()["y"] - (header["y"] + header["height"])) < 2  # and so does the chat
     page.keyboard.press("Control+Shift+L")
-    expect(page.locator("task-note-app")).not_to_have_class(re.compile("chat-docked"))
-    assert page.evaluate("document.querySelector('task-note-app').getBoundingClientRect().height") > page.evaluate("innerHeight")  # closed: the whole page is as tall as its text again
+    expect(page.locator("note-view-app")).not_to_have_class(re.compile("chat-docked"))
+    assert page.evaluate("document.querySelector('note-view-app').getBoundingClientRect().height") > page.evaluate("innerHeight")  # closed: the whole page is as tall as its text again
     assert page.errors == []
 
 
@@ -2285,7 +2285,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     assert page.evaluate("Boolean(customElements.get('app-dropdown-menu'))")  # the diagram menu (Download PNG) works here too
     expect(page.locator(".spec-outline a[href='#spec-req-1']")).to_have_text("Sign out")
     page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
-    expect(page.locator("specifications-app")).to_have_class(re.compile("chat-docked"))
+    expect(page.locator("note-view-app")).to_have_class(re.compile("chat-docked"))
     spec_pane, spec_dock = page.locator(".spec-workspace").bounding_box(), page.locator(".notes-chat-dock").bounding_box()
     assert spec_pane["x"] + spec_pane["width"] <= spec_dock["x"] + 1
     expect(page.locator(".spec-outline")).to_be_hidden()
@@ -2375,14 +2375,14 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
     expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
     page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
-    expect(page.locator("task-note-app")).to_have_class(re.compile("chat-docked"))
+    expect(page.locator("note-view-app")).to_have_class(re.compile("chat-docked"))
     pane, dock, header = (page.locator(s).bounding_box() for s in (".spec-workspace", ".notes-chat-dock", "app-header"))
     assert pane["x"] + pane["width"] <= dock["x"] + 1
     expect(page.locator(".spec-outline")).to_be_hidden()  # the sections list steps aside while the chat is open
     assert abs(dock["y"] - (header["y"] + header["height"])) < 2  # the dock starts under the header, in the body only, as on the note page
     assert header["x"] + header["width"] >= dock["x"] + dock["width"] - 1  # and the header runs over it, full width
     page.keyboard.press("Control+Shift+L")
-    expect(page.locator("task-note-app")).not_to_have_class(re.compile("chat-docked"))
+    expect(page.locator("note-view-app")).not_to_have_class(re.compile("chat-docked"))
     expect(page.locator(".spec-outline")).to_be_visible()  # and comes back when it is closed
     page.click("#log-time-btn")  # a task takes time: the dialog and the footer chip work here too
     expect(page.locator(".log-time-title")).to_have_text("Fix login")
@@ -2846,7 +2846,7 @@ def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_t
     page.wait_for_url(f"**/{route}/kickoff")
     expect(page.locator("app-header")).to_have_attribute("heading", "Kickoff")
     shell = page.locator("app-shell .page-main").bounding_box()
-    minutes = page.locator("meeting-minutes-app").bounding_box()
+    minutes = page.locator("note-view-app").bounding_box()
     assert minutes["x"] == pytest.approx(shell["x"], abs=1)
     assert minutes["y"] == pytest.approx(shell["y"], abs=1)
     assert minutes["width"] == pytest.approx(shell["width"], abs=1)

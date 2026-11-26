@@ -8,7 +8,7 @@ import { DiagramPreviews, embedFileName, embedPngUrl } from '/static/notes/diagr
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
-import { scopeGroups } from '/static/specifications/specification-note.js';
+import { scopeGroups } from '/static/notes/markdown-sections.js';
 
 /** Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi). */
 export function downloadDiagramPng(note, source, theme) {
@@ -84,11 +84,16 @@ export function wireReadPageShell(host, actions, { searchTrigger = true } = {}) 
   wireReadActionBar(host, actions);
 }
 
+export function renderOutlineEntry({ id, label, count }) {
+  const anchor = esc(id);
+  return `<a href="#${anchor}" data-spec-link="${anchor}"><span>${esc(label)}</span>${count ? ` <span class="spec-count">${esc(String(count))}</span>` : ''}</a>`;
+}
+
 /** Shared sticky outline navigation for sectioned read pages. */
 export function renderOutline(entries, { ariaLabel = 'Sections', extraHtml = '' } = {}) {
   return `<nav class="spec-outline" aria-label="${esc(ariaLabel)}">
     <b>Sections</b>
-    ${entries.map(({ id, label, count }) => `<a href="#${id}" data-spec-link="${id}"><span>${esc(label)}</span>${count ? ` <span class="spec-count">${esc(String(count))}</span>` : ''}</a>`).join('')}
+    ${entries.map(renderOutlineEntry).join('')}
     ${extraHtml}
   </nav>`;
 }

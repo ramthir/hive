@@ -9,7 +9,7 @@ register('data:text/javascript,' + encodeURIComponent(`
   }
 `));
 const t = await import('../../static/task-notes/task-note.js');
-const sp = await import('../../static/specifications/specification-note.js');
+const { scopeGroups } = await import('../../static/notes/markdown-sections.js');
 
 const NOTE = `# Fix login
 
@@ -86,13 +86,13 @@ test('the read page list sends a task to /tasks and a specification that is also
 });
 
 test('scopeGroups splits Scope at its In scope / Out of scope lines', () => {
-  const groups = sp.scopeGroups('Intro.\n\nIn scope:\n\n- A\n- B\n\n**Out of scope:**\n\n- C\n\n```md\nOut of scope:\n```');
+  const groups = scopeGroups('Intro.\n\nIn scope:\n\n- A\n- B\n\n**Out of scope:**\n\n- C\n\n```md\nOut of scope:\n```');
   assert.deepEqual(groups.map((g) => g.kind), ['', 'in', 'out']);
   assert.equal(groups[0].body, 'Intro.');
   assert.equal(groups[1].body, '- A\n- B');
   assert.match(groups[2].body, /^- C\n\n```md\nOut of scope:/); // a line inside a fence is text, not a group
-  assert.deepEqual(sp.scopeGroups('- Only a list'), [{ kind: '', body: '- Only a list' }]);
-  assert.deepEqual(sp.scopeGroups('Out of scope\n- X').map((g) => g.kind), ['out']);
+  assert.deepEqual(scopeGroups('- Only a list'), [{ kind: '', body: '- Only a list' }]);
+  assert.deepEqual(scopeGroups('Out of scope\n- X').map((g) => g.kind), ['out']);
 });
 
 test('an Open Questions section counts its top-level bullets, not nested lines or fenced ones', () => {

@@ -161,3 +161,11 @@ test('a minutes breadcrumb is the full date when the title ends in one', async (
   assert.equal(shortMinutesDate('Weekly 2026-07-08'), 'Wednesday, July 8, 2026');
   assert.equal(shortMinutesDate('Kickoff Minutes'), '');
 });
+
+test('Note View routes choose the registration and leave the task board separate', async () => {
+  const { noteViewForPath } = await import('../../static/notes/read-pages.js');
+  assert.equal(noteViewForPath('/tasks'), undefined);
+  assert.equal(noteViewForPath('/tasks/a-task').type, 'task');
+  assert.equal(noteViewForPath('/meetings/weekly').type, 'meeting');
+  assert.equal(noteViewForPath('/meeting-minutes/weekly').type, 'meeting_minutes');
+});

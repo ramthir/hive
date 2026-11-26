@@ -5,7 +5,6 @@ import { api } from '/static/notes/api.js';
 import { confirmAndDeleteNote } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openProperties } from '/static/notes/properties.js';
-import { READ_PAGES } from '/static/notes/read-pages.js';
 import { pollRemoteNote } from '/static/notes/remote-changes.js';
 import { debounce, watchChanges } from '/static/events.js';
 import { NoteChatDock } from '/static/notes/note-chat.js';
@@ -22,8 +21,7 @@ import { NoteChatDock } from '/static/notes/note-chat.js';
 
 const notePath = (slug, query = '') => `/notes/${encodeURIComponent(slug)}${query}`;
 
-export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSaved = () => {} }) {
-  const { path, matches } = READ_PAGES.find((page) => page.type === type);
+export function defineReadPage({ type, path, matches, View, viewOptions = () => ({}), onSaved = () => {} }) {
   const pathPrefix = new RegExp(`^${path}/?`);
 
   class ReadPage extends HTMLElement {
@@ -153,6 +151,6 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
     }
   }
 
-  customElements.define(tag, ReadPage);
+  customElements.define('note-view-app', ReadPage);
   return ReadPage;
 }
