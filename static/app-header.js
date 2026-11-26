@@ -97,7 +97,7 @@ const COMPONENT_CSS = `
                 }
 
                 :host([breadcrumbs-in-top-padding][bottom]) .page-header-content {
-                    min-height: 0;
+                    min-height: 4.8125rem;
                     padding-top: 1.25rem;
                 }
 

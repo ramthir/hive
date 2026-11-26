@@ -2900,7 +2900,7 @@ def test_meeting_breadcrumbs_link_project_and_series(page, server, notes_dir):
     header_box = page.locator("app-header").bounding_box()
     heading_box = heading.bounding_box()
     assert trail.bounding_box()["y"] - header_box["y"] >= 4
-    assert header_box["y"] + header_box["height"] - heading_box["y"] - heading_box["height"] <= 24
+    assert header_box["height"] == pytest.approx(106, abs=1)
     assert heading.evaluate("""(heading) => {
         const header = heading.getRootNode().host;
         const before = heading.getBoundingClientRect().top;
