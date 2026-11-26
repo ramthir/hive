@@ -72,6 +72,36 @@ function scrollParent(element) {
   return null;
 }
 
+// The vault ends an action item with an em dash and its owner: plain text (`— Mira`) or wiki links
+// (`— [[Devin Chandrapala]]`, `— [[A]], [[B]]`). Either way the owner becomes the same chip; links keep working inside it.
+function markOwner(body) {
+  const nodes = [...body.childNodes];
+  for (let i = nodes.length - 1; i >= 0; i -= 1) {
+    const node = nodes[i];
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.matches('a.notes-wikilink')) continue;
+      return; // anything else (the checkbox, bold text, code) is part of the item, not its owner
+    }
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    const text = node.textContent;
+    const at = text.lastIndexOf('—');
+    if (at < 0 || (at > 0 && !/\s/u.test(text[at - 1]))) continue;
+    const start = at + 1 + (text.slice(at + 1).match(/^\s*/u)[0].length);
+    const owner = [...(start < text.length ? [node.splitText(start)] : []), ...nodes.slice(i + 1)];
+    if (!owner.some((part) => part.textContent.trim())) return;
+    const label = document.createElement('em');
+    label.className = 'minutes-action-owner';
+    owner[0].before(label);
+    for (const part of owner) {
+      if (part.nodeType === Node.TEXT_NODE) part.textContent = part.textContent.replace(/\s+/gu, ' ');
+      label.append(part);
+    }
+    const last = label.lastChild;
+    if (last.nodeType === Node.TEXT_NODE) last.textContent = last.textContent.trimEnd();
+    return;
+  }
+}
+
 export class MeetingMinutesView {
   constructor(host, actions) {
     this.host = host;
@@ -205,15 +235,7 @@ export class MeetingMinutesView {
     if (!root) return;
     this.enableActions(root);
     for (const item of root.querySelectorAll('.minutes-section--actions .spec-prose > :is(ul, ol) > li')) {
-      const body = item.querySelector(':scope > p') || item;
-      // The vault uses a trailing em dash followed by the owner's name.
-      const tail = [...body.childNodes].findLast((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-      const owner = tail?.textContent.match(/\s—\s+([^—]+?)\s*$/u);
-      if (!owner) continue;
-      const label = document.createElement('em');
-      label.className = 'minutes-action-owner';
-      label.textContent = owner[1].replace(/\s+/g, ' ');
-      tail.splitText(owner.index + owner[0].indexOf(owner[1])).replaceWith(label);
+      markOwner(item.querySelector(':scope > p') || item);
     }
     this.surface.decorate(root, this.note);
   }

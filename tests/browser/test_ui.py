@@ -2865,6 +2865,37 @@ def test_meeting_minutes_open_as_sections_with_an_outline_and_the_pencil_opens_t
     page.wait_for_url("**/notes/kickoff?mode=edit")
 
 
+def test_meeting_minutes_show_wiki_link_owners_as_the_same_chip_as_plain_owners(page, server, notes_dir):
+    (notes_dir / "devin-chandrapala.md").write_text("---\ntitle: Devin Chandrapala\ntype: contact\n---\n\n# Devin Chandrapala\n")
+    (notes_dir / "mira-shah.md").write_text("---\ntitle: Mira Shah\ntype: contact\n---\n\n# Mira Shah\n")
+    (notes_dir / "sync.md").write_text(
+        "---\ntitle: Sync\ntype: meeting-minutes\n---\n\n# Sync\n\nA sync.\n\n## Action Items\n\n"
+        "- [ ] Create a Jira ticket — [[Devin Chandrapala]]\n"
+        "- [ ] Share the docs — Speaker 2\n"
+        "- [ ] Review the plan — [[Devin Chandrapala]], [[Mira Shah]]\n"
+        "- [ ] Tell [[Mira Shah]] about it.\n"
+    )
+    git(notes_dir, "add", ".")
+    git(notes_dir, "commit", "-qm", "minutes")
+
+    page.goto(f"{server}/meeting-minutes/sync")
+    owners = page.locator(".minutes-section--actions .minutes-action-owner")
+    expect(owners).to_have_text(["Devin Chandrapala", "Speaker 2", "Devin Chandrapala, Mira Shah"])
+    expect(owners.nth(0).locator("a.notes-wikilink")).to_have_text("Devin Chandrapala")
+    expect(owners.nth(2).locator("a.notes-wikilink")).to_have_count(2)
+    linked, plain = owners.nth(0), owners.nth(1)
+    for prop in ("background-color", "border-radius", "font-size", "padding-left"):
+        assert linked.evaluate(f"e => getComputedStyle(e)['{prop}']") == plain.evaluate(f"e => getComputedStyle(e)['{prop}']")
+    link = owners.nth(0).locator("a")
+    assert link.evaluate("e => getComputedStyle(e).color") == plain.evaluate("e => getComputedStyle(e).color")
+    assert link.evaluate("e => getComputedStyle(e).textDecorationLine") == "none"
+    link.hover()
+    assert link.evaluate("e => getComputedStyle(e).textDecorationLine") == "none"
+    expect(page.locator(".minutes-section--actions li").nth(3).locator(".minutes-action-owner")).to_have_count(0)
+    link.click()
+    page.wait_for_url("**/devin-chandrapala")
+
+
 def test_short_meeting_minutes_use_the_outline_space_for_content(page, server, notes_dir):
     (notes_dir / "short-minutes.md").write_text(
         "---\ntitle: Short minutes\ntype: meeting-minutes\n---\n\n"
