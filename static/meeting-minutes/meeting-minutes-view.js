@@ -103,6 +103,7 @@ export class MeetingMinutesView {
     const { done, total } = actionEntry ? actionProgress(actionEntry.body) : { done: 0, total: 0 };
     const chips = renderHeaderChips([
       note.extra?.date && { label: String(note.extra.date), icon: 'fa-regular fa-calendar', title: 'Meeting date' },
+      archiveRows.length > 0 && { label: `${archiveRows.length} meeting${archiveRows.length === 1 ? '' : 's'}`, icon: 'fa-regular fa-calendar-days', tone: 'neutral', title: 'Meeting minutes' },
       participants.length > 0 && { label: `${participants.length} participant${participants.length === 1 ? '' : 's'}`, icon: 'fa-solid fa-user-group', tone: 'neutral' },
       total > 0 && { label: `${done}/${total} actions done`, icon: 'fa-solid fa-list-check', tone: done === total ? 'green' : 'orange', title: 'Action items' },
     ]);

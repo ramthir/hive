@@ -2935,6 +2935,7 @@ def test_meeting_series_shows_latest_minutes_and_participants(page, server, note
 
     page.goto(f"{server}/notes/weekly")
     page.wait_for_url("**/meetings/weekly")
+    expect(page.locator("app-header [title='Meeting minutes']")).to_have_text("3 meetings")
     participants = page.get_by_role("complementary", name="Participants")
     expect(participants.get_by_role("link", name="Mira")).to_have_attribute("data-slug", "mira")
     expect(participants.get_by_text("mira@example.com")).to_have_count(0)
