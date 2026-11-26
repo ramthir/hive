@@ -28,6 +28,30 @@
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-green) 5%, transparent);
 }
+.task-section--verified .spec-prose > ul { list-style: none; padding-left: 0; gap: 0; }
+.task-section--verified .spec-prose > ul > li { position: relative; display: block; padding: var(--space-2) 0 var(--space-2) 1.75rem; line-height: 1.5; }
+.task-section--verified .spec-prose > ul > li:first-child { padding-top: 0; }
+.task-section--verified .spec-prose > ul > li:last-child { padding-bottom: 0; }
+.task-section--verified .spec-prose > ul > li + li { border-top: 1px solid color-mix(in srgb, var(--color-green) 16%, var(--color-border)); }
+.task-section--verified .spec-prose > ul > li::before {
+  content: '\f00c';
+  position: absolute;
+  left: 0;
+  top: calc(var(--space-2) + 0.22em);
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--color-green);
+  font: 900 0.55rem 'Font Awesome 6 Free';
+  color: var(--color-background);
+}
+.task-section--verified .spec-prose > ul > li:first-child::before { top: 0.22em; }
+.task-section--verified .spec-prose > ul > li > input[type='checkbox'] { display: none; }
+.task-section--verified .spec-prose li ul { margin-top: var(--space-2); padding-left: 1.25rem; list-style: disc; display: flex; flex-direction: column; gap: var(--space-1); }
+.task-section--verified .spec-prose li ul li { display: list-item; padding: 0; border: 0; }
+.task-section--verified .spec-prose li ul li::before { content: none; }
 
 
 /* Acceptance criteria: one row per criterion, a ring that fills green with a tick when it is met (a plain bullet is shown as a met-able row too). */
