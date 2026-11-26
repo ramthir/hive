@@ -30,13 +30,13 @@ button.iptv-card { cursor: pointer; }
 .iptv-open:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; border-radius: var(--radius-md, 0.5rem); }
 .iptv-star { position: absolute; left: 0.5rem; top: 0.5rem; display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 1px solid rgb(255 255 255 / 0.25); border-radius: var(--radius-full, 999px); background: rgb(0 0 0 / 0.65); color: #fff; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: background-color 0.12s, opacity 0.12s, color 0.12s; }
 .iptv-card:hover .iptv-star, .iptv-star:hover, .iptv-star:focus-visible, .iptv-star.is-starred { opacity: 1; }
-.iptv-star.is-starred { color: var(--color-yellow, #f5c542); }
+.iptv-star.is-starred { color: var(--color-yellow); }
 .iptv-star:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; }
 .iptv-card--live .iptv-quality, .iptv-card--vod .iptv-quality { top: auto; bottom: 0.4rem; }
 .iptv-copy { position: absolute; right: 0.5rem; top: 0.5rem; display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 1px solid rgb(255 255 255 / 0.25); border-radius: var(--radius-full, 999px); background: rgb(0 0 0 / 0.65); color: #fff; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: background-color 0.12s, opacity 0.12s; }
 .iptv-card:hover .iptv-copy, .iptv-copy:hover, .iptv-copy:focus-visible { opacity: 1; background: var(--color-accent5); }
 .iptv-copy:focus-visible { outline: var(--focus-ring, 2px solid var(--color-accent5)); outline-offset: 2px; }
-.iptv-copy.is-copied { background: var(--color-green, #2e9e5b); opacity: 1; }
+.iptv-copy.is-copied { background: var(--color-green); opacity: 1; }
 .iptv-card--live .iptv-quality, .iptv-card--vod .iptv-quality { right: auto; left: 0.4rem; }
 
 /* A series in its drawer. */
@@ -64,4 +64,4 @@ button.iptv-card { cursor: pointer; }
 .iptv-episode-plot { color: var(--color-dimmed2); font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .iptv-episode-copy { display: grid; place-items: center; flex: 0 0 auto; width: 2.25rem; height: 2.25rem; padding: 0; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-full, 999px); background: none; color: var(--color-text); cursor: pointer; }
 .iptv-episode-copy:hover, .iptv-episode-copy:focus-visible { background: var(--color-accent5); border-color: var(--color-accent5); color: #fff; outline: none; }
-.iptv-episode-copy.is-copied { background: var(--color-green, #2e9e5b); border-color: transparent; color: #fff; }
+.iptv-episode-copy.is-copied { background: var(--color-green); border-color: transparent; color: #fff; }

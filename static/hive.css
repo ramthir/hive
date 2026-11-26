@@ -17,13 +17,13 @@
 .notes-tags-chips { display: flex; align-items: center; gap: .35rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .notes-tag-chip { flex: none; font: inherit; font-size: .8rem; color: var(--color-dimmed2); background: transparent; border: 1px solid var(--color-dimmed5); border-radius: var(--chip-radius, var(--radius-sm, 6px));
   padding: .1rem .55rem; cursor: pointer; text-transform: capitalize; /* display only */ }
-.notes-tag-chip:hover, .notes-tag-chip:focus-visible { color: var(--color-text); border-color: var(--color-accent, #78dce8); outline: none; }
-.notes-tags-input:focus { outline: none; border-color: var(--color-accent, #78dce8); }
+.notes-tag-chip:hover, .notes-tag-chip:focus-visible { color: var(--color-text); border-color: var(--color-accent, var(--color-blue)); outline: none; }
+.notes-tags-input:focus { outline: none; border-color: var(--color-accent, var(--color-blue)); }
 
 /* Backlinks reuse the preview's own h2 / list styling so they read like a note's "Related" section. */
-.notes-backlinks a, .notes-wikilink { color: var(--color-accent, #78dce8); text-decoration: none; cursor: pointer; }
-.notes-wikilink.unresolved { color: var(--color-red, #ff6188); border-bottom: 1px dashed currentColor; }
-.notes-backlinks .unresolved-list a { color: var(--color-red, #ff6188); }
+.notes-backlinks a, .notes-wikilink { color: var(--color-accent, var(--color-blue)); text-decoration: none; cursor: pointer; }
+.notes-wikilink.unresolved { color: var(--color-red); border-bottom: 1px dashed currentColor; }
+.notes-backlinks .unresolved-list a { color: var(--color-red); }
 
 .hive-version-list { position: relative; display: grid; gap: .15rem; max-height: 60vh; overflow: auto; }
 /* The rail runs from the first circle to the last: history.js sets --rail-top and --rail-height in px (the list scrolls, so
@@ -35,9 +35,9 @@
 .hive-version-row:hover { background: var(--color-dark2); border-color: var(--color-dimmed5); }
 .hive-version-icon { flex: none; width: 2rem; height: 2rem; box-sizing: border-box; border-radius: 50%; display: flex;
   align-items: center; justify-content: center; font-size: .8rem; background: var(--color-background); border: 1.5px solid currentColor; }
-.hive-version-icon.kind-text { color: #ffd866; } .hive-version-icon.kind-properties { color: #ab9df2; }
-.hive-version-icon.kind-time { color: #78dce8; } .hive-version-icon.kind-restore { color: #fc9867; }
-.hive-version-icon.kind-created { color: #a9dc76; } .hive-version-icon.kind-rename, .hive-version-icon.kind-saved { color: #c1c0c1; }
+.hive-version-icon.kind-text { color: var(--color-yellow); } .hive-version-icon.kind-properties { color: var(--color-purple); }
+.hive-version-icon.kind-time { color: var(--color-blue); } .hive-version-icon.kind-restore { color: var(--color-orange); }
+.hive-version-icon.kind-created { color: var(--color-green); } .hive-version-icon.kind-rename, .hive-version-icon.kind-saved { color: var(--color-dimmed1); }
 .hive-version-main { flex: 1; min-width: 0; display: grid; gap: .2rem; }
 .hive-version-row .msg { font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
 .hive-version-row .detail { font-weight: 400; opacity: .65; }
@@ -45,8 +45,8 @@
 .hive-version-row .meta code { font: .75rem 'JetBrains Mono', Menlo, monospace; }
 .hive-version-side { flex: none; display: grid; justify-items: end; gap: .3rem; padding-top: .1rem; }
 .hive-version-bar { display: flex; gap: 2px; }
-.hive-version-bar i { width: 8px; height: 8px; border-radius: 2px; background: #a9dc76; }
-.hive-version-bar i.del { background: #ff6188; }
+.hive-version-bar i { width: 8px; height: 8px; border-radius: 2px; background: var(--color-green); }
+.hive-version-bar i.del { background: var(--color-red); }
 .hive-diff { font: .8rem/1.6 'JetBrains Mono', Menlo, monospace; border: 1px solid var(--color-dimmed5); border-radius: 12px;
   background: var(--color-dark2); overflow: auto; max-height: 50vh; }
 .hive-diff-rows { min-width: max-content; }
@@ -54,11 +54,11 @@
 .hive-diff-row .no { flex: none; width: 3.2rem; text-align: right; padding-right: .7rem; opacity: .55; user-select: none; }
 .hive-diff-row .sign { flex: none; width: 1.2rem; opacity: .7; user-select: none; }
 .hive-diff-row .code { flex: 1; padding-right: 1rem; }
-.hive-diff-row.add { background: color-mix(in srgb, #a9dc76 16%, transparent); border-left-color: #a9dc76; }
-.hive-diff-row.del { background: color-mix(in srgb, #ff6188 16%, transparent); border-left-color: #ff6188; }
-.hive-diff-row.add mark { background: color-mix(in srgb, #a9dc76 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
-.hive-diff-row.del mark { background: color-mix(in srgb, #ff6188 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
-.hive-diff-gap { padding: .35rem 1rem; font: .78rem system-ui, sans-serif; opacity: .65; background: color-mix(in srgb, #78dce8 7%, transparent); }
+.hive-diff-row.add { background: color-mix(in srgb, var(--color-green) 16%, transparent); border-left-color: var(--color-green); }
+.hive-diff-row.del { background: color-mix(in srgb, var(--color-red) 16%, transparent); border-left-color: var(--color-red); }
+.hive-diff-row.add mark { background: color-mix(in srgb, var(--color-green) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.hive-diff-row.del mark { background: color-mix(in srgb, var(--color-red) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.hive-diff-gap { padding: .35rem 1rem; font: .78rem system-ui, sans-serif; opacity: .65; background: color-mix(in srgb, var(--color-blue) 7%, transparent); }
 .hive-diff-empty { margin: 0; padding: 1rem; font: .85rem system-ui, sans-serif; opacity: .7; }
 
 .hive-vd-summary { display: flex; gap: .9rem; align-items: flex-start; margin-bottom: 1rem; }
@@ -70,7 +70,7 @@
 .hive-version-icon.big { width: 2.5rem; height: 2.5rem; font-size: 1rem; }
 .hive-vd-bar { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
 .hive-vd-bar .stat { margin-left: auto; font: .82rem 'JetBrains Mono', Menlo, monospace; }
-.hive-vd-bar .add, .hive-version-stat .add { color: #a9dc76; } .hive-vd-bar .del, .hive-version-stat .del { color: #ff6188; }
+.hive-vd-bar .add, .hive-version-stat .add { color: var(--color-green); } .hive-vd-bar .del, .hive-version-stat .del { color: var(--color-red); }
 .hive-vd-bar .dim { opacity: .65; }
 .hive-vd-section { margin-bottom: 1.1rem; }
 .hive-vd-section h3 { margin: 0 0 .5rem; font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
@@ -122,7 +122,7 @@
 .notes-diagram-menu-title { padding: .4rem .85rem .25rem; font-size: .82rem; font-weight: 600; color: var(--color-dimmed2); }
 .notes-diagram-download:hover { color: inherit; }
 .notes-diagram-status, .notes-diagram-error { margin-top: .4rem; font: 500 .8rem var(--font-family); color: var(--color-dimmed2); }
-.notes-diagram-error { color: var(--color-red, #ff6188); }
+.notes-diagram-error { color: var(--color-red); }
 
 /* Header search field: a button that looks like a search input and opens the spotlight; sized by the --search-* tokens. */
 .header-search {
@@ -172,8 +172,8 @@ a.header-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--
 .hive-version-day:first-child { margin-top: 0; }
 .hive-version-row[hidden], .hive-version-day[hidden] { display: none; }
 .hive-version-stat { font: .75rem/1 'JetBrains Mono', Menlo, monospace; white-space: nowrap; }
-.hive-version-stat .add { color: #a9dc76; } .hive-version-stat .del { color: #ff6188; }
-.hive-version-row:focus-visible { outline: 2px solid var(--color-accent2, #78dce8); outline-offset: -2px; }
+.hive-version-stat .add { color: var(--color-green); } .hive-version-stat .del { color: var(--color-red); }
+.hive-version-row:focus-visible { outline: 2px solid var(--color-blue); outline-offset: -2px; }
 .modal-alert-body:has(.confirm-dialog-details) { flex-wrap: wrap; }
 .modal-alert-body:has(.confirm-dialog-details) > span { flex: 1; min-width: 0; }
 /* `hidden` must win over the display these set. */
@@ -184,7 +184,7 @@ a.header-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--
 @keyframes hive-vd-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .hive-vd-skeleton i { animation: none; } }
 .hive-vd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.hive-version-icon.kind-deleted { color: #ff6188; }
+.hive-version-icon.kind-deleted { color: var(--color-red); }
 .hive-version-row:disabled { cursor: default; opacity: .6; }
 .hive-version-row:disabled:hover { background: transparent; border-color: transparent; }
 .hive-version-loading { display: grid; gap: .5rem; padding: .25rem .7rem; }
@@ -197,5 +197,5 @@ a.header-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--
 @media (prefers-reduced-motion: reduce) { .hive-vd-skeleton-row > b > i { animation: none; } }
 
 .notes-remote-banner { display: flex; align-items: center; gap: .75rem; margin: .5rem 1rem 0; padding: .55rem .9rem; border: 1px solid var(--color-dimmed5); border-radius: var(--radius-md); background: var(--color-dark2); font: 500 .85rem var(--font-family); }
-.notes-remote-banner i { color: var(--color-orange, #fc9867); }
+.notes-remote-banner i { color: var(--color-orange); }
 .notes-remote-banner span { flex: 1; }

@@ -376,7 +376,7 @@
 }
 
 :is(.chat-answer, .notes-table-card) :is(a, span).notes-wikilink.unresolved {
-  color: var(--color-dimmed3, #908e90);
+  color: var(--color-dimmed3);
   border-color: var(--color-dimmed4);
   border-style: dashed;
   background: transparent;
@@ -384,7 +384,7 @@
 }
 
 :is(.chat-answer, .notes-table-card) a.notes-wikilink.unresolved:hover {
-  color: var(--color-accent3, #e6db74);
-  border-color: var(--color-accent3, #e6db74);
+  color: var(--color-accent3);
+  border-color: var(--color-accent3);
   background: rgba(230, 219, 116, 0.1);
 }

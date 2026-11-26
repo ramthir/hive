@@ -18,10 +18,10 @@ const TOAST_ICONS = {
 };
 
 const TOAST_COLORS = {
-  info: 'var(--color-accent5, #78dce8)',
-  success: 'var(--color-accent4, #a9dc76)',
-  warning: 'var(--color-accent3, #ffd866)',
-  error: 'var(--color-accent1, #ff6188)',
+  info: 'var(--color-accent5)',
+  success: 'var(--color-accent4)',
+  warning: 'var(--color-accent3)',
+  error: 'var(--color-accent1)',
 };
 
 let container = null;
@@ -74,9 +74,9 @@ export function showToast(message, type = 'info', duration = 3500) {
     align-items: center;
     gap: var(--space-3, 0.75rem);
     padding: 0.75rem 1rem;
-    background: var(--color-dark1, #221f22);
-    color: var(--color-text, #fcfcfa);
-    border: 1px solid var(--color-dimmed5, #403e41);
+    background: var(--color-dark1);
+    color: var(--color-text);
+    border: 1px solid var(--color-dimmed5);
     border-left: 3px solid ${accentColor};
     border-radius: var(--radius-md, 8px);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
@@ -91,14 +91,14 @@ export function showToast(message, type = 'info', duration = 3500) {
   el.innerHTML = `
     <i class="${iconClass}" style="color: ${accentColor}; font-size: 1.1rem; flex-shrink: 0;" aria-hidden="true"></i>
     <span style="flex: 1; min-width: 0; word-break: break-word;">${escapeHtml(message)}</span>
-    <button type="button" aria-label="Dismiss notification" style="background: none; border: none; padding: 2px 4px; color: var(--color-dimmed3, #727072); cursor: pointer; display: flex; align-items: center; font-size: 0.9rem; border-radius: 4px; transition: color 0.15s ease;">
+    <button type="button" aria-label="Dismiss notification" style="background: none; border: none; padding: 2px 4px; color: var(--color-dimmed3); cursor: pointer; display: flex; align-items: center; font-size: 0.9rem; border-radius: 4px; transition: color 0.15s ease;">
       <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
   `;
 
   const closeBtn = el.querySelector('button');
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = 'var(--color-accent1, #ff6188)'; });
-  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = 'var(--color-dimmed3, #727072)'; });
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = 'var(--color-accent1)'; });
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = 'var(--color-dimmed3)'; });
 
   let timer = null;
   const dismiss = () => {

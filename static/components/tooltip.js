@@ -38,9 +38,9 @@ class AppTooltip extends HTMLElement {
           width: max-content;
           max-width: min(360px, calc(100vw - 24px));
           padding: 12px 14px;
-          color: var(--color-text, #fcfcfa);
-          background: var(--color-dark1, #221f22);
-          border: 1px solid var(--color-dimmed5, #403e41);
+          color: var(--color-text);
+          background: var(--color-dark1);
+          border: 1px solid var(--color-dimmed5);
           border-radius: 10px;
           box-shadow: 0 14px 34px rgb(0 0 0 / 42%), 0 2px 8px rgb(0 0 0 / 24%);
         }
@@ -58,23 +58,23 @@ class AppTooltip extends HTMLElement {
           left: var(--tooltip-caret-left, 50%);
           width: 9px;
           height: 9px;
-          background: var(--color-dark1, #221f22);
-          border-right: 1px solid var(--color-dimmed5, #403e41);
-          border-bottom: 1px solid var(--color-dimmed5, #403e41);
+          background: var(--color-dark1);
+          border-right: 1px solid var(--color-dimmed5);
+          border-bottom: 1px solid var(--color-dimmed5);
           transform: translateX(-50%) rotate(45deg);
         }
         :host([data-placement="top"]) .surface::after { bottom: -5px; }
         :host([data-placement="bottom"]) .surface::after { top: -5px; transform: translateX(-50%) rotate(225deg); }
-        .title { grid-area: title; color: var(--tooltip-title-color, var(--color-text, #fcfcfa)); font-size: 0.88rem; font-weight: var(--tooltip-title-weight, 650); line-height: 1.3; }
+        .title { grid-area: title; color: var(--tooltip-title-color, var(--color-text)); font-size: 0.88rem; font-weight: var(--tooltip-title-weight, 650); line-height: 1.3; }
         .meta {
           grid-area: meta;
           justify-self: end;
           align-self: start;
           margin-left: 12px;
           padding: 2px 7px;
-          color: var(--color-accent5, #78dce8);
-          background: color-mix(in srgb, var(--color-accent5, #78dce8) 10%, transparent);
-          border: 1px solid color-mix(in srgb, var(--color-accent5, #78dce8) 24%, transparent);
+          color: var(--color-accent5);
+          background: color-mix(in srgb, var(--color-accent5) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-accent5) 24%, transparent);
           border-radius: var(--radius-full, 9999px);
           font-size: 0.64rem;
           font-weight: 650;
@@ -86,11 +86,11 @@ class AppTooltip extends HTMLElement {
           grid-area: footer;
           align-self: center;
           margin-top: 10px;
-          color: var(--color-dimmed2, #939293);
+          color: var(--color-dimmed2);
           font-size: 0.7rem;
           line-height: 1.35;
         }
-        .description, .rationale { margin-top: 9px; color: var(--color-dimmed1, #c1c0c0); font-size: 0.78rem; line-height: 1.45; white-space: pre-line; }
+        .description, .rationale { margin-top: 9px; color: var(--color-dimmed1); font-size: 0.78rem; line-height: 1.45; white-space: pre-line; }
         .description { grid-area: description; }
         .details {
           grid-area: details;
@@ -98,7 +98,7 @@ class AppTooltip extends HTMLElement {
           grid-template-columns: minmax(0, 1fr) auto;
           gap: 5px 0;
           margin-top: 10px;
-          color: var(--color-dimmed1, #c1c0c0);
+          color: var(--color-dimmed1);
           font-size: 0.76rem;
           line-height: 1.4;
         }
@@ -107,13 +107,13 @@ class AppTooltip extends HTMLElement {
         .details:not(.no-total) > :nth-last-child(-n + 2) {
           margin-top: 3px;
           padding-top: 7px;
-          border-top: 1px solid var(--color-dimmed5, #403e41);
+          border-top: 1px solid var(--color-dimmed5);
         }
-        .detail-dot { display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 7px; border-radius: var(--radius-full, 9999px); background: var(--detail-dot, var(--color-dimmed3, #727072)); vertical-align: baseline; }
-        .detail-note { color: var(--color-dimmed2, #939293); }
+        .detail-dot { display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 7px; border-radius: var(--radius-full, 9999px); background: var(--detail-dot, var(--color-dimmed3)); vertical-align: baseline; }
+        .detail-note { color: var(--color-dimmed2); }
         .detail-value {
           padding-left: 18px;
-          color: var(--color-text, #fcfcfa);
+          color: var(--color-text);
           font-variant-numeric: tabular-nums;
           text-align: right;
           white-space: nowrap;
@@ -123,20 +123,20 @@ class AppTooltip extends HTMLElement {
           display: grid;
           gap: 5px;
           margin-top: 10px;
-          color: var(--color-dimmed1, #c1c0c0);
+          color: var(--color-dimmed1);
           font-size: 0.76rem;
           line-height: 1.4;
         }
         .checks[hidden] { display: none; }
         .check-row { display: grid; grid-template-columns: 1.1em minmax(0, 1fr); gap: 8px; align-items: baseline; }
         .check-mark { font-weight: 750; text-align: center; }
-        .check-mark.approved { color: var(--color-state-pass, #a9dc76); }
-        .check-mark.rejected { color: var(--color-state-fail, #fc9867); }
-        .check-mark.pending { color: var(--color-state-pending, #ab9df2); }
-        .check-mark.skipped { color: var(--color-state-skipped, #939293); }
-        .rationale { grid-area: rationale; padding-top: 9px; border-top: 1px solid var(--color-dimmed5, #403e41); }
-        .rationale-label { display: block; margin-bottom: 3px; color: var(--color-accent6, #ab9df2); font-size: 0.63rem; font-weight: 650; letter-spacing: 0.045em; text-transform: uppercase; }
-        .rationale-text { color: var(--color-dimmed1, #c1c0c0); }
+        .check-mark.approved { color: var(--color-state-pass); }
+        .check-mark.rejected { color: var(--color-state-fail); }
+        .check-mark.pending { color: var(--color-state-pending); }
+        .check-mark.skipped { color: var(--color-state-skipped); }
+        .rationale { grid-area: rationale; padding-top: 9px; border-top: 1px solid var(--color-dimmed5); }
+        .rationale-label { display: block; margin-bottom: 3px; color: var(--color-accent6); font-size: 0.63rem; font-weight: 650; letter-spacing: 0.045em; text-transform: uppercase; }
+        .rationale-text { color: var(--color-dimmed1); }
         @media (prefers-reduced-motion: reduce) { :host { transition: none; } }
       </style>
       <div class="surface">

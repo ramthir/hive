@@ -29,5 +29,5 @@
 }
 
 .notes-diagram-status.is-error {
-  color: var(--danger, #f87171);
+  color: var(--color-red);
 }

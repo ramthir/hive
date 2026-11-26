@@ -14,7 +14,7 @@ chat-app .chat-suggestion { font: inherit; font-size: .8rem; color: var(--color-
   border-radius: var(--chip-radius, var(--radius-sm, 6px)); padding: .35rem .8rem; cursor: pointer; }
 chat-app .chat-suggestion:hover, chat-app .chat-suggestion:focus-visible { color: var(--color-text); border-color: var(--color-accent5); outline: none; }
 
-chat-app .chat-notice { margin: 0 0 1rem; width: 100%; box-sizing: border-box; padding: .6rem .9rem; border: 1px solid var(--color-dimmed5); border-left: 3px solid var(--color-accent3, #fc9867);
+chat-app .chat-notice { margin: 0 0 1rem; width: 100%; box-sizing: border-box; padding: .6rem .9rem; border: 1px solid var(--color-dimmed5); border-left: 3px solid var(--color-accent3);
   border-radius: var(--radius-md, 6px); background: var(--color-dark2); color: var(--color-dimmed2); font-size: .85rem; }
 chat-app .chat-notice[hidden] { display: none; }
 
@@ -35,8 +35,8 @@ chat-app .chat-steps { list-style: none; margin: 0 0 .6rem; padding: 0; display:
 chat-app .chat-steps li { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
 chat-app .chat-steps li i { width: 1rem; text-align: center; font-size: .7rem; flex-shrink: 0; }
 chat-app .chat-steps li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-chat-app .chat-steps li.write { color: var(--color-accent3, #fc9867); }
-chat-app .chat-steps li.failed { color: var(--color-red, #ff6188); }
+chat-app .chat-steps li.write { color: var(--color-accent3); }
+chat-app .chat-steps li.failed { color: var(--color-red); }
 chat-app .chat-steps li.narration { font-style: italic; color: var(--color-dimmed3); }
 chat-app .chat-steps li code { margin-left: .4rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-dimmed3); font-size: .72rem; }
 chat-app .chat-steps li.earlier { color: var(--color-dimmed3); padding-left: 1.5rem; }
@@ -46,14 +46,14 @@ chat-app .chat-work > summary::-webkit-details-marker { display: none; }
 chat-app .chat-work > summary:hover, chat-app .chat-work > summary:focus-visible { color: var(--color-text); outline: none; }
 chat-app .chat-work-chevron { width: .7rem; font-size: .6rem; text-align: center; transition: transform .15s; }
 chat-app .chat-work[open] > summary .chat-work-chevron { transform: rotate(90deg); }
-chat-app .chat-work-wrote { font-size: .65rem; color: var(--color-accent3, #fc9867); }
-chat-app .chat-work.failed > summary { color: var(--color-red, #ff6188); }
+chat-app .chat-work-wrote { font-size: .65rem; color: var(--color-accent3); }
+chat-app .chat-work.failed > summary { color: var(--color-red); }
 chat-app .chat-work > .chat-steps { margin: .4rem 0 0 .35rem; padding-left: .8rem; border-left: 1px solid var(--color-dark3, rgba(255, 255, 255, .12)); }
 chat-app .chat-thinking { color: var(--color-dimmed3); font-size: .8rem; }
 chat-app .chat-answer { min-width: 0; overflow-wrap: anywhere; }
 chat-app .chat-answer > :first-child { margin-top: 0; }
 chat-app .chat-answer > :last-child { margin-bottom: 0; }
-chat-app .chat-error { color: var(--color-red, #ff6188); font-size: .85rem; margin-top: .4rem; }
+chat-app .chat-error { color: var(--color-red); font-size: .85rem; margin-top: .4rem; }
 chat-app .chat-stopped { color: var(--color-dimmed3); font-size: .8rem; margin-top: .4rem; }
 
 chat-app .chat-changed { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .7rem; font-size: .78rem; color: var(--color-dimmed2); }

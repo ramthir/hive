@@ -232,7 +232,7 @@ app-autocomplete.help-open .autocomplete-help-btn {
 .autocomplete-help-panel .quotes-tooltip-title {
   display: block;
   margin-bottom: 0.4rem;
-  color: var(--color-accent5, var(--color-blue, #58a6ff));
+  color: var(--color-accent5, var(--color-blue));
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -407,7 +407,7 @@ app-autocomplete.help-open .autocomplete-help-btn {
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   background: var(--color-dimmed5);
-  color: var(--color-dimmed2, #9d999d);
+  color: var(--color-dimmed2);
 }
 .autocomplete-badge.type-project {
   background: color-mix(in srgb, var(--color-accent5) 18%, transparent);
@@ -443,7 +443,7 @@ app-autocomplete.help-open .autocomplete-help-btn {
 }
 .autocomplete-badge.type-note {
   background: rgba(255, 255, 255, 0.08);
-  color: var(--color-dimmed2, #9d999d);
+  color: var(--color-dimmed2);
 }
 .autocomplete-badge.type-prompt {
   background: color-mix(in srgb, var(--color-accent1) 18%, transparent);

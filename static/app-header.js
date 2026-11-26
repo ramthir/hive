@@ -132,13 +132,13 @@ const COMPONENT_CSS = `
                 }
 
                 .back-link {
-                    color: var(--color-dimmed2, #939293);
+                    color: var(--color-dimmed2);
                     font-size: 0.8rem;
                     font-weight: 600;
                 }
 
                 .back-link:hover {
-                    color: var(--color-text, #fcfcfa);
+                    color: var(--color-text);
                 }
 
                 .page-header-meta {
@@ -148,7 +148,7 @@ const COMPONENT_CSS = `
                 .page-title {
                     font-size: 1.5rem;
                     font-weight: 700;
-                    color: var(--color-text, #fcfcfa);
+                    color: var(--color-text);
                     margin: 0.15rem 0 0;
                     font-family: var(--font-family, -apple-system, sans-serif);
                 }
@@ -163,7 +163,7 @@ const COMPONENT_CSS = `
                 ::slotted([slot="title"]) {
                     font-size: 1.5rem;
                     font-weight: 700;
-                    color: var(--color-text, #fcfcfa);
+                    color: var(--color-text);
                     margin: 0.15rem 0 0;
                     font-family: var(--font-family, -apple-system, sans-serif);
                 }
@@ -172,7 +172,7 @@ const COMPONENT_CSS = `
                     margin: 0.2rem 0 0;
                     font-size: 0.9rem;
                     font-weight: 500;
-                    color: var(--color-dimmed2, #939293);
+                    color: var(--color-dimmed2);
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
@@ -239,38 +239,38 @@ const COMPONENT_CSS = `
                 }
 
                 ::slotted(.btn-secondary) {
-                    background: var(--btn-header-secondary-bg, var(--color-dark2, #19181a));
-                    border: var(--btn-header-secondary-border, 1px solid var(--color-dimmed5, #403e41));
-                    color: var(--btn-header-secondary-text, var(--color-text, #fcfcfa));
+                    background: var(--btn-header-secondary-bg, var(--color-dark2));
+                    border: var(--btn-header-secondary-border, 1px solid var(--color-dimmed5));
+                    color: var(--btn-header-secondary-text, var(--color-text));
                 }
 
                 ::slotted(.btn-secondary:hover) {
-                    background: var(--btn-header-secondary-hover-bg, var(--color-dimmed5, #403e41));
-                    border-color: var(--btn-header-secondary-border-hover, var(--color-dimmed4, #5b595c));
+                    background: var(--btn-header-secondary-hover-bg, var(--color-dimmed5));
+                    border-color: var(--btn-header-secondary-border-hover, var(--color-dimmed4));
                 }
 
                 ::slotted(.btn-primary) {
-                    background: var(--btn-header-primary-bg, var(--color-accent5, #78dce8));
-                    border: var(--btn-header-primary-border, 1px solid var(--color-dimmed5, #403e41));
-                    color: var(--btn-header-primary-text, var(--color-dark1, #221f22));
+                    background: var(--btn-header-primary-bg, var(--color-accent5));
+                    border: var(--btn-header-primary-border, 1px solid var(--color-dimmed5));
+                    color: var(--btn-header-primary-text, var(--color-dark1));
                 }
 
                 ::slotted(.btn-primary:hover) {
-                    background: var(--btn-header-primary-hover-bg, var(--color-primary-hover, #5bc4d0));
-                    border-color: var(--btn-header-primary-border-hover, var(--color-dimmed4, #5b595c));
+                    background: var(--btn-header-primary-hover-bg, var(--color-primary-hover));
+                    border-color: var(--btn-header-primary-border-hover, var(--color-dimmed4));
                 }
 
                 ::slotted(.btn-danger),
                 ::slotted(.danger) {
                     background: var(--btn-header-danger-bg, rgba(255, 97, 174, 0.1));
                     border: var(--btn-header-danger-border, 1px solid rgba(255, 97, 174, 0.3));
-                    color: var(--btn-header-danger-text, var(--color-accent1, #ff6188));
+                    color: var(--btn-header-danger-text, var(--color-accent1));
                 }
 
                 ::slotted(.btn-danger:hover),
                 ::slotted(.danger:hover) {
                     background: var(--btn-header-danger-hover-bg, rgba(255, 97, 174, 0.2));
-                    border-color: var(--btn-header-danger-border-hover, #ff6188);
+                    border-color: var(--btn-header-danger-border-hover);
                 }
 `;
 
