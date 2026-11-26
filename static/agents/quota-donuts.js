@@ -1,4 +1,5 @@
 import { escapeHtml as esc } from '../html.js';
+import { formatDuration } from '../duration.js';
 
 // Rings run outside in: the first entry is the outermost circle. Each ring has its own radius, stroke and colour.
 const LAYOUT = [
@@ -16,9 +17,7 @@ export function resetText(window, now = new Date()) {
   const minutes = Math.round((when - now) / 60000);
   if (minutes <= 0) return 'reset';
   if (minutes < 24 * 60) {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return `in ${hours ? `${hours}h ` : ''}${rest}m`.replace(' 0m', '');
+    return `in ${formatDuration(minutes)}`;
   }
   const days = Math.floor(minutes / (24 * 60));
   const hours = Math.floor((minutes % (24 * 60)) / 60);

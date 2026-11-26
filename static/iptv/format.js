@@ -1,5 +1,6 @@
 /** Pure logic of the IPTV page (no DOM, unit-tested in tests/js/iptv.test.mjs). */
 import { liveSubtitle, parseTitle, prettyGroup } from './names.js';
+import { formatDuration } from '../duration.js';
 export { initials, liveSubtitle, parseTitle, prettyGroup, stripPrefix, titleHue } from './names.js';
 
 export const TYPES = [
@@ -74,7 +75,7 @@ export function episodeLabel(e, seriesName = '') {
 export function durationLabel(seconds) {
   const minutes = Math.round(Number(seconds) / 60);
   if (!Number.isFinite(minutes) || minutes <= 0) return '';
-  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}`;
+  return formatDuration(minutes);
 }
 
 /** The facts line of a series: year, age rating, score and country (whatever the provider gave). */

@@ -1,5 +1,6 @@
 import './tooltip.js';
 import { escapeHtml } from '../html.js';
+import { formatDuration } from '../duration.js';
 
 const SPARKLINE_CSS = `
   :host {
@@ -155,9 +156,7 @@ export class ActivitySparkline extends HTMLElement {
         year: 'numeric',
       });
 
-      const h = Math.floor(entry / 60);
-      const m = entry % 60;
-      const durationText = h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
+      const durationText = formatDuration(entry);
 
       const isWeekend = tileDate.getDay() === 0 || tileDate.getDay() === 6;
 

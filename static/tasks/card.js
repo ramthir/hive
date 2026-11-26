@@ -1,7 +1,7 @@
 import { escapeHtml as esc } from '../html.js';
 import { parseTags } from '../notes/tags.js';
 import { unwrapWikilink } from '../notes/markdown-sections.js';
-import { formatDuration } from '../time-entries/format.js';
+import { formatDuration } from '../duration.js';
 import { PRIORITY_TONE, renderChip } from '../components/chips.js';
 import { visibleTags } from '../task-notes/task-note.js';
 

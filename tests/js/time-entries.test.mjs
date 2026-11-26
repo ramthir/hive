@@ -164,3 +164,12 @@ test('time left on a retyped note shows a warning icon', () => {
   const [, title] = tableColumns((x) => x);
   assert.match(title.render('Old', { type: 'other', slug: 'old' }), /fa-triangle-exclamation/);
 });
+
+test('every page writes durations with the one formatDuration', async () => {
+  const { readFileSync } = await import('node:fs');
+  const read = (file) => readFileSync(new URL(`../../static/${file}`, import.meta.url), 'utf8');
+  for (const file of ['components/activity-sparkline.js', 'iptv/format.js', 'agents/quota-donuts.js', 'tasks/card.js', 'time-entries/format.js']) {
+    assert.match(read(file), /formatDuration[^;]*from '\.\.\/duration\.js'/, file);
+    assert.doesNotMatch(read(file), /Math\.floor\([^)]*\/ 60\)/, `${file} works out hours itself`);
+  }
+});
