@@ -94,7 +94,7 @@ export class MeetingMinutesView {
     const people = !isMinutes && entries.find(({ name }) => ['participants', 'attendees'].includes(sectionKey(name)));
     const participants = people ? meetingParticipants(people.body) : [];
     const main = participants.length ? entries.filter((entry) => entry !== people) : [...entries];
-    const summary = lead ? { id: 'minutes-summary', name: 'Summary', body: lead, tone: '' } : null;
+    const summary = lead && sections.length ? { id: 'minutes-summary', name: 'Summary', body: lead, tone: '' } : null;
     // With a participants column the summary spans the full width above both columns.
     const top = summary && participants.length ? summary : null;
     if (summary && !top) main.unshift(summary);
@@ -117,7 +117,8 @@ export class MeetingMinutesView {
           <div class="spec-main" id="minutes-main">
             ${main.map((entry) => entry === archive && archiveRows.length
               ? this.archive(entry, archiveRows) : this.section(entry)).join('') ||
-              '<p class="spec-empty">This note has no text yet. Use the pencil to add it.</p>'}
+              (lead ? `<section class="spec-section minutes-section"><div class="notes-preview-body spec-prose">${this.markdown(lead)}</div></section>`
+                : '<p class="spec-empty">This note has no text yet. Use the pencil to add it.</p>')}
           </div>
           ${participants.length ? this.participants(people, participants) :
             sections.length > 2 ? this.outline(main, typeLabel) : ''}
