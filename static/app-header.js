@@ -97,19 +97,15 @@ const COMPONENT_CSS = `
                 }
 
                 :host([breadcrumbs-in-top-padding][bottom]) .page-header-content {
-                    min-height: 4.8125rem;
-                    padding-top: 1.25rem;
-                }
-
-                :host([breadcrumbs-in-top-padding]) .page-header-title {
-                    align-self: flex-start;
                     position: relative;
+                    min-height: 4.5625rem;
+                    padding-top: 1.5rem;
                 }
 
                 :host([breadcrumbs-in-top-padding]) .page-header-eyebrow {
                     position: absolute;
-                    inset-inline: 0;
-                    bottom: 100%;
+                    top: 0.35rem;
+                    inset-inline: var(--space-6);
                     margin: 0;
                     line-height: 1rem;
                     white-space: nowrap;
