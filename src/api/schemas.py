@@ -255,13 +255,14 @@ class ResolvedLink(BaseModel):
 class TaskOut(NoteSummary):
     """A task note on the board: `status` is the effective one (stored, else derived from the `done` tag);
     `week_key` is the stored `week` or else the week of `updated`, and `week_stored` says which. The priority is
-    its own field, so `tags` leaves out the priority tag."""
+    its own field, so `tags` leaves out the priority tag. `logged_minutes` is the time logged over all days."""
 
     priority: TaskPriority | None = None
     week_key: str | None = None
     week_stored: bool = False
     ticket: str | None = None
     project: str | None = None
+    logged_minutes: int = 0
 
     @classmethod
     def from_task(cls, n: Note) -> "TaskOut":
@@ -275,4 +276,5 @@ class TaskOut(NoteSummary):
             "week_stored": week_stored,
             "ticket": str(n.extra.get("ticket") or "").strip() or None,
             "project": str(n.extra.get("project") or "").strip() or None,
+            "logged_minutes": sum(n.time.values()),
         })

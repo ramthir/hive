@@ -99,6 +99,11 @@ tasks-app {
   color: var(--color-purple);
   background: color-mix(in srgb, var(--color-purple) 14%, transparent);
 }
+.tasks-board-wrap .board-chip--logged {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-green);
+  background: color-mix(in srgb, var(--color-green) 14%, transparent);
+}
 .board-chip--ticket { font-variant-numeric: tabular-nums; }
 .board-chip--ticket.board-chip--link:hover,
 .board-chip--ticket.board-chip--link:focus-visible {

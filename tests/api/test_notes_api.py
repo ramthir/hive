@@ -311,6 +311,15 @@ def test_tasks_carry_their_week_and_say_whether_it_was_recorded(client, root):
     assert (rows["finished"]["week_key"], rows["finished"]["week_stored"]) == ("2026-W01", False)  # from `updated: 2026-01-02`
 
 
+def test_tasks_carry_the_time_logged_on_them(client, root):
+    seed_tasks(root)
+    client.put("/api/notes/plain/time/2026-11-20", json={"minutes": 90})
+    client.post("/api/notes/plain/time", json={"day": "2026-11-21", "minutes": 45})
+    rows = {t["slug"]: t for t in client.get("/api/tasks").json()}
+    assert rows["plain"]["logged_minutes"] == 135
+    assert rows["finished"]["logged_minutes"] == 0
+
+
 def test_current_week_is_the_servers(client):
     assert client.get("/api/tasks/current-week").json() == {"week": week_label(date.today())}
 

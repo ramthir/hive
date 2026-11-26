@@ -139,3 +139,10 @@ test('ticketUrl is the Jira address of a CreatorIQ ticket and nothing else', () 
   assert.equal(ticketUrl({ project: 'CreatorIQ' }), '');
   assert.equal(ticketUrl(undefined), '');
 });
+
+test('a card shows the time logged on the task, and nothing when none is', () => {
+  const html = renderCard({ slug: 'x', title: 'X', tags: [], logged_minutes: 210 });
+  assert.match(html, /board-chip--logged[^>]*>(?:(?!<\/span>).)*3h 30m</s);
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [], logged_minutes: 0 }).includes('board-chip--logged'));
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--logged'));
+});

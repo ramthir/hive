@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from '../html.js';
 import { parseTags } from '../notes/tags.js';
 import { unwrapWikilink } from '../notes/markdown-sections.js';
+import { formatDuration } from '../time-entries/format.js';
 
 export { parseTags };
 
@@ -114,7 +115,11 @@ export function renderCard(task) {
   const weekChip = week
     ? `<span class="board-chip board-chip--week" title="${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}"><i class="fa-regular fa-calendar" aria-hidden="true"></i>W${week.week}</span>`
     : '';
-  const details = `${priorityChip}${projectChip}${renderTicketChip(task)}${weekChip}`;
+  const logged = Number(task.logged_minutes) || 0;
+  const loggedChip = logged > 0
+    ? `<span class="board-chip board-chip--logged" title="${formatDuration(logged)} logged"><i class="fa-regular fa-clock" aria-hidden="true"></i>${formatDuration(logged)}</span>`
+    : '';
+  const details = `${priorityChip}${projectChip}${renderTicketChip(task)}${weekChip}${loggedChip}`;
   return `<div class="board-card-heading">
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
