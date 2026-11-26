@@ -96,3 +96,10 @@ export function scopeGroups(body) {
     .map((group) => ({ kind: group.kind, body: trimBlank(group.lines).join('\n') }))
     .filter((group, index) => group.body || (group.kind && index > 0));
 }
+
+/** How many top-level bullets a text has (one per question in an Open Questions section), ignoring code fences. */
+export function bulletCount(content) {
+  let count = 0;
+  for (const { text, plain } of lines(content)) if (plain && /^[-*+]\s+\S/.test(text)) count += 1;
+  return count;
+}

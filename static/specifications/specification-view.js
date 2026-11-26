@@ -1,4 +1,4 @@
-import { highlightRequirementKeywords, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
+import { highlightRequirementKeywords, renderOpenQuestionsSection, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { SPEC_STATUS_TONE, renderChip } from '/static/components/chips.js';
@@ -9,7 +9,7 @@ import {
 import {
   parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
 } from '/static/specifications/specification-note.js';
-import { unwrapWikilink } from '/static/notes/markdown-sections.js';
+import { bulletCount, unwrapWikilink } from '/static/notes/markdown-sections.js';
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
@@ -77,7 +77,7 @@ export class SpecificationView {
     for (const section of spec.sections) {
       if (section.key === 'objective') continue;
       const count = section.key === 'requirements' ? spec.requirements.length
-        : section.key === 'open questions' ? (section.body.match(/^\s*[-*+]\s/gm) || []).length : 0;
+        : section.key === 'open questions' ? bulletCount(section.body) : 0;
       sections.push({ id: slugOf(section.name), label: section.name, count });
     }
     const requirements = spec.requirements.map((item, index) =>
@@ -114,8 +114,9 @@ export class SpecificationView {
         }, (chunk) => this.markdown(chunk)));
         continue;
       }
-      const tone = { 'open questions': ' spec-section--questions', 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
-      parts.push(renderSectionCard({
+      const tone = { 'acceptance criteria': ' spec-section--legacy', 'out of scope': ' spec-section--out', references: ' spec-section--refs' }[section.key] || '';
+      const renderCard = section.key === 'open questions' ? renderOpenQuestionsSection : renderSectionCard;
+      parts.push(renderCard({
         id: slugOf(section.name),
         title: section.name,
         className: tone.trim(),

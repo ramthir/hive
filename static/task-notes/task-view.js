@@ -1,4 +1,4 @@
-import { highlightRequirementKeywords, renderChecklistBar, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
+import { highlightRequirementKeywords, renderChecklistBar, renderOpenQuestionsSection, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { TASK_STATUS_TONE, renderChip } from '/static/components/chips.js';
@@ -8,7 +8,7 @@ import {
 import { COLUMNS, taskChips } from '/static/tasks/card.js';
 import { parseTask, planSteps } from '/static/task-notes/task-note.js';
 
-const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
+const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', criteria: ' task-section--criteria', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
     its checklists and a card per section. */
@@ -115,7 +115,8 @@ export class TaskView {
         parts.push(renderScopeSection({ ...card, body }, (chunk) => this.markdown(chunk)));
         return;
       }
-      parts.push(renderSectionCard({
+      const renderCard = kind === 'questions' ? renderOpenQuestionsSection : renderSectionCard;
+      parts.push(renderCard({
         ...card,
         bodyHtml: renderSectionProse(kind === 'plan' ? this.plan(body) : this.markdown(body)),
       }));

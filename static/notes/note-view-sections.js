@@ -38,6 +38,16 @@ export function renderScopeSection({ id, title, body, className = '', headingHtm
   });
 }
 
+export function renderOpenQuestionsSection({ id, title, className = '', headingHtml, bodyHtml }) {
+  return renderSectionCard({
+    id,
+    title,
+    className: className ? `${className} spec-section--questions` : 'spec-section--questions',
+    headingHtml,
+    bodyHtml,
+  });
+}
+
 export function renderChecklistBar({ done, total, className, ariaLabel }) {
   if (!total) return '';
   const percent = Math.round((done / total) * 100);

@@ -1,4 +1,4 @@
-import { countChecklist, lines, splitSections, trimBlank, unwrapWikilink } from '../notes/markdown-sections.js';
+import { bulletCount, countChecklist, lines, splitSections, trimBlank, unwrapWikilink } from '../notes/markdown-sections.js';
 
 /* A task note (`type: task`) is read as a short lead, then one card per `##` section, with an outline and a progress count
    for the `- [ ]` / `- [x]` items. The vault's tasks are free-form (Why, What Changes, Acceptance Criteria, Plan, Verification,
@@ -28,13 +28,6 @@ const KINDS = {
 
 /** How a section is drawn: `plan`, `scope`, `criteria`, `questions`, `out`, `verified`, `related`, `refs` or '' (plain). */
 export const sectionKind = (name) => KINDS[plainName(name)] || '';
-
-/** How many top-level bullets a text has (one per question in an Open Questions section), ignoring code fences. */
-export function bulletCount(content) {
-  let count = 0;
-  for (const { text, plain } of lines(content)) if (plain && /^[-*+]\s+\S/.test(text)) count += 1;
-  return count;
-}
 
 /** `{lead, sections: [{name, kind, body, done, total, questions, steps}], progress}` from the note's text (the `# Title` line excluded). */
 export function parseTask(content) {

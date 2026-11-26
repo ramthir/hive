@@ -9,7 +9,7 @@ register('data:text/javascript,' + encodeURIComponent(`
   }
 `));
 const t = await import('../../static/task-notes/task-note.js');
-const { scopeGroups } = await import('../../static/notes/markdown-sections.js');
+const { bulletCount, scopeGroups } = await import('../../static/notes/markdown-sections.js');
 
 const NOTE = `# Fix login
 
@@ -99,7 +99,8 @@ test('an Open Questions section counts its top-level bullets, not nested lines o
   const task = t.parseTask('# T\n\n## Open Questions\n\n- One?\n  - detail\n- Two?\n\n```md\n- not one\n```\n\n## Plan\n\n- a\n');
   assert.equal(task.sections[0].questions, 2);
   assert.equal(task.sections[1].questions, 0);
-  assert.equal(t.bulletCount(''), 0);
+  assert.equal(bulletCount(''), 0);
+  assert.equal(bulletCount('- First\n  - Nested\n```md\n- Example\n```\n* Second'), 2);
 });
 
 test('planSteps reads a numbered list as steps with bold names, and keeps what is above and below it', () => {
