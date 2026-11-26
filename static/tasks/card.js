@@ -1,4 +1,8 @@
 import { escapeHtml as esc } from '../html.js';
+import { parseTags } from '../notes/tags.js';
+import { unwrapWikilink } from '../notes/markdown-sections.js';
+
+export { parseTags };
 
 export const COLUMNS = Object.freeze([
   { value: 'TODO', label: 'To Do' },
@@ -69,10 +73,7 @@ export const sortByPriority = (tasks) =>
     .sort(([a, i], [b, j]) => (taskPriority(a)?.rank ?? 4) - (taskPriority(b)?.rank ?? 4) || i - j)
     .map(([task]) => task);
 
-function projectName(task) {
-  const project = String(task.project ?? '').trim();
-  return (project.startsWith('[[') && project.endsWith(']]') ? project.slice(2, -2) : project).trim();
-}
+const projectName = (task) => unwrapWikilink(task?.project);
 
 const JIRA = 'https://socialedge.atlassian.net/browse/';
 
@@ -122,9 +123,5 @@ export function renderCard(task) {
     ${tags ? `<div class="board-card-chips board-card-tags">${tags}</div>` : ''}`;
 }
 
-/** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */
-export function parseTags(text) {
-  const tags = String(text ?? '').split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
-  return [...new Set(tags)];
-}
+
 

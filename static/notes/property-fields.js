@@ -1,11 +1,11 @@
 // The properties drawer without the DOM: which fields show, what to send, and the markup of the fields.
 import { escapeHtml as esc } from '../html.js';
+import { parseTags as tagList } from './tags.js';
 
 /** A field with a `show_when` (Acting for) is only shown while the field it names has that value. */
 export const isVisible = (field, values) => !field.show_when || (values[field.show_when.key] ?? '') === field.show_when.value;
 
 const clean = (value) => String(value ?? '').split(/\s+/).filter(Boolean).join(' '); // as the server reads it
-const tagList = (value) => [...new Set(String(value ?? '').split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean))];
 
 /**
  * The body of the `PUT /notes/{slug}` that saves the drawer: only what changed. `status`, `priority` and `week` are

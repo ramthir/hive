@@ -1,5 +1,5 @@
-import { normalizeType } from '/static/type-icons.js';
-import { lines, sectionKey, trimBlank } from '/static/specifications/specification-note.js';
+import { normalizeType } from '../type-icons.js';
+import { countChecklist, lines, sectionKey, splitSections, withoutEmoji } from '../notes/markdown-sections.js';
 
 export const isMeetingMinutesNote = (note) =>
   (note?.types || []).some((type) => normalizeType(type) === 'meeting_minutes');
@@ -16,32 +16,13 @@ const TONES = new Map([
   ['next steps', 'next'],
 ]);
 
-const EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\u20e3]/gu;
-
-/** Section names are shown without emoji (the file keeps them); a name made only of emoji is kept as written. */
-export const withoutEmoji = (name) => name.replace(/[0-9#*]\ufe0f?\u20e3/g, '').replace(EMOJI, '').replace(/\s+/g, ' ').trim() || name;
+export { withoutEmoji };
 
 export function parseMeetingMinutes(content) {
-  const sections = [];
-  const lead = [];
-  let body = lead;
-  let skippedTitle = false;
-  for (const { text, plain } of lines(content)) {
-    const heading = plain ? SECTION.exec(text) : null;
-    const name = heading && withoutEmoji(heading[1].replace(/[ \t]+#+$/, '').trim());
-    if (name) {
-      body = [];
-      sections.push({ name, body, tone: TONES.get(sectionKey(name)) || '' });
-    } else if (plain && !skippedTitle && /^#\s+\S/.test(text)) {
-      skippedTitle = true;
-    } else {
-      body.push(text);
-    }
-  }
-
+  const { lead, sections } = splitSections(content, { stripEmoji: true, singleH1: true });
   return {
-    lead: trimBlank(lead).join('\n'),
-    sections: sections.map((section) => ({ ...section, body: trimBlank(section.body).join('\n') })),
+    lead,
+    sections: sections.map(({ name, key, body }) => ({ name, body, tone: TONES.get(key) || '' })),
   };
 }
 
@@ -82,16 +63,7 @@ export function meetingParticipants(body) {
 // An action item is a top-level list item of the Action Items section. One without a [ ] box is simply not done yet.
 const ACTION_ITEM = /^ ?(?:[-*+]|\d+[.)])\s+(?:\[([ xX])\](?=\s|$))?/;
 
-export function actionProgress(body) {
-  const progress = { done: 0, total: 0 };
-  for (const { text, plain } of lines(body)) {
-    const item = plain && ACTION_ITEM.exec(text);
-    if (!item) continue;
-    progress.total++;
-    if (item[1] && item[1] !== ' ') progress.done++;
-  }
-  return progress;
-}
+export const actionProgress = (body) => countChecklist(body, { requireBox: false });
 
 /**
  * The note's text with action item number `index` (in file order, across the Action Items sections) marked done or not done.

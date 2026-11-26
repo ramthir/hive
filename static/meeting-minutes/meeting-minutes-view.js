@@ -6,15 +6,9 @@ import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import { readPagePath } from '/static/notes/read-pages.js';
 import { SpecificationView } from '/static/specifications/specification-view.js';
-import { sectionKey } from '/static/specifications/specification-note.js';
+import { sectionKey, unwrapWikilink as referenceTarget } from '/static/notes/markdown-sections.js';
 import { normalizeType } from '/static/type-icons.js';
 import { actionProgress, isMeetingMinutesNote, meetingArchive, meetingParticipants, minutesRow, parseMeetingMinutes, shortMinutesDate, toggleAction } from '/static/meeting-minutes/meeting-minutes-note.js';
-
-function referenceTarget(value) {
-  if (typeof value !== 'string') return '';
-  const text = value.trim();
-  return (/^\[\[([^|\]#]+)(?:[|#][^\]]*)?\]\]$/.exec(text)?.[1] ?? text).trim();
-}
 
 function initial(link) {
   const [, target, alias] = /^\[\[([^\]|]+)(?:\|([^\]]*))?\]\]$/.exec(link) || [];

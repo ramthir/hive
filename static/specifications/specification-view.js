@@ -12,6 +12,7 @@ import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar
 import {
   parseSpecification, scopeGroups, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
 } from '/static/specifications/specification-note.js';
+import { unwrapWikilink } from '/static/notes/markdown-sections.js';
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
@@ -83,7 +84,7 @@ export class SpecificationView {
     const { spec } = this;
     const status = statusLabel(note.status);
     const age = verifiedAge(note.extra?.verified);
-    const project = String(note.extra?.project || '').replace(/^\[\[|\]\]$/g, '').trim();
+    const project = unwrapWikilink(note.extra?.project);
     const chips = renderHeaderChips([
       status && { label: status, tone: STATUS_TONE[status.toLowerCase()], className: `spec-status spec-status--${status.toLowerCase()}` },
       project && { label: project, icon: 'fa-solid fa-hammer', tone: 'blue', className: 'spec-project' },

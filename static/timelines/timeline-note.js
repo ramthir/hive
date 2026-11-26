@@ -1,3 +1,5 @@
+import { lines } from '../notes/markdown-sections.js';
+
 /* A timeline note (`type: timeline`) is read as a list of phases: each `## Label — Title` heading, the paragraph under
    it and its bullet list. The markdown stays the source of truth; nothing here writes it back. DOM-free. */
 
@@ -35,10 +37,8 @@ function finish(phase) {
 export function parseTimeline(content) {
   const phases = [];
   let current = null;
-  let fence = false;
-  for (const line of String(content || '').split(/\r?\n/)) {
-    if (/^\s*(```|~~~)/.test(line)) fence = !fence;
-    if (fence) continue;
+  for (const { text: line, plain } of lines(content)) {
+    if (!plain) continue;
     const heading = HEADING_RE.exec(line);
     if (heading) {
       if (current) phases.push(finish(current));

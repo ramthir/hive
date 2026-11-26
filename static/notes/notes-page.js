@@ -14,7 +14,7 @@ import { api } from '/static/notes/api.js';
 import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openLogTime, updateLogged } from '/static/notes/log-time.js';
-import { tagChips, tagOptions } from '/static/notes/tags.js';
+import { parseTags, tagChips, tagOptions } from '/static/notes/tags.js';
 import { openProperties } from '/static/notes/properties.js';
 import { formatDay, formatDuration } from '/static/time-entries/format.js';
 import { canLogTime, loggedLabel } from '/static/time-entries/logged.js';
@@ -30,7 +30,6 @@ import { chatButtonHtml, NoteChatDock } from '/static/notes/note-chat.js';
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 const editShortcutKey = isMac ? '⌘E' : 'Ctrl+E';
 const propertiesShortcutKey = isMac ? '⌘⇧P' : 'Ctrl+Shift+P';
-const parseTags = (text) => [...new Set(String(text || '').split(',').map((tag) => tag.trim()).filter(Boolean))];
 
 
 configureMarkedWikilinks();

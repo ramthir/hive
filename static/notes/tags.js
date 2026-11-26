@@ -1,6 +1,12 @@
 // Tag suggestions for the footer's tag field, and the chips shown in read mode. DOM-free, so it is unit tested.
 import { escapeHtml as esc } from '../html.js';
 
+/** `a, #b ,c` -> ['a', 'b', 'c'] (no empties or repeats). */
+export function parseTags(text) {
+  const tags = String(text ?? '').split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
+  return [...new Set(tags)];
+}
+
 /** The note's tags as buttons for read mode; each one searches the notes for that tag. */
 export const tagChips = (tags = []) => (tags || []).map((tag) =>
   `<button type="button" class="notes-tag-chip" data-tag="${esc(tag)}" title="Search notes for ${esc(tag)}">${esc(tag)}</button>`).join('');

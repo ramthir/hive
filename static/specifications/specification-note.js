@@ -1,10 +1,11 @@
+import { lines, sectionKey, splitSections, trimBlank } from '../notes/markdown-sections.js';
+
 /* A specification note (`type: specification`, or `spec`) is read as an objective, a scope, requirements (each `### Name`
    with a SHALL/MUST statement and `condition -> outcome` scenarios), out of scope, open questions and references: the
    structure the vault's AGENTS.md calls "Specification Structure". The markdown stays the source of truth; nothing here
    writes it back. Older notes (Introduction, Acceptance Criteria, bullet requirements) still read: unknown `##` sections
    are shown as they are, in file order. DOM-free. */
 
-const H2 = /^##\s+(.+?)\s*#*\s*$/;
 const H3 = /^###\s+(.+?)\s*#*\s*$/;
 const FENCE = /^\s*(`{3,}|~{3,})(.*)$/;
 const BULLET = /^\s*[-*+]\s+(.*\S)\s*$/;
@@ -20,29 +21,9 @@ export const VERIFIED_STALE_DAYS = 14;
 export const STATUSES = ['Draft', 'Active', 'Deprecated'];
 export const KNOWN_SECTIONS = ['objective', 'scope', 'requirements', 'out of scope', 'open questions', 'references'];
 
+export { lines, sectionKey, trimBlank };
+
 export const isSpecificationNote = (note) => (note?.types || []).some((type) => ['specification', 'spec'].includes(String(type).toLowerCase()));
-
-export const sectionKey = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
-
-/** Lines outside code fences are the only ones that can start a heading or a bullet. */
-export function* lines(content) {
-  let fence = '';
-  for (const text of String(content || '').split(/\r?\n/)) {
-    const marker = FENCE.exec(text);
-    const opens = marker && (marker[1][0] === '~' || !marker[2].includes('`'));
-    yield { text, plain: !fence && !opens };
-    if (!fence && opens) fence = marker[1];
-    else if (fence && marker?.[1].startsWith(fence) && !marker[2].trim()) fence = '';
-  }
-}
-
-export const trimBlank = (list) => {
-  let start = 0;
-  let end = list.length;
-  while (start < end && !list[start].trim()) start += 1;
-  while (end > start && !list[end - 1].trim()) end -= 1;
-  return list.slice(start, end);
-};
 
 /** One requirement from the lines under its `###`: the statement, the scenarios and whatever else is there (diagram, table, bullets). */
 function requirement(name, body) {
@@ -121,21 +102,7 @@ export function specificationLines(content) {
 
 /** `{lead, sections, requirements, issues, legacy, lineCount}` from the note's text (the `# Title` line and frontmatter excluded). */
 export function parseSpecification(content) {
-  const sections = [];
-  let current = null;
-  let before = [];
-  for (const { text, plain } of lines(content)) {
-    const heading = plain ? H2.exec(text) : null;
-    if (heading) {
-      current = { name: heading[1].trim(), key: sectionKey(heading[1]), body: [] };
-      sections.push(current);
-    } else if (current) {
-      current.body.push(text);
-    } else if (!/^#\s/.test(text)) {
-      before.push(text);
-    }
-  }
-  const out = sections.map((section) => ({ ...section, body: trimBlank(section.body).join('\n') }));
+  const { lead: before, sections: out } = splitSections(content);
   const requirements = [];
   const requirementsSection = out.find((section) => section.key === 'requirements');
   if (requirementsSection) {
@@ -163,7 +130,7 @@ export function parseSpecification(content) {
   const lead = out.find((section) => section.key === 'objective')?.body || '';
   const keys = out.map((section) => section.key);
   const legacy = keys.includes('acceptance criteria') || PANDORA.test(body) || (!keys.includes('objective') && !keys.includes('requirements'));
-  return { lead, sections: out, requirements, issues: checkSpecification({ sections: out, requirements, lineCount, body, keys }), legacy, lineCount, before: trimBlank(before).join('\n') };
+  return { lead, sections: out, requirements, issues: checkSpecification({ sections: out, requirements, lineCount, body, keys }), legacy, lineCount, before };
 }
 
 /** What differs from the vault's specification structure: short sentences, never an error. */
