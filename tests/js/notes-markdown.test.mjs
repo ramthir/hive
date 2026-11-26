@@ -92,10 +92,13 @@ test('read pages share one footer action bar helper', () => {
   assert.match(bar, /1h 30m logged/);
   assert.match(bar, /id="note-properties-btn"/);
   assert.match(bar, /id="note-chat-btn"[^>]*aria-pressed="true"/);
-  for (const view of ['tables/table-view.js', 'timelines/timeline-view.js', 'specifications/specification-view.js', 'task-notes/task-view.js']) {
+  const shellSrc = readFileSync(new URL('../../static/notes/read-view.js', import.meta.url), 'utf8');
+  assert.ok(shellSrc.includes('renderReadActionBar('), 'notes/read-view.js does not use renderReadActionBar');
+  assert.ok(shellSrc.includes('wireReadActionBar('), 'notes/read-view.js does not use wireReadActionBar');
+  for (const view of ['tables/table-view.js', 'timelines/timeline-view.js', 'specifications/specification-view.js', 'task-notes/task-view.js', 'meeting-minutes/meeting-minutes-view.js']) {
     const src = readFileSync(new URL(`../../static/${view}`, import.meta.url), 'utf8');
-    assert.ok(src.includes('renderReadActionBar('), `${view} does not use renderReadActionBar`);
-    assert.ok(src.includes('wireReadActionBar('), `${view} does not use wireReadActionBar`);
+    assert.ok(src.includes('renderReadPageShell('), `${view} does not use renderReadPageShell`);
+    assert.ok(src.includes('wireReadPageShell('), `${view} does not use wireReadPageShell`);
   }
 });
 

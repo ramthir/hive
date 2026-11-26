@@ -8,7 +8,7 @@ test('the header search is one shared markup, not a copy per page', () => {
   const html = renderSearchTrigger();
   assert.match(html, /id="search-notes-btn"/);
   assert.match(html, /class="header-search"/);
-  for (const page of ['notes/notes-page.js', 'tasks/tasks-page.js', 'specifications/specification-view.js', 'task-notes/task-view.js']) {
+  for (const page of ['notes/notes-page.js', 'tasks/tasks-page.js', 'notes/read-view.js']) {
     const src = readFileSync(new URL(`../../static/${page}`, import.meta.url), 'utf8');
     assert.ok(!src.includes('id="search-notes-btn"'), `${page} hardcodes the search button`);
     assert.ok(src.includes('renderSearchTrigger()'), `${page} does not use the shared search`);

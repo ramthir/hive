@@ -70,7 +70,7 @@ export function wireReadPageShell(host, actions, { searchTrigger = true } = {}) 
 export function renderOutline(entries, { ariaLabel = 'Sections', extraHtml = '' } = {}) {
   return `<nav class="spec-outline" aria-label="${esc(ariaLabel)}">
     <b>Sections</b>
-    ${entries.map(({ id, label, count }) => `<a href="#${id}" data-spec-link="${id}"><span>${esc(label)}</span>${count ? `<span class="spec-count">${count}</span>` : ''}</a>`).join('')}
+    ${entries.map(({ id, label, count }) => `<a href="#${id}" data-spec-link="${id}"><span>${esc(label)}</span>${count ? ` <span class="spec-count">${esc(String(count))}</span>` : ''}</a>`).join('')}
     ${extraHtml}
   </nav>`;
 }

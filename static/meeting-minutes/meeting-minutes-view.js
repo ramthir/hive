@@ -271,7 +271,10 @@ export class MeetingMinutesView {
   outline(entries, typeLabel) {
     const ariaLabel = typeLabel === 'Meeting' ? 'Meeting sections' : 'Meeting minutes sections';
     return renderOutline(
-      entries.map(({ id, name, tone, body }) => ({ id, label: name, count: tone === 'actions' ? actionProgress(body).total : 0 })),
+      entries.map(({ id, name, tone, body }) => {
+        const { done, total } = tone === 'actions' ? actionProgress(body) : { done: 0, total: 0 };
+        return { id, label: name, count: total ? `${done}/${total}` : '' };
+      }),
       { ariaLabel },
     );
   }
