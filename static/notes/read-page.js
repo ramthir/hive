@@ -1,12 +1,13 @@
-import { confirmDialog } from '/static/components/dialog.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
 import { showToast } from '/static/toast.js';
 import { typeIcon, typeLabel } from '/static/type-icons.js';
 import { api } from '/static/notes/api.js';
+import { confirmAndDeleteNote } from '/static/notes/dialogs.js';
 import { openVersionHistory } from '/static/notes/history.js';
 import { openProperties } from '/static/notes/properties.js';
 import { READ_PAGES } from '/static/notes/read-pages.js';
-import { debounce, remoteAction, watchChanges } from '/static/events.js';
+import { pollRemoteNote } from '/static/notes/remote-changes.js';
+import { debounce, watchChanges } from '/static/events.js';
 import { NoteChatDock } from '/static/notes/note-chat.js';
 
 /* The page behind /tables/{slug}, /timelines/{slug}...: load the note, send it to /notes/{slug} when it is not of this
@@ -73,27 +74,28 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
 
     // The note changed (the chat, another tab, an editor, git): look again, and draw it if the text really differs from what is held.
     async checkRemote() {
-      if (!this.note || !this.slug) return;
-      if (this.view.busy?.() === 'saving') { this.refresh(); return; } // our own save is out: its answer updates the page
-      let fresh = null;
-      try {
-        fresh = await api(`/notes/${encodeURIComponent(this.slug)}`);
-      } catch (error) {
-        if (error.status !== 404) return; // the server is not reachable: the stream reconnects and asks again
-      }
-      if (this.view.busy?.() === 'saving') { this.refresh(); return; }
-      const action = remoteAction({ heldRevision: this.note.revision, fresh, unsaved: Boolean(this.view.busy?.()) });
-      if (action === 'none') return;
-      if (action === 'gone') {
-        if (this.chat.holdsNote(this.slug)) return; // the chat is renaming it: it tells us when its run ends (chatFinished)
-        showToast('This note was renamed or deleted elsewhere.', 'info');
-        window.location.replace('/notes');
-        return;
-      }
-      if (!matches(fresh)) { window.location.replace(notePath(this.slug)); return; } // no longer this type: the note page
-      if (action === 'banner') { this.holdForDrawer(); return; }
-      this._heldToast = false;
-      this.draw(fresh);
+      await pollRemoteNote({
+        slug: this.slug,
+        heldRevision: () => this.note.revision,
+        isCurrent: () => Boolean(this.note && this.slug),
+        isSaving: () => this.view.busy?.() === 'saving',
+        isUnsaved: () => Boolean(this.view.busy?.()),
+        holdsNote: (s) => this.chat.holdsNote(s),
+        onRetry: () => this.refresh(),
+        onGone: () => {
+          showToast('This note was renamed or deleted elsewhere.', 'info');
+          window.location.replace('/notes');
+        },
+        onBanner: (fresh) => {
+          if (!matches(fresh)) { window.location.replace(notePath(this.slug)); return; }
+          this.holdForDrawer();
+        },
+        onApply: (fresh) => {
+          if (!matches(fresh)) { window.location.replace(notePath(this.slug)); return; }
+          this._heldToast = false;
+          this.draw(fresh);
+        },
+      });
     }
 
     // A row is open in the drawer (a modal, so a banner behind it could not be reached): say so once and look again until it is closed.
@@ -133,20 +135,10 @@ export function defineReadPage({ tag, type, View, viewOptions = () => ({}), onSa
     }
 
     async remove() {
-      const confirmed = await confirmDialog({
-        title: 'Delete Note?',
-        message: `Delete "${this.note.title}"? The file is removed and the deletion is committed; you can recover it from git history.`,
-        confirmText: 'Delete',
-        cancelText: 'Cancel',
-        danger: true,
+      await confirmAndDeleteNote(this.note, {
+        onDeleted: () => window.location.assign('/notes'),
+        onError: (error) => showToast(error.message || 'Could not delete note.', 'error'),
       });
-      if (!confirmed) return;
-      try {
-        await api(`/notes/${encodeURIComponent(this.slug)}`, { method: 'DELETE' });
-        window.location.assign('/notes');
-      } catch (error) {
-        showToast(error.message || 'Could not delete note.', 'error');
-      }
     }
 
     async properties() {

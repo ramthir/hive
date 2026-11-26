@@ -4,6 +4,34 @@ import { api } from '/static/notes/api.js';
 import { debounce, remoteAction, watchChanges } from '/static/events.js';
 import { notesRouter } from '/static/notes/notes-router.js';
 
+/**
+ * Fetch the latest copy of `slug` after an SSE change event and dispatch `'apply'`, `'banner'`, or `'gone'`
+ * while respecting in-flight saves and active chat runs.
+ */
+export async function pollRemoteNote({
+  slug, heldRevision, isCurrent, isSaving, isUnsaved, holdsNote, onRetry, onGone, onBanner, onApply,
+}) {
+  if (!isCurrent()) return;
+  if (isSaving()) { onRetry(); return; }
+  let fresh = null;
+  try {
+    fresh = await api(`/notes/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    if (error.status !== 404) return; // the server is not reachable: the stream reconnects and asks again
+  }
+  if (!isCurrent()) return;
+  if (isSaving()) { onRetry(); return; }
+  const action = remoteAction({ heldRevision: heldRevision(), fresh, unsaved: isUnsaved() });
+  if (action === 'none') return;
+  if (action === 'gone') {
+    if (holdsNote(slug)) return; // the chat is renaming it: it tells us when its run ends (chatFinished)
+    onGone();
+    return;
+  }
+  if (action === 'banner') { onBanner(fresh); return; }
+  onApply(fresh);
+}
+
 // Changes made elsewhere (another tab, an editor, git pull).
 export class RemoteChanges {
   // Listen for the open note only. An event says "look again": the note is fetched and its revision compared with the
@@ -24,27 +52,25 @@ export class RemoteChanges {
   }
 
   async checkRemoteChange(slug) {
-    if (this.selectedSlug !== slug || !this.selectedNote) return;
-    if (this.saveStatus === 'saving') { this._checkRemote(); return; } // look again once the save has landed
-    let fresh = null;
-    try {
-      fresh = await api(`/notes/${encodeURIComponent(slug)}`);
-    } catch (error) {
-      if (error.status !== 404) return; // the server is not reachable: the stream reconnects and asks again
-    }
-    if (this.selectedSlug !== slug || !this.selectedNote || this.saveStatus === 'saving') return;
-    const action = remoteAction({ heldRevision: this.selectedNote.revision, fresh, unsaved: this.saveStatus === 'dirty' });
-    if (action === 'none') return;
-    if (action === 'gone') {
-      // The chat beside the note is renaming it: leaving now would stop its run. It tells us when it ends (chatFinished).
-      if (this.chatDock.holdsNote(slug)) return;
-      if (this.saveStatus === 'dirty') return this.showRemoteBanner('This note was deleted or renamed outside this page. Your unsaved text is still here; saving writes it back.');
-      showToast('This note was renamed or deleted elsewhere.', 'info');
-      notesRouter.navigate('/notes', { replace: true });
-      return;
-    }
-    if (action === 'banner') return this.showRemoteBanner('This note changed outside this page. Reloading discards your unsaved edits.', fresh);
-    this.applyRemoteNote(fresh);
+    await pollRemoteNote({
+      slug,
+      heldRevision: () => this.selectedNote.revision,
+      isCurrent: () => this.selectedSlug === slug && Boolean(this.selectedNote),
+      isSaving: () => this.saveStatus === 'saving',
+      isUnsaved: () => this.saveStatus === 'dirty',
+      holdsNote: (s) => this.chatDock.holdsNote(s),
+      onRetry: () => this._checkRemote(),
+      onGone: () => {
+        if (this.saveStatus === 'dirty') {
+          this.showRemoteBanner('This note was deleted or renamed outside this page. Your unsaved text is still here; saving writes it back.');
+          return;
+        }
+        showToast('This note was renamed or deleted elsewhere.', 'info');
+        notesRouter.navigate('/notes', { replace: true });
+      },
+      onBanner: (fresh) => this.showRemoteBanner('This note changed outside this page. Reloading discards your unsaved edits.', fresh),
+      onApply: (fresh) => this.applyRemoteNote(fresh),
+    });
   }
 
   // Show the note as it is now, keeping the reading position and edit mode.
