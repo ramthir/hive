@@ -241,10 +241,8 @@ export class MeetingMinutesView {
         return `<li data-archive-target="${esc(target)}">
           <div class="notes-preview-body spec-prose minutes-list-title">${this.markdown(link)}</div>
           ${subtitle ? `<span class="minutes-list-subtitle">${esc(subtitle)}</span>` : ''}
-          <span class="minutes-list-meta">
-            <span class="minutes-list-actions" hidden></span>
-            ${ago ? `<span class="minutes-list-ago">${esc(ago)}</span>` : ''}
-          </span>
+          <span class="minutes-list-actions" hidden></span>
+          ${ago ? `<span class="minutes-list-ago">${esc(ago)}</span>` : ''}
         </li>`;
       }).join('')}</ul>
     </section>`;

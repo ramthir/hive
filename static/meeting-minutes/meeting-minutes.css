@@ -90,9 +90,10 @@
 .minutes-list { margin: 0; padding: 0; list-style: none; }
 .minutes-list li {
   position: relative;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(15rem, auto) minmax(0, 1fr) 5.5rem 5.5rem;
+  align-items: center;
+  column-gap: var(--space-3);
   padding: var(--space-1) 0 var(--space-1) var(--space-4);
 }
 .minutes-list li::before {
@@ -118,9 +119,9 @@
 }
 .minutes-list-title { flex: none; min-width: 15rem; font-variant-numeric: tabular-nums; }
 .minutes-list-title p { margin: 0; }
-.minutes-list-subtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-dimmed2); font-size: 0.875rem; }
-.minutes-list-meta { display: inline-flex; align-items: baseline; gap: var(--space-3); margin-inline-start: auto; flex: none; }
-.minutes-list-ago { color: var(--color-dimmed3); font-size: 0.8125rem; white-space: nowrap; }
+.minutes-list-subtitle { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-dimmed2); font-size: 0.875rem; }
+.minutes-list-actions { grid-column: 3; justify-self: end; }
+.minutes-list-ago { grid-column: 4; justify-self: end; color: var(--color-dimmed3); font-size: 0.8125rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .minutes-action-pill {
   display: inline-flex;
   align-items: center;
@@ -129,15 +130,16 @@
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .minutes-action-pill--pending {
   color: var(--color-orange);
-  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
+  background: color-mix(in srgb, var(--color-orange) 10%, transparent);
 }
 .minutes-action-pill--done {
   color: var(--color-green);
-  background: color-mix(in srgb, var(--color-green) 14%, transparent);
+  background: color-mix(in srgb, var(--color-green) 10%, transparent);
 }
 
 .minutes-archive,
