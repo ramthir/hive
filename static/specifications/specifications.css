@@ -3,7 +3,7 @@
 .spec-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 13rem;
-  gap: var(--space-6);
+  gap: var(--read-workspace-gap, var(--space-4));
 }
 
 /* With the chat docked beside the page there is little room: the outline steps aside and the text takes its column. */
