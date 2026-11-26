@@ -104,7 +104,7 @@ const COMPONENT_CSS = `
 
                 :host([breadcrumbs-in-top-padding]) .page-header-eyebrow {
                     position: absolute;
-                    top: 0.35rem;
+                    top: 0.5rem;
                     inset-inline: var(--space-6);
                     margin: 0;
                     line-height: 1rem;
