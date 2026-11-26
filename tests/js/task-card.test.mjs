@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskPriority, ticketUrl } from '../../static/tasks/card.js';
+import { COLUMNS, noteHref, parseTags, renderCard, sortByPriority, taskChips, taskPriority, ticketUrl } from '../../static/tasks/card.js';
 
 test('the board has the three Pandora columns in order', () => {
   assert.deepEqual(COLUMNS.map((c) => c.value), ['TODO', 'IN_PROGRESS', 'DONE']);
@@ -28,7 +28,7 @@ import { taskWeek, weekTitle, isDoneWeekChoice, doneWeekOptions, visibleTasks } 
 
 test('a card shows the week the server worked out for it', () => {
   assert.match(renderCard({ slug: 'x', title: 'X', tags: [], week_key: '2026-W47' }), />\s*W47</);
-  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--week'));
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('task-week'));
 });
 
 const CURRENT = '2026-W47'; // what GET /api/tasks/current-week returns
@@ -71,11 +71,11 @@ test('a task week comes from week_key, and says whether it was recorded', () => 
 
 test('a task priority becomes a ranked chip, not a plain tag chip', () => {
   const html = renderCard({ slug: 'x', title: 'X', priority: 'must', tags: ['todo', 'work'] });
-  assert.match(html, /board-chip--must[^>]*>(?:(?!<\/span>).)*Must</s);
+  assert.match(html, /header-chip--red[^>]*task-priority--must[^>]*>(?:(?!<\/span>).)*Must</s);
   assert.ok(html.includes('work'));
-  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'important', tags: [] }), /board-chip--important[^>]*>(?:(?!<\/span>).)*Important</s);
-  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'nice-to-have', tags: [] }), /board-chip--good-to-have[^>]*>(?:(?!<\/span>).)*Nice to have</s);
-  assert.ok(!renderCard({ slug: 'x', title: 'X', priority: null, tags: ['work'] }).includes('board-chip--priority'));
+  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'important', tags: [] }), /header-chip--orange[^>]*task-priority--important[^>]*>(?:(?!<\/span>).)*Important</s);
+  assert.match(renderCard({ slug: 'x', title: 'X', priority: 'nice-to-have', tags: [] }), /header-chip--green[^>]*task-priority--nice-to-have[^>]*>(?:(?!<\/span>).)*Nice to have</s);
+  assert.ok(!renderCard({ slug: 'x', title: 'X', priority: null, tags: ['work'] }).includes('task-priority--'));
   assert.equal(taskPriority({ priority: 'bogus' }), null);
 });
 
@@ -93,20 +93,20 @@ test('parseTags splits on commas, drops # and repeats', () => {
 
 test('a card shows its ticket id, escaped, and nothing without one', () => {
   const html = renderCard({ slug: 'x', title: 'X', tags: [], ticket: 'PROJ-12' });
-  assert.match(html, /board-chip--ticket[^>]*>.*PROJ-12/s);
+  assert.match(html, /task-ticket[^>]*>.*PROJ-12/s);
   assert.ok(renderCard({ slug: 'x', title: 'X', tags: [], ticket: '<b>' }).includes('&lt;b&gt;'));
-  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--ticket'));
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('task-ticket'));
 });
 
 test('CreatorIQ ticket chips link directly to Jira in a new tab', () => {
   const task = { slug: 'x', title: 'X', ticket: 'APIM-66' };
   for (const project of ['CreatorIQ', '[[CreatorIQ]]']) {
     const html = renderCard({ ...task, project });
-    assert.match(html, /<a class="board-chip board-chip--ticket board-chip--link" href="https:\/\/socialedge\.atlassian\.net\/browse\/APIM-66" target="_blank"/);
+    assert.match(html, /<a class="header-chip spec-pill header-chip--blue task-ticket" title="Open APIM-66 in Jira" href="https:\/\/socialedge\.atlassian\.net\/browse\/APIM-66" target="_blank"/);
   }
   assert.doesNotMatch(renderCard({ ...task, project: 'Arrcus' }), /socialedge\.atlassian\.net/);
   assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '../APIM-66' }), /socialedge\.atlassian\.net/);
-  assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '' }), /board-chip--ticket/);
+  assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '' }), /task-ticket/);
 });
 
 test('cards show priority, project, ticket, week and remaining tags in order', () => {
@@ -116,20 +116,32 @@ test('cards show priority, project, ticket, week and remaining tags in order', (
   });
   const chips = [...html.matchAll(/<\/i>([^<]+)<\/span>/g)].map((match) => match[1]);
   assert.deepEqual(chips, ['Must', 'A &amp; B', 'PROJ-12', 'W47', 'work']);
-  assert.doesNotMatch(renderCard({ slug: 'x', title: 'X', project: ' ' }), /board-chip--project/);
+  assert.doesNotMatch(renderCard({ slug: 'x', title: 'X', project: ' ' }), /task-project/);
 });
 
-test('cards give tags their own row and omit empty metadata rows', () => {
+test('cards put every chip, tags last, in one flowing row and omit it when empty', () => {
   const task = { slug: 'x', title: 'X' };
-  assert.match(renderCard({ ...task, project: 'Acme', tags: ['work'] }),
-    /class="board-card-chips">.*Acme.*<\/div>\s*<div class="board-card-chips board-card-tags">.*work/s);
+  const html = renderCard({ ...task, project: 'Acme', tags: ['work'], logged_minutes: 30 });
+  assert.equal(html.match(/board-card-chips/g).length, 1);
+  assert.match(html, /class="board-card-chips">.*Acme.*30m.*task-tag.*work.*<\/div>/s);
   assert.doesNotMatch(renderCard({ ...task, tags: ['done'] }), /board-card-chips/);
-  assert.doesNotMatch(renderCard({ ...task, project: 'Acme' }), /board-card-tags/);
 });
 
-test('linked ticket text and border use the cyan accent on hover and keyboard focus', async () => {
-  const css = await readFile(new URL('../../static/tasks/tasks.css', import.meta.url), 'utf8');
-  assert.match(css, /\.board-chip--ticket\.board-chip--link:hover,\s*\.board-chip--ticket\.board-chip--link:focus-visible\s*\{[^}]*border-color: var\(--color-accent5\);[^}]*color: var\(--color-accent5\);/);
+test('board cards and the task page draw chips with the one shared style, not a copy of their own', async () => {
+  const read = (path) => readFile(new URL(`../../static/${path}`, import.meta.url), 'utf8');
+  const html = renderCard({ slug: 'x', title: 'X', priority: 'must', project: 'Acme', ticket: 'T-1', week_key: '2026-W47', logged_minutes: 5, tags: ['work'] });
+  assert.equal(html.match(/class="header-chip /g).length, 6);
+  assert.ok(!html.includes('board-chip'));
+  for (const css of [await read('tasks/tasks.css'), await read('components/board.css')]) assert.doesNotMatch(css, /board-chip|task-(?:priority|project|ticket|week|tag)\b/);
+  assert.match(await read('hive.css'), /\.header-chip--outline\s*\{/);
+});
+
+test('taskChips gives the task page the same chips as its card, with the project, ticket and week of the note', () => {
+  const chips = taskChips({ priority: 'important', project: '[[CreatorIQ]]', ticket: 'APIM-66', week_key: '2026-W47', week_stored: true, tags: ['#must', 'Done', 'auth'] });
+  assert.deepEqual(chips.map((c) => c.label), ['Important', 'CreatorIQ', 'APIM-66', 'W47', 'auth']);
+  assert.deepEqual(chips.map((c) => c.tone), ['orange', 'blue', 'blue', 'purple', 'outline']);
+  assert.equal(chips[2].href, 'https://socialedge.atlassian.net/browse/APIM-66');
+  assert.equal(chips[3].title, 'Finished in week 47 of 2026');
 });
 
 test('ticketUrl is the Jira address of a CreatorIQ ticket and nothing else', () => {
@@ -142,7 +154,7 @@ test('ticketUrl is the Jira address of a CreatorIQ ticket and nothing else', () 
 
 test('a card shows the time logged on the task, and nothing when none is', () => {
   const html = renderCard({ slug: 'x', title: 'X', tags: [], logged_minutes: 210 });
-  assert.match(html, /board-chip--logged[^>]*>(?:(?!<\/span>).)*3h 30m</s);
-  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [], logged_minutes: 0 }).includes('board-chip--logged'));
-  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('board-chip--logged'));
+  assert.match(html, /header-chip--green[^>]*task-logged[^>]*>(?:(?!<\/span>).)*3h 30m</s);
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [], logged_minutes: 0 }).includes('task-logged'));
+  assert.ok(!renderCard({ slug: 'x', title: 'X', tags: [] }).includes('task-logged'));
 });

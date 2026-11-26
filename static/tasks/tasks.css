@@ -74,42 +74,9 @@ tasks-app {
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
 }
-.tasks-board-wrap .board-chip {
-  min-width: 0;
-  min-height: 1.25rem;
-  padding: 0 0.5rem;
-  border-color: transparent;
-  border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
-}
-.tasks-board-wrap .board-chip i {
-  color: inherit;
-}
-.tasks-board-wrap .board-chip--project,
-.tasks-board-wrap .board-chip--ticket {
-  color: var(--color-blue);
-  background: color-mix(in srgb, var(--color-blue) 14%, transparent);
-}
-.tasks-board-wrap .board-card-tags .board-chip {
-  padding-inline: 0.25rem;
-  background: transparent;
-}
-.tasks-board-wrap .board-chip--week {
-  font-variant-numeric: tabular-nums;
-  color: var(--color-purple);
-  background: color-mix(in srgb, var(--color-purple) 14%, transparent);
-}
-.tasks-board-wrap .board-chip--logged {
-  font-variant-numeric: tabular-nums;
-  color: var(--color-green);
-  background: color-mix(in srgb, var(--color-green) 14%, transparent);
-}
-.board-chip--ticket { font-variant-numeric: tabular-nums; }
-.board-chip--ticket.board-chip--link:hover,
-.board-chip--ticket.board-chip--link:focus-visible {
-  border-color: var(--color-accent5);
-  color: var(--color-accent5);
-}
+/* Card chips are the shared `.header-chip` (hive.css); a long tag or project may wrap inside its chip. */
+.tasks-board-wrap .board-card-chips { gap: 0.375rem; }
+.tasks-board-wrap .board-card-chips .header-chip { min-width: 0; overflow-wrap: anywhere; }
 
 /* The Done column's week filter (from Pandora): a pill the height of the count badge beside it. */
 .work-done-filter {

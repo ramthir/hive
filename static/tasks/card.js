@@ -2,6 +2,8 @@ import { escapeHtml as esc } from '../html.js';
 import { parseTags } from '../notes/tags.js';
 import { unwrapWikilink } from '../notes/markdown-sections.js';
 import { formatDuration } from '../time-entries/format.js';
+import { renderHeaderChip } from '../components/page-header.js';
+import { visibleTags } from '../task-notes/task-note.js';
 
 export { parseTags };
 
@@ -54,9 +56,6 @@ export function doneWeekOptions(tasks, selected, current) {
 export const visibleTasks = (tasks, doneWeek) =>
   doneWeek === ALL_WEEKS ? tasks : tasks.filter((task) => task.status !== 'DONE' || weekKey(task) === doneWeek);
 
-// `todo` / `done` only restate the column the card is in.
-const REDUNDANT_TAGS = ['todo', 'done'];
-
 // "1 Must / 2 Important / 3 Nice to have": the server says which one a task has (`priority`, from its tags);
 // this is only how each is drawn and ranked.
 export const PRIORITIES = Object.freeze([
@@ -84,49 +83,35 @@ export function ticketUrl(task) {
   return projectName(task || {}).toLowerCase() === 'creatoriq' && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket) ? `${JIRA}${ticket.toUpperCase()}` : '';
 }
 
-function renderTicketChip(task) {
-  const ticket = String(task.ticket ?? '').trim();
-  if (!ticket) return '';
-  const content = `<i class="fa-solid fa-ticket" aria-hidden="true"></i>${esc(ticket)}`;
-  const url = ticketUrl(task);
-  if (url) {
-    return `<a class="board-chip board-chip--ticket board-chip--link" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ticket)} in Jira">${content}</a>`;
-  }
-  return `<span class="board-chip board-chip--ticket" title="Ticket ${esc(ticket)}">${content}</span>`;
+const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green' };
+
+/**
+ * The chips a task shows on its board card and on its own page, as `renderHeaderChip` descriptors, in this order:
+ * priority, project, ticket, week, time logged, then the tags that say something new (not `todo`/`done`, a priority or
+ * the project). Both places draw them with the same `.header-chip` styles (hive.css).
+ */
+export function taskChips(task) {
+  const priority = taskPriority(task);
+  const project = projectName(task || {});
+  const ticket = String(task?.ticket ?? '').trim();
+  const href = ticketUrl(task);
+  const week = taskWeek(task);
+  const logged = Number(task?.logged_minutes) || 0;
+  return [
+    priority && { label: priority.label, icon: priority.icon, tone: PRIORITY_TONE[priority.value], title: `Priority ${priority.rank}: ${priority.label}`, className: `task-priority--${priority.value}` },
+    project && { label: project, icon: 'fa-solid fa-briefcase', tone: 'blue', className: 'task-project' },
+    ticket && { label: ticket, icon: 'fa-solid fa-ticket', className: 'task-ticket', ...(href ? { href, tone: 'blue', title: `Open ${ticket} in Jira` } : { title: `Ticket ${ticket}` }) },
+    week && { label: `W${week.week}`, icon: 'fa-regular fa-calendar', tone: 'purple', title: `${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}`, className: 'task-week' },
+    logged > 0 && { label: formatDuration(logged), icon: 'fa-regular fa-clock', tone: 'green', title: `${formatDuration(logged)} logged`, className: 'task-logged' },
+    ...visibleTags(task?.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag', tone: 'outline', className: 'task-tag' })),
+  ].filter(Boolean);
 }
 
 export function renderCard(task) {
-  const priority = taskPriority(task);
-  const priorityChip = priority
-    ? `<span class="board-chip board-chip--priority board-chip--${priority.cls}" title="Priority ${priority.rank}: ${priority.label}"><i class="${priority.icon}" aria-hidden="true"></i>${priority.label}</span>`
-    : '';
-  const project = projectName(task);
-  const projectChip = project
-    ? `<span class="board-chip board-chip--project"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>${esc(project)}</span>`
-    : '';
-  const tags = (task.tags || [])
-    .filter((tag) => {
-      const key = String(tag).trim().replace(/^#/, '').toLowerCase();
-      return !REDUNDANT_TAGS.includes(key) && key !== project.toLowerCase();
-    })
-    .map((tag) => `<span class="board-chip"><i class="fa-solid fa-tag" aria-hidden="true"></i>${esc(tag)}</span>`)
-    .join('');
-  const week = taskWeek(task);
-  const weekChip = week
-    ? `<span class="board-chip board-chip--week" title="${week.stored ? 'Finished' : 'Last updated'} in week ${week.week} of ${week.year}"><i class="fa-regular fa-calendar" aria-hidden="true"></i>W${week.week}</span>`
-    : '';
-  const logged = Number(task.logged_minutes) || 0;
-  const loggedChip = logged > 0
-    ? `<span class="board-chip board-chip--logged" title="${formatDuration(logged)} logged"><i class="fa-regular fa-clock" aria-hidden="true"></i>${formatDuration(logged)}</span>`
-    : '';
-  const details = `${priorityChip}${projectChip}${renderTicketChip(task)}${weekChip}${loggedChip}`;
+  const chips = taskChips(task).map(renderHeaderChip).join('');
   return `<div class="board-card-heading">
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
-    ${details ? `<div class="board-card-chips">${details}</div>` : ''}
-    ${tags ? `<div class="board-card-chips board-card-tags">${tags}</div>` : ''}`;
+    ${chips ? `<div class="board-card-chips">${chips}</div>` : ''}`;
 }
-
-
-

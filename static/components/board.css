@@ -173,67 +173,6 @@ app-board {
   flex-wrap: wrap;
   gap: 0.4rem;
 }
-.board-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.45rem;
-  border: 1px solid var(--color-dimmed5);
-  border-radius: 5px;
-  background: var(--color-dark2);
-  color: var(--color-dimmed2);
-  font-size: 0.68rem;
-}
-.board-chip--link {
-  text-decoration: none;
-}
-.board-chip--link:hover,
-.board-chip--link:focus-visible {
-  border-color: var(--color-dimmed2);
-  color: var(--color-text);
-}
-.board-chip--link:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-offset);
-}
-.board-chip i {
-  color: var(--color-accent5);
-  font-size: 0.65rem;
-}
-.board-chip--priority {
-  font-weight: 600;
-}
-.board-chip--stage,
-.board-chip--must,
-.board-chip--important {
-  font-weight: 700;
-}
-.board-chip--must,
-.board-task-blocked {
-  border-color: color-mix(in srgb, var(--color-accent1) 45%, var(--color-dimmed5));
-  background: color-mix(in srgb, var(--color-accent1) 12%, var(--color-dark2));
-  color: var(--color-accent1);
-}
-.board-chip--must i,
-.board-task-blocked i {
-  color: var(--color-accent1);
-}
-.board-chip--important {
-  border-color: color-mix(in srgb, var(--color-accent3) 45%, var(--color-dimmed5));
-  background: color-mix(in srgb, var(--color-accent3) 12%, var(--color-dark2));
-  color: var(--color-accent3);
-}
-.board-chip--important i {
-  color: var(--color-accent3);
-}
-.board-chip--good-to-have {
-  border-color: color-mix(in srgb, var(--color-accent4) 45%, var(--color-dimmed5));
-  background: color-mix(in srgb, var(--color-accent4) 12%, var(--color-dark2));
-  color: var(--color-accent4);
-}
-.board-chip--good-to-have i {
-  color: var(--color-accent4);
-}
 .board-empty {
   margin: 0;
   padding: 2rem 0.5rem;
@@ -262,14 +201,3 @@ app-board {
   outline-offset: var(--focus-offset);
 }
 
-.board-chip--stage {
-  color: var(--board-stage-color);
-  border-color: color-mix(in srgb, var(--board-stage-color) 45%, var(--color-dimmed5));
-  background: color-mix(in srgb, var(--board-stage-color) 12%, var(--color-dark2));
-}
-.board-chip--stage i { color: inherit; }
-.board-stage--plan { --board-stage-color: var(--color-accent2); }
-.board-stage--build { --board-stage-color: var(--color-accent6); }
-.board-stage--review { --board-stage-color: var(--color-accent5); }
-.board-stage--approve { --board-stage-color: var(--color-accent3); }
-.board-stage--merged { --board-stage-color: var(--color-accent4); }

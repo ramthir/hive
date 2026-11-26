@@ -4,11 +4,10 @@ import {
   ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
 } from '/static/notes/read-view.js';
 import { highlightRequirementKeywords } from '/static/specifications/specification-view.js';
-import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
-import { parseTask, planSteps, projectName, visibleTags } from '/static/task-notes/task-note.js';
+import { COLUMNS, taskChips } from '/static/tasks/card.js';
+import { parseTask, planSteps } from '/static/task-notes/task-note.js';
 
 const STATUS_TONE = { TODO: ['todo', 'neutral'], IN_PROGRESS: ['in-progress', 'blue'], DONE: ['done', 'green'] };
-const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green' };
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' spec-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
@@ -30,17 +29,14 @@ export class TaskView {
     this.task = parseTask(note.content);
     const status = COLUMNS.find((column) => column.value === note.task_status);
     const [statusSlug, statusTone] = STATUS_TONE[status?.value] || [];
-    const priority = PRIORITIES.find((item) => item.value === note.priority);
-    const project = projectName(note.extra?.project);
-    const ticket = String(note.extra?.ticket || '').trim();
+    // The board card's chips (shared, `taskChips`) after the status and checklist progress; the time logged is in the footer.
     const chips = renderHeaderChips([
       status && { label: status.label, tone: statusTone, title: 'Status', className: `task-status--${statusSlug}` },
       this.progressChip(),
-      priority && { label: priority.label, icon: priority.icon, tone: PRIORITY_TONE[priority.value], title: `Priority ${priority.rank}`, className: `task-priority--${priority.value}` },
-      project && { label: project, icon: 'fa-solid fa-briefcase', tone: 'blue', className: 'task-project' },
-      this.ticketChip(ticket, project),
-      note.week && { label: note.week, icon: 'fa-regular fa-calendar', tone: 'purple', title: 'Week finished', className: 'task-week' },
-      ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag', className: 'task-tag' })),
+      ...taskChips({
+        priority: note.priority, project: note.extra?.project, ticket: note.extra?.ticket,
+        week_key: note.week, week_stored: Boolean(note.week), tags: note.tags,
+      }),
     ]);
     host.innerHTML = renderReadPageShell({
       pageClass: 'spec-page',
@@ -64,17 +60,6 @@ export class TaskView {
     const root = host.querySelector('#spec-main');
     for (const prose of root?.querySelectorAll('.spec-prose') ?? []) highlightRequirementKeywords(prose);
     this.surface.decorate(root, note);
-  }
-
-  // The ticket: a link to Jira where the board links it too (same rule, `ticketUrl`), otherwise plain.
-  ticketChip(ticket, project) {
-    if (!ticket) return null;
-    const href = ticketUrl({ ticket, project });
-    return {
-      label: ticket,
-      icon: 'fa-solid fa-ticket',
-      ...(href ? { href, tone: 'blue', title: `Open ${ticket} in Jira`, className: 'task-ticket' } : { title: 'Ticket' }),
-    };
   }
 
   // "1 of 8 done" with a thin bar: a chip of the header, since it says where the task stands like the status does.

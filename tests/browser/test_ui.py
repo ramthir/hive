@@ -840,7 +840,7 @@ def test_tasks_board_groups_task_notes_by_status(page, server, task_notes):
     expect(column(page, "TODO").locator(".board-card-title")).to_have_text(["Write report"])
     expect(column(page, "IN_PROGRESS").locator(".board-card-title")).to_have_text(["Review"])
     expect(column(page, "DONE").locator(".board-card-title")).to_have_text(["Ship it"])
-    expect(column(page, "TODO").locator(".board-chip")).to_have_text(["W9", "work"])  # the week of `updated`; `todo` only restates the column
+    expect(column(page, "TODO").locator(".header-chip")).to_have_text(["W9", "work"])  # the week of `updated`; `todo` only restates the column
     expect(page.locator("app-sidebar .nav-link.active")).to_have_text("Tasks")
     assert page.errors == []
 
@@ -882,7 +882,7 @@ def test_tasks_drawer_saves_status_and_priority_in_one_commit(page, server, task
     drawer.locator('[data-action="save"]').click()
     card = column(page, "IN_PROGRESS").locator(".board-card", has_text="Write report")
     expect(card).to_have_count(1)
-    expect(card.locator(".board-chip--must")).to_have_text("Must")
+    expect(card.locator(".task-priority--must")).to_have_text("Must")
     wait_for_commits(task_notes, before + 1)
     text = (task_notes / "write-report.md").read_text()
     assert "status: IN_PROGRESS" in text and "priority: must" in text
@@ -894,8 +894,8 @@ def test_tasks_show_week_numbers_and_done_has_a_week_filter(page, server, task_n
     page.goto(f"{server}/tasks")
     this_week = date.today().isocalendar().week
     key = f"{date.today().isocalendar().year}-W{this_week:02d}"
-    expect(column(page, "DONE").locator(".board-card", has_text="Ship it").locator(".board-chip--week")).to_have_text(f"W{this_week}")
-    expect(column(page, "TODO").locator(".board-card", has_text="Write report").locator(".board-chip--week")).to_have_text("W9")  # updated 2026-03-01
+    expect(column(page, "DONE").locator(".board-card", has_text="Ship it").locator(".task-week")).to_have_text(f"W{this_week}")
+    expect(column(page, "TODO").locator(".board-card", has_text="Write report").locator(".task-week")).to_have_text("W9")  # updated 2026-03-01
     # Pandora's pill sits in the Done column header and starts on this week; the address names the week.
     pill = column(page, "DONE").locator(".work-done-filter-btn")
     expect(pill).to_have_text(f"Week {this_week:02d} {date.today().isocalendar().year}")
