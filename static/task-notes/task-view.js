@@ -40,7 +40,7 @@ export class TaskView {
       project && { label: project, icon: 'fa-solid fa-briefcase', tone: 'blue', className: 'task-project' },
       this.ticketChip(ticket, project),
       note.week && { label: note.week, icon: 'fa-regular fa-calendar', tone: 'purple', title: 'Week finished', className: 'task-week' },
-      ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag' })),
+      ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag', className: 'task-tag' })),
     ]);
     host.innerHTML = renderReadPageShell({
       pageClass: 'spec-page',
