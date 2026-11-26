@@ -1,67 +1,15 @@
-/* Specification & task notes: section cards with an outline. Host frame, page bottom clearance and workspace padding come from layout.css. */
-
-.spec-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 13rem;
-  gap: var(--read-workspace-gap, var(--space-4));
-}
-
-/* With the chat docked beside the page there is little room: the outline steps aside and the text takes its column. */
-.chat-docked .spec-workspace { grid-template-columns: minmax(0, 1fr); }
-.chat-docked .spec-outline { display: none; }
-
-.spec-outline {
-  position: sticky;
-  top: var(--space-5);
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: calc(100dvh - 8rem);
-  overflow-y: auto;
-  font-size: 0.8125rem;
-}
-.spec-outline b { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); margin-bottom: var(--space-2); }
-.spec-outline .spec-outline-gap { margin-top: var(--space-4); }
-.spec-outline a {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 3px var(--space-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-dimmed2);
-  text-decoration: none;
-}
-.spec-outline a span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.spec-outline a:hover, .spec-outline a:focus-visible { color: var(--color-text); }
-.spec-outline a.on { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 12%, transparent); }
-.spec-count { color: var(--color-dimmed3); font-variant-numeric: tabular-nums; }
-
-.spec-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+/* Specification notes: objective, requirement cards, scenarios, and format checks.
+   Shared workspace, outline, prose, Scope, References, and Open Questions styles come from notes/read-sections.css. */
 
 .spec-legacy { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); line-height: 1.5; color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 
-.spec-section { display: flex; flex-direction: column; gap: var(--space-3); scroll-margin-top: var(--space-5); min-width: 0; }
-.spec-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dimmed3); }
-.spec-objective, .task-lead { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); }
-.spec-prose { min-width: 0; line-height: 1.6; }
-.spec-prose a[href][target="_blank"]::after {
-  content: '\f35d' / '';
-  display: inline-block;
-  margin-inline-start: 0.35em;
-  font: 900 0.7em 'Font Awesome 6 Free';
-}
-.spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
+.spec-objective { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-blue); font-size: 1.0625rem; line-height: 1.6; color: var(--color-text); }
 .spec-section--legacy .spec-prose { opacity: 0.85; }
-.spec-empty { margin: 0; color: var(--color-dimmed3); }
 
-.spec-req,
-.task-section:not(.spec-section--out, .spec-section--questions, .task-section--verified, .spec-section--refs, .task-section--related) > .spec-prose {
+.spec-req {
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-}
-.spec-req {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -72,7 +20,6 @@
 .spec-req-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .spec-req-name { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-text); }
 .spec-statement { margin: 0; line-height: 1.6; color: var(--color-dimmed1); }
-.requirement-keyword { background: transparent; color: var(--color-orange); font-weight: 700; }
 
 /* Each scenario is two rows: When the condition, Then the outcome. */
 .spec-scenarios { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
@@ -98,72 +45,3 @@
 .spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .spec-check .spec-pill { margin-top: var(--space-3); }
 .spec-check ul .spec-pill { margin-top: 0; }
-
-/* Lists in the prose of a section (the note preview's list styles are scoped to its own pane). */
-.spec-prose p { margin: 0 0 var(--space-3); }
-.spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
-.spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
-.spec-prose :is(h3, h4, h5, h6) { margin: var(--space-4) 0 var(--space-2); font-weight: 600; line-height: 1.35; color: var(--color-text); }
-.spec-prose :is(h3, h4, h5, h6):first-child { margin-top: 0; }
-.spec-prose h3 { font-size: 0.9375rem; }
-.spec-prose :is(h4, h5, h6) { font-size: 0.875rem; color: var(--color-dimmed1); }
-
-/* Scope and Out of Scope, shared by specifications and tasks. Scope is a solid card with blue dots; the older Out of Scope
-   section is a dashed, dimmed card with red dots. Inside Scope, "In scope:" / "Out of scope:" lines make labelled groups. */
-.spec-section--scope .spec-heading::before, .spec-section--out .spec-heading::before, .spec-section--refs .spec-heading::before {
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  margin-right: var(--space-2);
-  letter-spacing: 0;
-}
-.spec-section--scope .spec-heading::before { content: '\f140'; color: var(--color-blue); }
-.spec-section--out .spec-heading::before { content: '\f05e'; color: var(--color-red); }
-.spec-section--scope .spec-prose, .spec-section--out .spec-prose {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-.spec-section--scope .spec-prose { padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--color-blue) 4%, transparent); }
-.spec-section--out .spec-prose { border-style: dashed; color: var(--color-dimmed2); }
-.spec-section--scope .spec-prose ul, .spec-section--out .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
-.spec-section--scope .spec-prose li, .spec-section--out .spec-prose li { position: relative; padding-left: 1.4rem; }
-.spec-section--scope .spec-prose li::before, .spec-section--out .spec-prose li::before {
-  content: '';
-  position: absolute;
-  left: 0.2rem;
-  top: 0.62em;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--color-blue);
-}
-.spec-section--out .spec-prose li::before, .spec-scope-group--out li::before { background: var(--color-red); opacity: 0.8; }
-/* A lead-in such as "In scope:" is a label for the list under it. */
-.spec-section--scope .spec-prose > p:has(+ ul) { margin-bottom: var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dimmed3); }
-.spec-scope-group + .spec-scope-group { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px dashed var(--color-border); }
-.spec-scope-label { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-.spec-scope-group--in .spec-scope-label { color: var(--color-blue); }
-.spec-scope-group--out .spec-scope-label { color: var(--color-red); }
-.spec-scope-group--out { color: var(--color-dimmed2); }
-
-/* References share a compact list across task and specification pages. */
-.spec-section--refs .spec-heading::before { content: '\f0c1'; color: var(--color-blue); }
-.spec-section--refs .spec-prose {
-  color: var(--color-dimmed1);
-  overflow-wrap: anywhere;
-}
-.spec-section--refs .spec-prose code { background: transparent; border: 0; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
-
-/* Open Questions: the same list shape, with a question mark for the marker. */
-.spec-section--questions .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
-.spec-section--questions .spec-prose li { position: relative; padding-left: 1.4rem; }
-.spec-section--questions .spec-prose li::before {
-  content: '\f128';
-  position: absolute;
-  left: 0;
-  top: 0.4em;
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  font-size: 0.7rem;
-  color: var(--color-orange);
-}
