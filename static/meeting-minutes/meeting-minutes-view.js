@@ -131,6 +131,7 @@ export class MeetingMinutesView {
     });
     this._breadcrumbCache = this._breadcrumbCache || {};
     showBreadcrumbs(host.querySelector('app-header'), note, this._breadcrumbCache);
+    if (archiveRows.length) this.loadArchiveActions(host, archiveRows);
     wireReadPageShell(host, this.actions);
     this.surface.wireOutline(host);
     this.decorate(host.querySelector('.notes-page'));
@@ -236,13 +237,35 @@ export class MeetingMinutesView {
         const { title, subtitle: raw, ago } = parts[index];
         const subtitle = redundant(raw) ? '' : raw;
         const link = row.date === null ? row.link : `[[${row.destination}|${title}]]`;
-        return `<li>
+        const target = row.destination.split('#', 1)[0];
+        return `<li data-archive-target="${esc(target)}">
           <div class="notes-preview-body spec-prose minutes-list-title">${this.markdown(link)}</div>
           ${subtitle ? `<span class="minutes-list-subtitle">${esc(subtitle)}</span>` : ''}
-          ${ago ? `<span class="minutes-list-ago">${esc(ago)}</span>` : ''}
+          <span class="minutes-list-meta">
+            <span class="minutes-list-actions" hidden></span>
+            ${ago ? `<span class="minutes-list-ago">${esc(ago)}</span>` : ''}
+          </span>
         </li>`;
       }).join('')}</ul>
     </section>`;
+  }
+
+  async loadArchiveActions(host, rows) {
+    const targets = [...new Set(rows.map((row) => row.destination.split('#', 1)[0]).filter(Boolean))];
+    if (!targets.length) return;
+    const query = new URLSearchParams(targets.map((target) => ['target', target]));
+    const summaries = await api(`/meeting-actions?${query}`).catch(() => null);
+    if (!summaries || !host.isConnected) return;
+    for (const li of host.querySelectorAll('.minutes-list li[data-archive-target]')) {
+      const actions = summaries[li.dataset.archiveTarget];
+      const badge = li.querySelector('.minutes-list-actions');
+      if (!badge || !actions?.total) continue;
+      const { pending, total } = actions;
+      badge.hidden = false;
+      badge.innerHTML = pending > 0
+        ? `<span class="minutes-action-pill minutes-action-pill--pending" title="${pending} pending of ${total} action items">${pending} pending</span>`
+        : `<span class="minutes-action-pill minutes-action-pill--done" title="All ${total} action items done"><i class="fa-solid fa-check" aria-hidden="true"></i> All done</span>`;
+    }
   }
 
   participants({ id, name }, rows) {

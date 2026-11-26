@@ -119,7 +119,26 @@
 .minutes-list-title { flex: none; min-width: 15rem; font-variant-numeric: tabular-nums; }
 .minutes-list-title p { margin: 0; }
 .minutes-list-subtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-dimmed2); font-size: 0.875rem; }
-.minutes-list-ago { margin-inline-start: auto; color: var(--color-dimmed3); font-size: 0.8125rem; white-space: nowrap; }
+.minutes-list-meta { display: inline-flex; align-items: baseline; gap: var(--space-3); margin-inline-start: auto; flex: none; }
+.minutes-list-ago { color: var(--color-dimmed3); font-size: 0.8125rem; white-space: nowrap; }
+.minutes-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.minutes-action-pill--pending {
+  color: var(--color-orange);
+  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
+}
+.minutes-action-pill--done {
+  color: var(--color-green);
+  background: color-mix(in srgb, var(--color-green) 14%, transparent);
+}
 
 .minutes-archive,
 .minutes-participants {

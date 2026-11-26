@@ -2946,6 +2946,7 @@ def test_meeting_series_shows_latest_minutes_and_participants(page, server, note
     expect(page.locator(".minutes-archive .minutes-list-title")).to_have_text(
         ["Wednesday, November 18, 2026", "Wednesday, July 8, 2026", "Wednesday, June 3, 2026"]
     )
+    expect(page.locator(".minutes-archive .minutes-action-pill--pending")).to_have_text(["1 pending"])
     expect(page.locator(".minutes-archive .minutes-list-ago").first).not_to_be_empty()
     expect(page.locator(".minutes-list-subtitle")).to_have_count(0)  # "Weekly" is the series name on every row
     expect(page.locator("#log-time-btn")).to_be_visible()

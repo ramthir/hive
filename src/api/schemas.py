@@ -240,6 +240,12 @@ class BacklinksOut(BaseModel):
     unresolved: list[str]
 
 
+class ActionSummaryOut(BaseModel):
+    done: int
+    total: int
+    pending: int
+
+
 class ResolvedLink(BaseModel):
     slug: str
     title: str

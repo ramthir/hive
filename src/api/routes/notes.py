@@ -6,12 +6,13 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from src.api.schemas import (BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
+from src.api.schemas import (ActionSummaryOut, BacklinksOut, DiffOut, NoteCreate, NoteDetail, NoteSummary, NoteUpdate,
                              PropertiesOut, PropertyChangeOut, ResolvedLink, TaskOut, TimeAdd, TimeEntriesOut, TimeEntryListItemOut, TimeEntryOut, TimeLog, TimeMove, TimeNoteOut, VersionDetail,
                              VersionOut)
 from src.application.notes.service import NoteService
 from src.domain.notes.changes import KINDS, property_changes
 from src.domain.notes.errors import NoteNotFound
+from src.domain.notes.meetings import count_action_items
 from src.domain.notes.wiki_links import parse_link
 
 router = APIRouter()
@@ -125,6 +126,20 @@ def resolve(request: Request, target: list[str] = Query(default=[])):
     for t in target:
         slug = index.resolve(t)
         out[t] = ResolvedLink(slug=slug, title=index.notes[slug].title, types=list(index.notes[slug].types)) if slug else None
+    return out
+
+
+@router.get("/meeting-actions", response_model=dict[str, ActionSummaryOut])
+def meeting_actions(request: Request, target: list[str] = Query(default=[])):
+    """Return ``## Action Items`` counts (done, total, pending) for each resolved wikilink target."""
+    index = svc(request).index
+    out: dict[str, ActionSummaryOut] = {}
+    for t in target:
+        slug = index.resolve(t)
+        if not slug:
+            continue
+        summary = count_action_items(index.notes[slug].content)
+        out[t] = ActionSummaryOut(done=summary.done, total=summary.total, pending=summary.pending)
     return out
 
 
