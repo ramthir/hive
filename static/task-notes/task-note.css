@@ -22,7 +22,12 @@
 .task-section--checks .spec-prose li:has(input:checked) { color: var(--color-dimmed2); }
 
 /* Verification: what was checked once the work was done. */
-.task-section--verified .spec-prose { padding: var(--space-3) var(--space-4); border-left: 3px solid var(--color-green); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-green) 7%, transparent); }
+.task-section--verified .spec-prose {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-green) 28%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-green) 5%, transparent);
+}
 .task-section--verified .spec-heading::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: var(--space-2); letter-spacing: 0; color: var(--color-green); }
 
 
