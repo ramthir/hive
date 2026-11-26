@@ -5,7 +5,7 @@ import { renderFilterField } from '/static/components/search-trigger.js';
 import '/static/components/stat-card.js';
 import { renderStatCard } from '/static/components/stat-card-render.js';
 import { createCrudDrawer } from '/static/components/crud-drawer.js';
-import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
+import { renderReadPageShell, wireReadPageShell } from '/static/notes/read-view.js';
 import '/static/components/table.js';
 import '/static/components/pagination.js';
 import '/static/components/combobox.js';
@@ -61,28 +61,26 @@ export class TableView {
     this.parsed = parseMarkdownTableNote(note.content);
     const hasColumns = this.parsed.columns.length > 0;
     const { host } = this;
-    host.innerHTML = `
-      <section class="notes-page notes-table-page">
-        <app-header heading="${esc(note.title)}" variant="flush" attached>
-          <div slot="actions" class="notes-header-actions app-header-action-group">
-            ${renderFilterField({ placeholder: 'Filter rows…', value: this.query, label: 'Filter rows', inputClass: 'notes-table-filter', shortcut: '/' })}
-            <button id="add-table-row-btn" class="primary" type="button" title="Add a new row"${hasColumns ? '' : ' disabled'}><i class="fa-solid fa-plus" aria-hidden="true"></i> Add row</button>
-          </div>
-        </app-header>
+    host.innerHTML = renderReadPageShell({
+      pageClass: 'notes-table-page',
+      title: note.title,
+      headerActions: `
+        ${renderFilterField({ placeholder: 'Filter rows…', value: this.query, label: 'Filter rows', inputClass: 'notes-table-filter', shortcut: '/' })}
+        <button id="add-table-row-btn" class="primary" type="button" title="Add a new row"${hasColumns ? '' : ' disabled'}><i class="fa-solid fa-plus" aria-hidden="true"></i> Add row</button>`,
+      bodyHtml: `
         <div class="notes-table-workspace">
           <div class="stat-card-grid table-stats-grid" id="notes-table-stats-grid" hidden></div>
           <div class="table-card notes-table-card"><app-table id="notes-data-table" sort-mode="server" clickable-rows aria-label="${esc(note.title)}"></app-table></div>
           <app-pagination id="notes-table-pagination" class="notes-table-pagination" hidden></app-pagination>
           <div id="notes-table-drawer-host"></div>
-        </div>
-        ${renderReadActionBar(note, {
-          typeLabel,
-          typeIconName,
-          actions: this.actions,
-          statsHtml: `<span class="stat-words"><span class="stat-value" id="notes-table-row-count">${this.parsed.rows.length.toLocaleString()}</span> rows</span>`,
-        })}
-      </section>`;
-    wireReadActionBar(host, this.actions);
+        </div>`,
+      note,
+      typeLabel,
+      typeIconName,
+      actions: this.actions,
+      statsHtml: `<span class="stat-words"><span class="stat-value" id="notes-table-row-count">${this.parsed.rows.length.toLocaleString()}</span> rows</span>`,
+    });
+    wireReadPageShell(host, this.actions, { searchTrigger: false });
 
     this.table = host.querySelector('#notes-data-table');
     this.pagination = host.querySelector('#notes-table-pagination');

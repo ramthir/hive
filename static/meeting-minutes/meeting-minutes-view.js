@@ -1,11 +1,9 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
-import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
-import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import { readPagePath } from '/static/notes/read-pages.js';
-import { SpecificationView } from '/static/specifications/specification-view.js';
+import { ReadMarkdownSurface, renderOutline, renderReadPageShell, wireReadPageShell } from '/static/notes/read-view.js';
 import { sectionKey, unwrapWikilink as referenceTarget } from '/static/notes/markdown-sections.js';
 import { normalizeType } from '/static/type-icons.js';
 import { actionProgress, isMeetingMinutesNote, meetingArchive, meetingParticipants, minutesRow, parseMeetingMinutes, shortMinutesDate, toggleAction } from '/static/meeting-minutes/meeting-minutes-note.js';
@@ -74,7 +72,17 @@ function scrollParent(element) {
   return null;
 }
 
-export class MeetingMinutesView extends SpecificationView {
+export class MeetingMinutesView {
+  constructor(host, actions) {
+    this.host = host;
+    this.actions = actions;
+    this.surface = new ReadMarkdownSurface();
+  }
+
+  markdown(text) {
+    return this.surface.markdown(text);
+  }
+
   render(note, { typeLabel, typeIconName }) {
     const { host } = this;
     this.note = note;
@@ -98,12 +106,12 @@ export class MeetingMinutesView extends SpecificationView {
       participants.length > 0 && { label: `${participants.length} participant${participants.length === 1 ? '' : 's'}`, icon: 'fa-solid fa-user-group', tone: 'neutral' },
       total > 0 && { label: `${done}/${total} actions done`, icon: 'fa-solid fa-list-check', tone: done === total ? 'green' : 'orange', title: 'Action items' },
     ]);
-    host.innerHTML = `
-      <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" bottom attached breadcrumbs-in-top-padding>
-          ${chips}
-          <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
-        </app-header>
+    host.innerHTML = renderReadPageShell({
+      pageClass: 'spec-page',
+      title: note.title,
+      headerAttrs: 'bottom breadcrumbs-in-top-padding',
+      chips,
+      bodyHtml: `
         ${top ? `<div class="minutes-top">${this.section(top)}</div>` : ''}
         <div class="spec-workspace minutes-workspace">
           <div class="spec-main" id="minutes-main">
@@ -113,14 +121,16 @@ export class MeetingMinutesView extends SpecificationView {
           </div>
           ${participants.length ? this.participants(people, participants) :
             sections.length > 2 ? this.outline(main, typeLabel) : ''}
-        </div>
-        ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
-      </section>`;
+        </div>`,
+      note,
+      typeLabel,
+      typeIconName,
+      actions: this.actions,
+    });
     this._breadcrumbCache = this._breadcrumbCache || {};
     showBreadcrumbs(host.querySelector('app-header'), note, this._breadcrumbCache);
-    wireSearchTrigger(host);
-    wireReadActionBar(host, this.actions);
-    this.wireOutline();
+    wireReadPageShell(host, this.actions);
+    this.surface.wireOutline(host);
     this.decorate(host.querySelector('.notes-page'));
   }
 
@@ -202,7 +212,7 @@ export class MeetingMinutesView extends SpecificationView {
       label.textContent = owner[1].replace(/\s+/g, ' ');
       tail.splitText(owner.index + owner[0].indexOf(owner[1])).replaceWith(label);
     }
-    super.decorate(root);
+    this.surface.decorate(root, this.note);
   }
 
   progress(body) {
@@ -259,10 +269,14 @@ export class MeetingMinutesView extends SpecificationView {
   }
 
   outline(entries, typeLabel) {
-    const label = typeLabel === 'Meeting' ? 'Meeting sections' : 'Meeting minutes sections';
-    return `<nav class="spec-outline" aria-label="${label}">
-      <b>Sections</b>
-      ${entries.map(({ id, name, tone, body }) => `<a href="#${id}" data-spec-link="${id}"><span>${esc(name)}</span>${tone === 'actions' ? this.progress(body) : ''}</a>`).join('')}
-    </nav>`;
+    const ariaLabel = typeLabel === 'Meeting' ? 'Meeting sections' : 'Meeting minutes sections';
+    return renderOutline(
+      entries.map(({ id, name, tone, body }) => ({ id, label: name, count: tone === 'actions' ? actionProgress(body).total : 0 })),
+      { ariaLabel },
+    );
+  }
+
+  destroy() {
+    this.surface.destroy();
   }
 }

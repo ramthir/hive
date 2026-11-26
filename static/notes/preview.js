@@ -2,6 +2,7 @@ import { showToast } from '/static/toast.js';
 import { renderMarkdownPreview as renderMarkdown } from '/static/notes/markdown.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { notesRouter } from '/static/notes/notes-router.js';
+import { downloadDiagramPng } from '/static/notes/read-view.js';
 import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
 
 export class Preview {
@@ -11,29 +12,8 @@ export class Preview {
   }
 
   // Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi).
-  async downloadDiagramPng(source, theme) {
-    try {
-      const res = await fetch('/api/diagram/render/png', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, theme }),
-      });
-      if (!res.ok) {
-        const detail = await res.json().then((body) => body.detail).catch(() => '');
-        throw new Error(detail || 'Could not render the PNG.');
-      }
-      const url = URL.createObjectURL(await res.blob());
-      const link = document.createElement('a');
-      const name = String(this.selectedNote?.title || 'diagram').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
-      link.href = url;
-      link.download = `${name}-${theme}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      showToast(error.message || 'Could not download the diagram PNG.', 'error');
-    }
+  downloadDiagramPng(source, theme) {
+    return downloadDiagramPng(this.selectedNote, source, theme);
   }
 
   renderMarkdownPreview(content) {

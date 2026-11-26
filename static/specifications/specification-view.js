@@ -1,16 +1,11 @@
-import '/static/components/dropdown-menu.js'; // the menu on a rendered diagram (Download PNG)
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
-import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
-import { DiagramPreviews } from '/static/notes/diagrams.js';
-import { Preview } from '/static/notes/preview.js'; // used for downloadDiagramPng
-import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
-import { api } from '/static/notes/api.js';
-import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
-import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import {
-  parseSpecification, scopeGroups, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
+  ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
+} from '/static/notes/read-view.js';
+import {
+  parseSpecification, statusLabel, verifiedAge, verifiedStale, MAX_SCENARIOS,
 } from '/static/specifications/specification-note.js';
 import { unwrapWikilink } from '/static/notes/markdown-sections.js';
 
@@ -46,35 +41,16 @@ export class SpecificationView {
   constructor(host, actions) {
     this.host = host;
     this.actions = actions;
-    this.diagrams = new DiagramPreviews(
-      (source) => api('/diagram/render', { method: 'POST', body: { source } }),
-      async (slug) => (await api(`/notes/${encodeURIComponent(slug)}`)).revision,
-    );
-    this.onMenu = (event) => {
-      const figure = event.target.closest?.('.notes-diagram[data-diagram]');
-      const theme = event.detail?.action;
-      if (figure && (theme === 'dark' || theme === 'light')) Preview.prototype.downloadDiagramPng.call({ selectedNote: this.note }, figure.dataset.diagram, theme);
-    };
+    this.surface = new ReadMarkdownSurface();
   }
 
   markdown(text) {
-    return renderMarkdownPreview(text, {
-      isRoute: () => false,
-      decorate: (parsed) => { this.diagrams.markBlocks(parsed); this.diagrams.markEmbeds(parsed); },
-    });
+    return this.surface.markdown(text);
   }
 
   // "In scope:" and "Out of scope:" lines inside Scope each start a labelled group; without them the text is drawn as it is.
   scope(text) {
-    const groups = scopeGroups(text);
-    if (!groups.some((group) => group.kind)) return this.markdown(text);
-    const LABELS = { in: ['In scope', 'fa-circle-check'], out: ['Out of scope', 'fa-ban'] };
-    return groups.map(({ kind, body }) => {
-      const [label, icon] = LABELS[kind] || [];
-      return `<div class="spec-scope-group${kind ? ` spec-scope-group--${kind}` : ''}">
-        ${label ? `<h3 class="spec-scope-label"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</h3>` : ''}
-        ${body ? this.markdown(body) : '<p class="spec-empty">Nothing listed.</p>'}</div>`;
-    }).join('');
+    return renderScopeGroups(text, (chunk) => this.markdown(chunk));
   }
 
   render(note, { typeLabel, typeIconName }) {
@@ -95,12 +71,12 @@ export class SpecificationView {
         title: 'When it was last checked against the code (the verified property)',
       },
     ]);
-    host.innerHTML = `
-      <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
-          ${chips}
-          <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
-        </app-header>
+    host.innerHTML = renderReadPageShell({
+      pageClass: 'spec-page',
+      title: note.title,
+      headerAttrs: 'bottom',
+      chips,
+      bodyHtml: `
         <div class="spec-workspace">
           <div class="spec-main" id="spec-main">
             ${spec.legacy ? `<p class="spec-legacy" role="note">${esc(LEGACY_NOTICE)}</p>` : ''}
@@ -108,13 +84,15 @@ export class SpecificationView {
             ${this.formatCheck()}
           </div>
           ${this.outline()}
-        </div>
-        ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
-      </section>`;
-    wireSearchTrigger(host);
-    wireReadActionBar(host, this.actions);
-    this.wireOutline();
-    this.decorate(host.querySelector('#spec-main'));
+        </div>`,
+      note,
+      typeLabel,
+      typeIconName,
+      actions: this.actions,
+    });
+    wireReadPageShell(host, this.actions);
+    this.surface.wireOutline(host);
+    this.surface.decorate(host.querySelector('#spec-main'), note);
   }
 
   outline() {
@@ -128,11 +106,10 @@ export class SpecificationView {
       sections.push({ id: slugOf(section.name), label: section.name, count });
     }
     const requirements = spec.requirements.map((item, index) => `<a href="#spec-req-${index}" data-spec-link="spec-req-${index}"><span>${esc(item.name)}</span></a>`).join('');
-    return `<nav class="spec-outline" aria-label="Specification sections">
-      <b>Sections</b>
-      ${sections.map((s) => `<a href="#${s.id}" data-spec-link="${s.id}"><span>${esc(s.label)}</span>${s.count ? `<span class="spec-count">${s.count}</span>` : ''}</a>`).join('')}
-      ${requirements ? `<b class="spec-outline-gap">Requirements</b>${requirements}` : ''}
-    </nav>`;
+    return renderOutline(sections, {
+      ariaLabel: 'Specification sections',
+      extraHtml: requirements ? `<b class="spec-outline-gap">Requirements</b>${requirements}` : '',
+    });
   }
 
   body() {
@@ -179,42 +156,7 @@ export class SpecificationView {
     </section>`;
   }
 
-  // Wiki links, diagrams and code blocks inside the rendered markdown behave as in the note preview.
-  decorate(root) {
-    if (!root) return;
-    decorateWikilinks(root);
-    this.diagrams.decorate(root, { editing: false });
-    this.diagrams.loadEmbeds(root);
-    setupCodeBlockActions(root);
-    root.removeEventListener('dropdown-select', this.onMenu);
-    root.addEventListener('dropdown-select', this.onMenu);
-    root.addEventListener('click', (event) => handleWikilinkClick(event, {
-      onNavigate: (url) => window.location.assign(url),
-      onCreate: (target) => promptCreateNote(target, {
-        onCreated: (created) => window.location.assign(`/notes/${encodeURIComponent(created.slug)}?mode=edit`),
-      }),
-    }));
-  }
-
-  // The outline marks the section in view.
-  wireOutline() {
-    this.observer?.disconnect();
-    const links = new Map([...this.host.querySelectorAll('[data-spec-link]')].map((link) => [link.dataset.specLink, link]));
-    if (typeof IntersectionObserver === 'undefined' || !links.size) return;
-    this.observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (!visible) return;
-      links.forEach((link) => link.classList.remove('on'));
-      links.get(visible.target.id)?.classList.add('on');
-    }, { rootMargin: '0px 0px -70% 0px' });
-    for (const id of links.keys()) {
-      const target = this.host.querySelector(`#${CSS.escape(id)}`);
-      if (target) this.observer.observe(target);
-    }
-  }
-
   destroy() {
-    this.observer?.disconnect();
-    this.diagrams.dispose();
+    this.surface.destroy();
   }
 }

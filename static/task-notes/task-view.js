@@ -1,8 +1,9 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
-import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
-import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
-import { SpecificationView, highlightRequirementKeywords } from '/static/specifications/specification-view.js';
+import {
+  ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
+} from '/static/notes/read-view.js';
+import { highlightRequirementKeywords } from '/static/specifications/specification-view.js';
 import { COLUMNS, PRIORITIES, ticketUrl } from '/static/tasks/card.js';
 import { parseTask, planSteps, projectName, visibleTags } from '/static/task-notes/task-note.js';
 
@@ -11,11 +12,16 @@ const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' spec-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
-    its checklists and a card per section. The page, markdown, diagrams and outline behave as on the specification page. */
-export class TaskView extends SpecificationView {
-  decorate(root) {
-    for (const prose of root?.querySelectorAll('.spec-prose') ?? []) highlightRequirementKeywords(prose);
-    super.decorate(root);
+    its checklists and a card per section. */
+export class TaskView {
+  constructor(host, actions) {
+    this.host = host;
+    this.actions = actions;
+    this.surface = new ReadMarkdownSurface();
+  }
+
+  markdown(text) {
+    return this.surface.markdown(text);
   }
 
   render(note, { typeLabel, typeIconName }) {
@@ -36,24 +42,28 @@ export class TaskView extends SpecificationView {
       note.week && { label: note.week, icon: 'fa-regular fa-calendar', title: 'Week finished' },
       ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag' })),
     ]);
-    host.innerHTML = `
-      <section class="notes-page spec-page">
-        <app-header heading="${esc(note.title)}" variant="flush" bottom attached>
-          ${chips}
-          <div slot="actions" class="notes-header-actions app-header-action-group">${renderSearchTrigger()}</div>
-        </app-header>
+    host.innerHTML = renderReadPageShell({
+      pageClass: 'spec-page',
+      title: note.title,
+      headerAttrs: 'bottom',
+      chips,
+      bodyHtml: `
         <div class="spec-workspace">
           <div class="spec-main" id="spec-main">
             ${this.body()}
           </div>
           ${this.outline()}
-        </div>
-        ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
-      </section>`;
-    wireSearchTrigger(host);
-    wireReadActionBar(host, this.actions);
-    this.wireOutline();
-    this.decorate(host.querySelector('#spec-main'));
+        </div>`,
+      note,
+      typeLabel,
+      typeIconName,
+      actions: this.actions,
+    });
+    wireReadPageShell(host, this.actions);
+    this.surface.wireOutline(host);
+    const root = host.querySelector('#spec-main');
+    for (const prose of root?.querySelectorAll('.spec-prose') ?? []) highlightRequirementKeywords(prose);
+    this.surface.decorate(root, note);
   }
 
   // The ticket: a link to Jira where the board links it too (same rule, `ticketUrl`), otherwise plain.
@@ -87,10 +97,7 @@ export class TaskView extends SpecificationView {
     if (this.task.lead) entries.push({ id: 'task-lead', label: 'Summary', count: 0 });
     this.task.sections.forEach((section, index) => entries.push({ id: `task-s${index}`, label: section.name, count: section.questions || section.steps || section.total }));
     if (entries.length < 2) return '<nav class="spec-outline" aria-hidden="true"></nav>';
-    return `<nav class="spec-outline" aria-label="Task sections">
-      <b>Sections</b>
-      ${entries.map((entry) => `<a href="#${entry.id}" data-spec-link="${entry.id}"><span>${esc(entry.label)}</span>${entry.count ? `<span class="spec-count">${entry.count}</span>` : ''}</a>`).join('')}
-    </nav>`;
+    return renderOutline(entries, { ariaLabel: 'Task sections' });
   }
 
   // A Plan written as a numbered list is drawn as steps (number, bold name, text); other text around it, or a Plan with no list, as it is.
@@ -112,9 +119,13 @@ export class TaskView extends SpecificationView {
       const pill = section.total ? `<span class="spec-pill${section.done === section.total ? ' spec-pill--ok' : ''}">${section.done} of ${section.total}</span>` : '';
       parts.push(`<section id="task-s${index}" class="spec-section task-section${section.total ? ' task-section--checks' : ''}${SECTION_CLASS[section.kind] || ''}">
         <h2 class="spec-heading">${esc(section.name)}${pill}</h2>
-        <div class="notes-preview-body spec-prose">${section.kind === 'scope' ? this.scope(section.body) : section.kind === 'plan' ? this.plan(section.body) : this.markdown(section.body)}</div></section>`);
+        <div class="notes-preview-body spec-prose">${section.kind === 'scope' ? renderScopeGroups(section.body, (c) => this.markdown(c)) : section.kind === 'plan' ? this.plan(section.body) : this.markdown(section.body)}</div></section>`);
     });
     if (!parts.length) parts.push('<p class="spec-empty">This task has no text yet. Use the pencil to write it.</p>');
     return parts.join('');
+  }
+
+  destroy() {
+    this.surface.destroy();
   }
 }

@@ -1,8 +1,7 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { copyTextToClipboard } from '/static/clipboard.js';
-import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
+import { renderReadPageShell, wireReadPageShell } from '/static/notes/read-view.js';
 import { parseTimeline, phaseMarkdown } from '/static/timelines/timeline-note.js';
-import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 
 /** The read view of a timeline note: one card per phase on a rail. */
 export class TimelineView {
@@ -18,20 +17,16 @@ export class TimelineView {
     const body = phases.length
       ? `<ol class="timeline-rail">${phases.map((phase, index) => this.card(phase, index)).join('')}</ol>`
       : '<p class="timeline-empty">No phases yet. Add <code>## Month 2026 — Title</code> headings with a paragraph and a bullet list under each (the pencil edits the text).</p>';
-    host.innerHTML = `
-      <section class="notes-page timeline-page">
-        <app-header heading="${esc(note.title)}" variant="flush" attached>
-          <div slot="actions" class="notes-header-actions app-header-action-group">
-            ${renderSearchTrigger()}
-          </div>
-        </app-header>
-        <div class="timeline-workspace">
-          ${body}
-        </div>
-        ${renderReadActionBar(note, { typeLabel, typeIconName, actions: this.actions })}
-      </section>`;
-    wireSearchTrigger(host);
-    wireReadActionBar(host, this.actions);
+    host.innerHTML = renderReadPageShell({
+      pageClass: 'timeline-page',
+      title: note.title,
+      bodyHtml: `<div class="timeline-workspace">${body}</div>`,
+      note,
+      typeLabel,
+      typeIconName,
+      actions: this.actions,
+    });
+    wireReadPageShell(host, this.actions);
     host.querySelectorAll('.timeline-phase-copy').forEach((button) => button.addEventListener('click', async () => {
       try {
         await copyTextToClipboard(phaseMarkdown(phases[Number(button.dataset.phase)]));
