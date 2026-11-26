@@ -4,27 +4,45 @@ import { showToast } from '/static/toast.js';
 import { renderSearchTrigger, wireSearchTrigger } from '/static/components/search-trigger.js';
 import { api } from '/static/notes/api.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
-import { DiagramPreviews } from '/static/notes/diagrams.js';
+import { DiagramPreviews, embedFileName, embedPngUrl } from '/static/notes/diagrams.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import { renderReadActionBar, wireReadActionBar } from '/static/notes/status-bar.js';
 import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
 import { scopeGroups } from '/static/specifications/specification-note.js';
 
 /** Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi). */
-export async function downloadDiagramPng(note, source, theme) {
+export function downloadDiagramPng(note, source, theme) {
+  return savePng(() => fetch('/api/diagram/render/png', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source, theme }),
+  }), note?.title, theme);
+}
+
+/** The same for an embedded diagram (`/notes/<slug>/diagram.svg?n=2`): the server renders the other note's diagram as PNG. */
+export function downloadEmbedPng(src, alt, theme) {
+  return savePng(() => fetch(embedPngUrl(src, theme)), embedFileName(src, alt), theme);
+}
+
+/** Run the diagram menu's choice for the figure the event came from: a fenced diagram (`data-diagram`) or an embed (`data-embed`). */
+export function handleDiagramMenu(event, note) {
+  const figure = event.target.closest?.('.notes-diagram');
+  const theme = event.detail?.action;
+  if (!figure || (theme !== 'dark' && theme !== 'light')) return;
+  if (figure.dataset.diagram) downloadDiagramPng(note, figure.dataset.diagram, theme);
+  else if (figure.dataset.embed) downloadEmbedPng(figure.dataset.embed, figure.querySelector('img')?.getAttribute('alt'), theme);
+}
+
+async function savePng(request, title, theme) {
   try {
-    const res = await fetch('/api/diagram/render/png', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source, theme }),
-    });
+    const res = await request();
     if (!res.ok) {
       const detail = await res.json().then((body) => body.detail).catch(() => '');
       throw new Error(detail || 'Could not render the PNG.');
     }
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
-    const name = String(note?.title || 'diagram').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
+    const name = String(title || 'diagram').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
     link.href = url;
     link.download = `${name}-${theme}.png`;
     document.body.appendChild(link);
@@ -99,11 +117,7 @@ export class ReadMarkdownSurface {
       (source) => api('/diagram/render', { method: 'POST', body: { source } }),
       async (slug) => (await api(`/notes/${encodeURIComponent(slug)}`)).revision,
     );
-    this._onMenu = (event) => {
-      const figure = event.target.closest?.('.notes-diagram[data-diagram]');
-      const theme = event.detail?.action;
-      if (figure && (theme === 'dark' || theme === 'light')) downloadDiagramPng(this.note, figure.dataset.diagram, theme);
-    };
+    this._onMenu = (event) => handleDiagramMenu(event, this.note);
     this._onClick = (event) => handleWikilinkClick(event, {
       onNavigate: (url) => window.location.assign(url),
       onCreate: (target) => promptCreateNote(target, {

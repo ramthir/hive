@@ -2,18 +2,12 @@ import { showToast } from '/static/toast.js';
 import { renderMarkdownPreview as renderMarkdown } from '/static/notes/markdown.js';
 import { setupCodeBlockActions } from '/static/notes/code-blocks.js';
 import { notesRouter } from '/static/notes/notes-router.js';
-import { downloadDiagramPng } from '/static/notes/read-view.js';
 import { decorateWikilinks, handleWikilinkClick, promptCreateNote } from '/static/notes/wikilinks.js';
 
 export class Preview {
   getTitleFromContent(content) {
     const heading = /^#\s+(.+)$/m.exec(String(content || ''));
     return heading ? heading[1].trim() : '';
-  }
-
-  // Save a high-resolution PNG of one diagram (300 dpi where it fits; the server picks the dpi).
-  downloadDiagramPng(source, theme) {
-    return downloadDiagramPng(this.selectedNote, source, theme);
   }
 
   renderMarkdownPreview(content) {

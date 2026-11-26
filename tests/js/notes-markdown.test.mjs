@@ -184,7 +184,7 @@ test('a rendered diagram carries a kebab menu with a dark and a light item', () 
   assert.equal(nodes.length, 0);
 });
 
-const { embedSlug, versionedEmbed } = await import('../../static/notes/diagrams.js');
+const { embedSlug, versionedEmbed, embedPngUrl, embedFileName } = await import('../../static/notes/diagrams.js');
 
 test('an embed address names its note and takes the note revision as v', () => {
   assert.equal(embedSlug('/notes/arch/diagram.svg?n=2'), 'arch');
@@ -194,6 +194,15 @@ test('an embed address names its note and takes the note revision as v', () => {
   assert.equal(versionedEmbed('/notes/arch/diagram.png', 'abc'), '/notes/arch/diagram.png?v=abc');
   assert.equal(versionedEmbed('/notes/arch/diagram.svg?v=old&n=2', 'new'), '/notes/arch/diagram.svg?v=new&n=2');
   assert.equal(versionedEmbed('/notes/arch/diagram.svg', null), '/notes/arch/diagram.svg');
+});
+
+test('an embed downloads as the PNG of the same diagram, named by its alt text', () => {
+  assert.equal(embedPngUrl('/notes/arch/diagram.svg?n=2&v=abc', 'light'), '/notes/arch/diagram.png?n=2&v=abc&theme=light');
+  assert.equal(embedPngUrl('/notes/arch/diagram.png?theme=dark', 'light'), '/notes/arch/diagram.png?theme=light');
+  assert.equal(embedPngUrl('/elsewhere.svg', 'dark'), null);
+  assert.equal(embedFileName('/notes/arch/diagram.svg?n=2', ' Domain Model '), 'Domain Model');
+  assert.equal(embedFileName('/notes/arch/diagram.svg?n=2', ''), 'arch-2');
+  assert.equal(embedFileName('/notes/arch/diagram.svg', null), 'arch-1');
 });
 
 test('embeds wait for their revision, then load once with v', async () => {

@@ -114,6 +114,7 @@
 .notes-diagram-img { display: block; max-width: 100%; height: auto; margin-inline: auto; border-radius: var(--radius-md); }
 .notes-diagram { position: relative; }
 .notes-diagram pre { margin: 0; }
+.notes-diagram-inline { display: inline-block; margin: 0; max-width: 100%; }
 .notes-diagram-tools { position: absolute; top: .5rem; right: .5rem; display: flex; gap: .3rem; opacity: 0; transition: opacity .15s; }
 .notes-diagram:hover .notes-diagram-tools, .notes-diagram-tools:focus-within { opacity: 1; }
 .notes-diagram-tools, .notes-diagram-tools .app-dropdown-popup { font-family: var(--font-family); line-height: 1.3; letter-spacing: normal; text-transform: none; }

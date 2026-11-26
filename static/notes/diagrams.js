@@ -16,6 +16,22 @@ export function versionedEmbed(src, revision) {
   return `/notes/${m[1]}/diagram.${m[2]}?${query}`;
 }
 
+/** The PNG address of an embed (`/notes/<slug>/diagram.png?n=2&theme=light`), keeping its `n` and `v`; null for any other address. */
+export function embedPngUrl(src, theme) {
+  const m = EMBED.exec(src || '');
+  if (!m) return null;
+  const query = new URLSearchParams(m[3] || '');
+  query.set('theme', theme);
+  return `/notes/${m[1]}/diagram.png?${query}`;
+}
+
+/** The download name of an embed: its alt text, else `<slug>-<n>`. */
+export function embedFileName(src, alt) {
+  const m = EMBED.exec(src || '');
+  const n = new URLSearchParams(m?.[3] || '').get('n') || '1';
+  return String(alt || '').trim() || `${m?.[1] || 'diagram'}-${n}`;
+}
+
 export class DiagramPreviews {
   /** `render(source)` resolves to `{ svg }` or rejects with an error that may carry `status`.
    *  `revision(slug)` resolves to the note's revision (for the embeds' `v=`); without it embeds load unversioned. */
@@ -44,6 +60,10 @@ export class DiagramPreviews {
   // The rendered diagram plus a kebab menu with "Download PNG" in dark and light. Markup only: the page
   // listens for the menu's `dropdown-select` (the figure may be re-parsed from HTML, which loses listeners).
   content(doc, figure, dataUrl) {
+    return [this.image(doc, dataUrl), this.tools(doc)];
+  }
+
+  tools(doc) {
     const tools = doc.createElement('div');
     tools.className = 'notes-diagram-tools';
     tools.innerHTML = `<app-dropdown-menu class="diagram-download-menu" placement="bottom-end">
@@ -53,7 +73,7 @@ export class DiagramPreviews {
         <button class="app-dropdown-item notes-menu-item" type="button" data-download-theme="dark"><i class="fa-regular fa-moon" aria-hidden="true"></i><span>Dark Theme</span></button>
         <button class="app-dropdown-item notes-menu-item" type="button" data-download-theme="light"><i class="fa-regular fa-sun" aria-hidden="true"></i><span>Light Theme</span></button>
       </div></app-dropdown-menu>`;
-    return [this.image(doc, dataUrl), tools];
+    return tools;
   }
 
   // Replace each plantuml fence in the parsed document by a figure: the image if known, else the code with a status line.
@@ -81,6 +101,8 @@ export class DiagramPreviews {
   }
 
   // `![](/notes/<slug>/diagram.svg?n=2)`: held back (no src) until the note's revision is known, so the image loads once, with `v=`.
+  // Wrapped like a fenced diagram (a figure with the Download PNG menu, `data-embed` naming the address); an image alone in its
+  // paragraph replaces the paragraph (a figure cannot sit in a <p>), one inside text gets an inline wrapper.
   markEmbeds(parsed) {
     parsed.querySelectorAll('img[src]').forEach((img) => {
       const src = img.getAttribute('src');
@@ -89,6 +111,13 @@ export class DiagramPreviews {
       img.setAttribute('data-embed', src);
       img.removeAttribute('src');
       if (this.versioned.has(src)) img.setAttribute('src', this.versioned.get(src));
+      const parent = img.parentElement;
+      const alone = parent?.tagName === 'P' && parent.childNodes.length === [...parent.childNodes].filter((node) => node === img || (node.nodeType === 3 && !node.textContent.trim())).length;
+      const figure = parsed.createElement(alone ? 'figure' : 'span');
+      figure.className = alone ? 'notes-diagram' : 'notes-diagram notes-diagram-inline';
+      figure.setAttribute('data-embed', src);
+      (alone ? parent : img).replaceWith(figure);
+      figure.append(img, this.tools(parsed));
     });
   }
 
@@ -108,7 +137,7 @@ export class DiagramPreviews {
         const note = img.ownerDocument.createElement('p');
         note.className = 'notes-diagram-error';
         note.textContent = `Could not load this diagram (${img.getAttribute('alt') || embedSlug(src)}): the note, the diagram number or PlantUML is missing.`;
-        img.replaceWith(note);
+        (img.closest('.notes-diagram[data-embed]') || img).replaceWith(note);
       }, { once: true });
       img.setAttribute('src', next);
     });

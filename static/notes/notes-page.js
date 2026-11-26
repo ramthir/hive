@@ -9,6 +9,7 @@ import { renderSearchTrigger, wireSearchTrigger } from '/static/components/searc
 import { DEFAULT_TYPE, typeIcon, typeLabel, typeOptions } from '/static/type-icons.js';
 import { configureMarkedWikilinks } from '/static/notes/markdown.js';
 import { DiagramPreviews } from '/static/notes/diagrams.js';
+import { handleDiagramMenu } from '/static/notes/read-view.js';
 import '/static/components/dropdown-menu.js';
 import { api } from '/static/notes/api.js';
 import { confirmAndDeleteNote, openDialog, dialogHeader, showAlertDialog } from '/static/notes/dialogs.js';
@@ -64,11 +65,7 @@ class NotesApp extends HTMLElement {
     this._previewClickHandler = (event) => this.handlePreviewClick(event);
     // PlantUML previews: rendered diagrams are cached by source; failed sources are not retried until edited.
     this._diagrams = new DiagramPreviews((source) => api('/diagram/render', { method: 'POST', body: { source } }), async (slug) => (await api(`/notes/${encodeURIComponent(slug)}`)).revision);
-    this._diagramMenuHandler = (event) => {
-      const figure = event.target.closest?.('.notes-diagram[data-diagram]');
-      const theme = event.detail?.action;
-      if (figure && (theme === 'dark' || theme === 'light')) this.downloadDiagramPng(figure.dataset.diagram, theme);
-    };
+    this._diagramMenuHandler = (event) => handleDiagramMenu(event, this.selectedNote);
   }
 
   connectedCallback() {
