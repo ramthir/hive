@@ -24,6 +24,10 @@ def _day(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
+def _scalar(meta: Any, key: str) -> str | None:
+    return (str(meta[key]).strip() or None) if meta.get(key) is not None else None
+
+
 def parse_types(raw: Any) -> tuple[str, ...]:
     """`type:` may be a list (the usual form) or a single scalar; blanks are dropped."""
     if raw is None:
@@ -115,9 +119,9 @@ class FileNoteRepository(NoteRepository):
             created=_day(meta.get("created")),
             updated=_day(meta.get("updated")),
             types=parse_types(meta.get("type")),
-            status=(str(meta["status"]).strip() or None) if meta.get("status") is not None else None,
-            priority=(str(meta["priority"]).strip() or None) if meta.get("priority") is not None else None,
-            week=(str(meta["week"]).strip() or None) if meta.get("week") is not None else None,
+            status=_scalar(meta, "status"),
+            priority=_scalar(meta, "priority"),
+            week=_scalar(meta, "week"),
             time=parse_time(meta.get("time")),
             extra={k: v for k, v in meta.items() if k not in MANAGED},
             modified=modified,
@@ -140,15 +144,13 @@ class FileNoteRepository(NoteRepository):
         meta["updated"] = _as_date(iso)
         if tuple(note.types) != parse_types(meta.get("type")):
             _set_key(meta, "type", _types_value(note.types) if note.types else None, ("tags", "title"))
-        current_status = str(meta["status"]).strip() if meta.get("status") is not None else None
-        if note.status != (current_status or None):
-            _set_key(meta, "status", note.status, ("type", "tags", "title"))
-        current_priority = str(meta["priority"]).strip() if meta.get("priority") is not None else None
-        if note.priority != (current_priority or None):
-            _set_key(meta, "priority", note.priority, ("status", "type", "tags", "title"))
-        current_week = str(meta["week"]).strip() if meta.get("week") is not None else None
-        if note.week != (current_week or None):
-            _set_key(meta, "week", note.week, ("priority", "status", "type", "tags", "title"))
+        for key, value, after in (
+            ("status", note.status, ("type", "tags", "title")),
+            ("priority", note.priority, ("status", "type", "tags", "title")),
+            ("week", note.week, ("priority", "status", "type", "tags", "title")),
+        ):
+            if value != _scalar(meta, key):
+                _set_key(meta, key, value, after)
         if note.time != parse_time(meta.get("time")):  # only when the usable days changed
             _set_key(meta, "time", _time_value(note.time, meta.get("time")) or None, ("week", "priority", "status", "type", "tags", "title"))
         for k in [k for k in meta if k not in MANAGED and k not in note.extra]:
@@ -281,13 +283,17 @@ class FileNoteRepository(NoteRepository):
                                    change.kind, change.kinds, change.summary, change.detail))
         return out
 
-    def compare(self, slug: str, sha: str, against: str) -> Comparison:
-        """One version against its previous version (`previous`) or against the note as it is now (`current`), with its
-        place in the history: one cached log and at most three parsed notes."""
+    def _resolve_commit(self, slug: str, sha: str) -> tuple[list[Commit], Commit]:
         history = self._history(slug)
         match = next((c for c in history if c.sha == sha or c.sha.startswith(sha)), None)
         if match is None or match.deleted:
             raise NoteNotFound(f"{slug}@{sha}")
+        return history, match
+
+    def compare(self, slug: str, sha: str, against: str) -> Comparison:
+        """One version against its previous version (`previous`) or against the note as it is now (`current`), with its
+        place in the history: one cached log and at most three parsed notes."""
+        history, match = self._resolve_commit(slug, sha)
         i = history.index(match)
         version = self._cached_version(slug, match.sha, match.path)
         current = self.get(slug) if self._path(slug).is_file() else None  # a deleted note still has a history
@@ -313,9 +319,7 @@ class FileNoteRepository(NoteRepository):
         return note
 
     def _version_text(self, slug: str, sha: str) -> str:
-        match = next((v for v in self.versions(slug) if v.sha == sha or v.sha.startswith(sha)), None)
-        if match is None or match.deleted:
-            raise NoteNotFound(f"{slug}@{sha}")
+        _, match = self._resolve_commit(slug, sha)
         return self.git.show(match.sha, match.path)
 
     def get_version(self, slug: str, sha: str) -> Note:
