@@ -1,3 +1,4 @@
+import { escapeHtml } from './html.js';
 /**
  * Pandora Toast Notification System
  * A non-blocking toast notification manager styled with Monokai Pro design tokens.
@@ -54,15 +55,6 @@ function placeContainer(parent) {
   const modals = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'));
   const host = modals.length ? modals[modals.length - 1] : document.body;
   if (parent.parentElement !== host) host.appendChild(parent);
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 export function showToast(message, type = 'info', duration = 3500) {

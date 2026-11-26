@@ -1,8 +1,6 @@
 import './tooltip.js';
+import { escapeHtml } from '../html.js';
 export { STAT_CARD_GRID_CSS, renderStatCard, createStatCard } from './stat-card-render.js';
-
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 const formatIconClass = (icon) => {
   const raw = String(icon || 'fa-circle').trim() || 'fa-circle';

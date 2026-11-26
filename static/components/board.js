@@ -1,5 +1,4 @@
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
+import { escapeHtml } from '../html.js';
 
 class AppBoard extends HTMLElement {
   constructor() {

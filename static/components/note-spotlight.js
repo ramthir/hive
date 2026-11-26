@@ -1,8 +1,6 @@
 import { noteTypeIcon, noteTypeColor } from '../type-icons.js';
 import { readPagePath } from '../notes/read-pages.js';
-
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+import { escapeHtml } from '../html.js';
 
 export function formatSpotlightNote(note) {
   return {

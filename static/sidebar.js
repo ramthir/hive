@@ -1,3 +1,4 @@
+import { escapeHtml } from './html.js';
 /**
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
@@ -30,9 +31,6 @@ const APPS = Object.freeze({
 const onIptv = (item, location) => location.pathname === '/iptv' && (new URLSearchParams(location.search).get('type') || 'vod') === item.iptvType;
 
 const COLLAPSED_KEY = 'hive:sidebar-collapsed';
-
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 export const initialsOf = (name = '') =>
   name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || 'U';

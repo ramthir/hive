@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../html.js';
 const focusable =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),app-combobox:not([disabled]),app-datepicker:not([disabled]),[tabindex]:not([tabindex="-1"])';
 const openDialogs = [];
@@ -158,14 +159,6 @@ export function createDialog(element, { initialFocus = null, closeOnBackdrop = t
     isOpen: () => element.isOpen(),
     destroy: () => element.destroy(),
   };
-}
-
-function esc(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }
 
 export function confirmDialog({

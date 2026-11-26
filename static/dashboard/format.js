@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../html.js';
 /** What the dashboard's stat cards and process table show, kept free of DOM access so it can be unit-tested. */
 
 /** Green below `warn`, yellow below `crit`, red above: the colour of a gauge. */
@@ -13,8 +14,6 @@ export const diskColor = (percentUsed) => levelColor(percentUsed, 75, 90);
 
 export const STORAGE_COLORS = { home: 'var(--color-blue)', notes: 'var(--color-yellow)', downloads: 'var(--color-purple)' };
 const STORAGE_NAMES = { home: 'Home', notes: 'Notes', downloads: 'Downloads' };
-const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPES[char]);
 
 /** The line under the Storage value: each size in the colour of its piece of the bar. */
 export function storageSubHtml(storage, disk = null) {

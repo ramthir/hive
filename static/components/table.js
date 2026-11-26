@@ -1,3 +1,5 @@
+import { escapeHtml } from '../html.js';
+
 const INTERACTIVE_SELECTOR = 'a,button,input,select,textarea,label,summary,[data-row-action]';
 const FA_PREFIX_RE = /^(fa-solid|fa-regular|fa-brands|fa-light|fa-thin|fa-duotone|fas|far|fab)\b/;
 
@@ -266,10 +268,7 @@ export class AppTable extends HTMLElement {
   }
 
   escape(value) {
-    return String(value ?? '').replace(
-      /[&<>"']/g,
-      (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
-    );
+    return escapeHtml(value);
   }
 }
 

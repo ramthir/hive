@@ -1,12 +1,5 @@
 import { renderChip } from './chips.js';
-
-const escapeHtml = (value) =>
-  String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+import { escapeHtml } from '../html.js';
 
 export function renderBreadcrumbTrail(breadcrumbs) {
   if (!breadcrumbs.length) return '';

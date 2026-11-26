@@ -1,8 +1,4 @@
-const esc = (value) =>
-  String(value ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
-  );
+import { escapeHtml as esc } from '../html.js';
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.userAgent || navigator.platform || '');
 const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K';

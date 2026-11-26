@@ -1,7 +1,5 @@
 import './tooltip.js';
-
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+import { escapeHtml } from '../html.js';
 
 const SPARKLINE_CSS = `
   :host {

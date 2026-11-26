@@ -1,7 +1,6 @@
+import { escapeHtml as esc } from '../html.js';
 // Shared searchable combobox component used by service views.
 let comboId = 0;
-const esc = (value) =>
-  String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
 
 class AppCombobox extends HTMLElement {
   static get observedAttributes() {
