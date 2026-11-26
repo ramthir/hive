@@ -39,7 +39,7 @@ export class TaskView {
       priority && { label: priority.label, icon: priority.icon, tone: PRIORITY_TONE[priority.value], title: `Priority ${priority.rank}`, className: `task-priority--${priority.value}` },
       project && { label: project, icon: 'fa-solid fa-briefcase', tone: 'blue', className: 'task-project' },
       this.ticketChip(ticket, project),
-      note.week && { label: note.week, icon: 'fa-regular fa-calendar', title: 'Week finished' },
+      note.week && { label: note.week, icon: 'fa-regular fa-calendar', tone: 'purple', title: 'Week finished', className: 'task-week' },
       ...visibleTags(note.tags, project).map((tag) => ({ label: tag, icon: 'fa-solid fa-tag' })),
     ]);
     host.innerHTML = renderReadPageShell({

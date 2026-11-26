@@ -94,7 +94,11 @@ tasks-app {
   padding-inline: 0.25rem;
   background: transparent;
 }
-.board-chip--week { font-variant-numeric: tabular-nums; }
+.tasks-board-wrap .board-chip--week {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-purple);
+  background: color-mix(in srgb, var(--color-purple) 14%, transparent);
+}
 .board-chip--ticket { font-variant-numeric: tabular-nums; }
 .board-chip--ticket.board-chip--link:hover,
 .board-chip--ticket.board-chip--link:focus-visible {
