@@ -57,9 +57,9 @@
 .spec-prose p { margin: 0 0 var(--space-3); }
 .spec-prose p:last-child, .spec-prose ul:last-child { margin-bottom: 0; }
 .spec-prose ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--space-2); }
-.spec-prose :is(h3, h4, h5, h6) { margin: var(--space-4) 0 var(--space-2); font-weight: 600; line-height: 1.35; color: var(--color-text); }
-.spec-prose :is(h3, h4, h5, h6):first-child { margin-top: 0; }
-.spec-prose h3 { font-size: 0.9375rem; }
+.spec-prose :is(h3, h4, h5, h6):not(.spec-scope-label) { margin: var(--space-4) 0 var(--space-2); font-weight: 600; line-height: 1.35; color: var(--color-text); }
+.spec-prose :is(h3, h4, h5, h6):not(.spec-scope-label):first-child { margin-top: 0; }
+.spec-prose h3:not(.spec-scope-label) { font-size: 0.9375rem; }
 .spec-prose :is(h4, h5, h6) { font-size: 0.875rem; color: var(--color-dimmed1); }
 .requirement-keyword { background: transparent; color: var(--color-orange); font-weight: 700; }
 
