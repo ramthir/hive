@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
+import { TASK_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import {
   ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
 } from '/static/notes/read-view.js';
@@ -7,7 +8,6 @@ import { highlightRequirementKeywords } from '/static/specifications/specificati
 import { COLUMNS, taskChips } from '/static/tasks/card.js';
 import { parseTask, planSteps } from '/static/task-notes/task-note.js';
 
-const STATUS_TONE = { TODO: ['todo', 'neutral'], IN_PROGRESS: ['in-progress', 'blue'], DONE: ['done', 'green'] };
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', scope: ' spec-section--scope', criteria: ' task-section--criteria', questions: ' spec-section--questions', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
@@ -28,10 +28,9 @@ export class TaskView {
     this.note = note;
     this.task = parseTask(note.content);
     const status = COLUMNS.find((column) => column.value === note.task_status);
-    const [statusSlug, statusTone] = STATUS_TONE[status?.value] || [];
     // The board card's chips (shared, `taskChips`) after the status and checklist progress; the time logged is in the footer.
     const chips = renderHeaderChips([
-      status && { label: status.label, tone: statusTone, title: 'Status', className: `task-status--${statusSlug}` },
+      status && { label: status.label, tone: TASK_STATUS_TONE[status.value], title: 'Status', className: `task-status--${status.value.toLowerCase().replace('_', '-')}` },
       this.progressChip(),
       ...taskChips({
         priority: note.priority, project: note.extra?.project, ticket: note.extra?.ticket,
@@ -101,7 +100,7 @@ export class TaskView {
     const parts = [];
     if (task.lead) parts.push(`<section id="task-lead" class="spec-section"><div class="notes-preview-body spec-prose task-lead">${this.markdown(task.lead)}</div></section>`);
     task.sections.forEach((section, index) => {
-      const pill = section.total ? `<span class="spec-pill${section.done === section.total ? ' spec-pill--ok' : ''}">${section.done} of ${section.total}</span>` : '';
+      const pill = section.total ? renderChip({ label: `${section.done} of ${section.total}`, tone: section.done === section.total ? 'green' : '' }) : '';
       parts.push(`<section id="task-s${index}" class="spec-section task-section${section.total ? ' task-section--checks' : ''}${SECTION_CLASS[section.kind] || ''}">
         <h2 class="spec-heading">${esc(section.name)}${pill}</h2>
         <div class="notes-preview-body spec-prose">${section.kind === 'scope' ? renderScopeGroups(section.body, (c) => this.markdown(c)) : section.kind === 'plan' ? this.plan(section.body) : this.markdown(section.body)}</div></section>`);

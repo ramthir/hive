@@ -102,7 +102,7 @@ test('CreatorIQ ticket chips link directly to Jira in a new tab', () => {
   const task = { slug: 'x', title: 'X', ticket: 'APIM-66' };
   for (const project of ['CreatorIQ', '[[CreatorIQ]]']) {
     const html = renderCard({ ...task, project });
-    assert.match(html, /<a class="header-chip spec-pill header-chip--blue task-ticket" title="Open APIM-66 in Jira" href="https:\/\/socialedge\.atlassian\.net\/browse\/APIM-66" target="_blank"/);
+    assert.match(html, /<a class="header-chip header-chip--blue task-ticket" title="Open APIM-66 in Jira" href="https:\/\/socialedge\.atlassian\.net\/browse\/APIM-66" target="_blank"/);
   }
   assert.doesNotMatch(renderCard({ ...task, project: 'Arrcus' }), /socialedge\.atlassian\.net/);
   assert.doesNotMatch(renderCard({ ...task, project: 'CreatorIQ', ticket: '../APIM-66' }), /socialedge\.atlassian\.net/);

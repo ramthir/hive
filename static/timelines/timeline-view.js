@@ -42,7 +42,7 @@ export class TimelineView {
   card(phase, index) {
     return `<li class="timeline-phase" id="phase-${index}" >
       <span class="timeline-dot" aria-hidden="true"></span>
-      <span class="timeline-badge">${esc(phase.label)}</span>
+      <span class="header-chip header-chip--blue timeline-badge">${esc(phase.label)}</span>
       <div class="timeline-card">
         <div class="timeline-phase-head">
           <span class="timeline-phase-title">${esc(phase.title)}</span>

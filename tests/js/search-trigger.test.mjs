@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { renderHeaderChip, renderHeaderChips } from '../../static/components/page-header.js';
+import { renderHeaderChips } from '../../static/components/page-header.js';
+import { PRIORITY_TONE, SPEC_STATUS_TONE, TASK_STATUS_TONE, TONES, renderChip } from '../../static/components/chips.js';
 import { renderSearchTrigger } from '../../static/components/search-trigger.js';
 
 test('the header search is one shared markup, not a copy per page', () => {
@@ -36,12 +37,24 @@ test('header chips share one helper and tone vocabulary across views', () => {
     { label: 'APIM-66', icon: 'fa-solid fa-ticket', tone: 'blue', href: 'https://jira.example/browse/APIM-66', title: 'Open APIM-66 in Jira' },
   ]);
   assert.match(row, /^<div slot="subtitle" class="header-chips">/);
-  assert.match(row, /<span class="header-chip spec-pill header-chip--green spec-pill--ok spec-status">Active<\/span>/);
+  assert.match(row, /<span class="header-chip header-chip--green spec-status">Active<\/span>/);
   assert.match(row, /<i class="fa-solid fa-briefcase" aria-hidden="true"><\/i>CreatorIQ/);
-  assert.match(row, /<a class="header-chip spec-pill header-chip--blue" title="Open APIM-66 in Jira" href="https:\/\/jira\.example\/browse\/APIM-66" target="_blank" rel="noopener noreferrer">/);
-  assert.equal(renderHeaderChip({ label: 'a < b & "c"' }), '<span class="header-chip spec-pill">a &lt; b &amp; &quot;c&quot;</span>');
+  assert.match(row, /<a class="header-chip header-chip--blue" title="Open APIM-66 in Jira" href="https:\/\/jira\.example\/browse\/APIM-66" target="_blank" rel="noopener noreferrer">/);
+  assert.equal(renderChip({ label: 'a < b & "c"' }), '<span class="header-chip">a &lt; b &amp; &quot;c&quot;</span>');
+  assert.equal(renderChip({ label: 'x', tone: 'orange', tag: 'li' }), '<li class="header-chip header-chip--orange">x</li>');
+  assert.equal(renderChip({ label: '' }), '');
+  for (const map of [TASK_STATUS_TONE, PRIORITY_TONE, SPEC_STATUS_TONE]) for (const tone of Object.values(map)) assert.ok(TONES.includes(tone), tone);
   for (const page of ['specifications/specification-view.js', 'task-notes/task-view.js']) {
     const src = readFileSync(new URL(`../../static/${page}`, import.meta.url), 'utf8');
     assert.ok(src.includes('renderHeaderChips('), `${page} does not use renderHeaderChips`);
   }
+});
+
+test('no page draws a chip of its own: every chip is renderChip with a tone', () => {
+  const css = ['hive.css', 'meeting-minutes/meeting-minutes.css', 'timelines/timelines.css', 'specifications/specifications.css', 'task-notes/task-note.css']
+    .map((file) => readFileSync(new URL(`../../static/${file}`, import.meta.url), 'utf8')).join('\n');
+  assert.doesNotMatch(css, /spec-pill|minutes-action-pill--|\.hive-prop-chip\.(?:old|new) \{[^}]*(?:color|background):/);
+  const js = ['specifications/specification-view.js', 'task-notes/task-view.js', 'meeting-minutes/meeting-minutes-view.js', 'notes/history-detail.js']
+    .map((file) => readFileSync(new URL(`../../static/${file}`, import.meta.url), 'utf8')).join('\n');
+  assert.doesNotMatch(js, /class="(?:spec-pill|minutes-action-pill|hive-prop-chip)/);
 });

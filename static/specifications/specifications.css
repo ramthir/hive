@@ -43,5 +43,5 @@
 .spec-then { color: var(--color-text); }
 
 .spec-check ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.spec-check .spec-pill { margin-top: var(--space-3); }
-.spec-check ul .spec-pill { margin-top: 0; }
+.spec-check .header-chip { margin-top: var(--space-3); }
+.spec-check ul .header-chip { margin-top: 0; }

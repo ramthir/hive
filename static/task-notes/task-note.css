@@ -13,7 +13,7 @@
 .task-bar--done > span { background: var(--color-green); }
 
 .task-section .spec-heading { display: flex; align-items: center; gap: var(--space-3); }
-.task-section .spec-heading .spec-pill { text-transform: none; letter-spacing: 0; }
+.task-section .spec-heading .header-chip { text-transform: none; letter-spacing: 0; }
 
 /* Checklists: a plain list with the boxes shown as they are in the note (read-only). */
 .task-section--checks .spec-prose ul { list-style: none; padding-left: 0; }

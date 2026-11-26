@@ -80,9 +80,8 @@
 .hive-prop-row .key { flex: none; width: 5.2rem; font: .76rem 'JetBrains Mono', Menlo, monospace; opacity: .65; }
 .hive-prop-row.minor .note { font-size: .78rem; opacity: .6; }
 .hive-prop-row i { font-size: .7rem; opacity: .6; }
-.hive-prop-chip { font-size: .82rem; border-radius: 6px; padding: 2px 9px; overflow-wrap: anywhere; }
-.hive-prop-chip.old { background: color-mix(in srgb, #ff6188 16%, transparent); text-decoration: line-through; opacity: .85; }
-.hive-prop-chip.new { background: color-mix(in srgb, #a9dc76 18%, transparent); color: #a9dc76; font-weight: 500; }
+.header-chip.hive-prop-chip { font-size: .82rem; font-weight: 500; padding: 2px 9px; overflow-wrap: anywhere; } /* a value, so a little larger than a label */
+.hive-prop-chip.old { text-decoration: line-through; opacity: .85; }
 .hive-prop-chip.unset { opacity: .6; font-style: italic; }
 .hive-version-position { font-size: .82rem; opacity: .7; white-space: nowrap; }
 /* The older / newer buttons are the drawer's own icon buttons (.modal-icon-btn: size from --drawer-icon-button-size). */
@@ -151,21 +150,21 @@
 .header-search-input::-webkit-search-cancel-button { cursor: pointer; }
 
 /* The one chip style: page-header chips (`renderHeaderChips`, page-header.js) and task board cards (`taskChips`,
-   tasks/card.js). The colour comes from the tone class `renderHeaderChip` adds; `.spec-pill` is the same chip in a spec's body. */
+   tasks/card.js) and read pages' bodies, all drawn by `renderChip` (components/chips.js). The colour is the tone class. */
 .header-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; margin-top: 0.3rem; }
-.header-chip, .spec-pill {
+.header-chip {
   display: inline-flex; align-items: center; gap: 0.3rem; padding: 0 0.5rem; min-height: 1.25rem;
   border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; font-variant-numeric: tabular-nums;
   color: var(--color-dimmed1); background: color-mix(in srgb, var(--color-dimmed3) 18%, transparent);
   text-decoration: none;
 }
-.header-chip i, .spec-pill i { font-size: 0.65rem; }
+.header-chip i { font-size: 0.65rem; }
 .header-chip--neutral { color: var(--color-dimmed1); }
 .header-chip--blue { color: var(--color-blue); background: color-mix(in srgb, var(--color-blue) 14%, transparent); }
 a.header-chip--blue:hover, a.header-chip--blue:focus-visible { background: color-mix(in srgb, var(--color-blue) 24%, transparent); }
 a.header-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-.header-chip--green, .spec-pill--ok { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
-.header-chip--orange, .spec-pill--warn { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
+.header-chip--green { color: var(--color-green); background: color-mix(in srgb, var(--color-green) 14%, transparent); }
+.header-chip--orange { color: var(--color-orange); background: color-mix(in srgb, var(--color-orange) 14%, transparent); }
 .header-chip--red { color: var(--color-red); background: color-mix(in srgb, var(--color-red) 14%, transparent); }
 .header-chip--purple { color: var(--color-purple); background: color-mix(in srgb, var(--color-purple) 14%, transparent); }
 .header-chip--outline { color: var(--color-dimmed2); background: transparent; box-shadow: inset 0 0 0 1px var(--color-dimmed5); }

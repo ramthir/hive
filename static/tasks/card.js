@@ -2,7 +2,7 @@ import { escapeHtml as esc } from '../html.js';
 import { parseTags } from '../notes/tags.js';
 import { unwrapWikilink } from '../notes/markdown-sections.js';
 import { formatDuration } from '../time-entries/format.js';
-import { renderHeaderChip } from '../components/page-header.js';
+import { PRIORITY_TONE, renderChip } from '../components/chips.js';
 import { visibleTags } from '../task-notes/task-note.js';
 
 export { parseTags };
@@ -83,10 +83,8 @@ export function ticketUrl(task) {
   return projectName(task || {}).toLowerCase() === 'creatoriq' && /^[a-z][a-z0-9_]*-\d+$/i.test(ticket) ? `${JIRA}${ticket.toUpperCase()}` : '';
 }
 
-const PRIORITY_TONE = { must: 'red', important: 'orange', 'nice-to-have': 'green' };
-
 /**
- * The chips a task shows on its board card and on its own page, as `renderHeaderChip` descriptors, in this order:
+ * The chips a task shows on its board card and on its own page, as `renderChip` descriptors (components/chips.js), in this order:
  * priority, project, ticket, week, time logged, then the tags that say something new (not `todo`/`done`, a priority or
  * the project). Both places draw them with the same `.header-chip` styles (hive.css).
  */
@@ -108,7 +106,7 @@ export function taskChips(task) {
 }
 
 export function renderCard(task) {
-  const chips = taskChips(task).map(renderHeaderChip).join('');
+  const chips = taskChips(task).map(renderChip).join('');
   return `<div class="board-card-heading">
       <div class="board-card-title">${esc(task.title)}</div>
       <a class="board-card-note-link" href="${esc(noteHref(task))}" title="Open note" aria-label="Open note ${esc(task.title)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>

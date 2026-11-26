@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
+import { SPEC_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import { renderMarkdownPreview } from '/static/notes/markdown.js';
 import {
   ReadMarkdownSurface, renderOutline, renderReadPageShell, renderScopeGroups, wireReadPageShell,
@@ -11,7 +12,6 @@ import { unwrapWikilink } from '/static/notes/markdown-sections.js';
 
 const LEGACY_NOTICE = 'This specification is in an older format. Edit it to match the structure in the vault: Objective, Scope, Requirements (a SHALL or MUST statement and scenarios each), Out of Scope, Open Questions, References.';
 const slugOf = (name) => `spec-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'}`;
-const STATUS_TONE = { draft: 'neutral', active: 'green', deprecated: 'red' };
 
 const inlineMarkdown = (text, decorate) => renderMarkdownPreview(text, { inline: true, decorate });
 
@@ -62,7 +62,7 @@ export class SpecificationView {
     const age = verifiedAge(note.extra?.verified);
     const project = unwrapWikilink(note.extra?.project);
     const chips = renderHeaderChips([
-      status && { label: status, tone: STATUS_TONE[status.toLowerCase()], className: `spec-status spec-status--${status.toLowerCase()}` },
+      status && { label: status, tone: SPEC_STATUS_TONE[status.toLowerCase()], className: `spec-status spec-status--${status.toLowerCase()}` },
       project && { label: project, icon: 'fa-solid fa-hammer', tone: 'blue', className: 'spec-project' },
       spec.requirements.length && { label: `${spec.requirements.length} requirement${spec.requirements.length === 1 ? '' : 's'}` },
       {
@@ -139,8 +139,8 @@ export class SpecificationView {
     return `<article class="spec-req${item.strong ? '' : ' spec-req--weak'}" id="spec-req-${index}">
       <header class="spec-req-head">
         <h3 class="spec-req-name">${esc(item.name)}</h3>
-        ${item.strong ? '' : '<span class="spec-pill spec-pill--warn">No SHALL or MUST</span>'}
-        ${item.scenarios.length ? `<span class="spec-pill${many ? ' spec-pill--warn' : ''}">${item.scenarios.length} scenario${item.scenarios.length === 1 ? '' : 's'}</span>` : ''}
+        ${item.strong ? '' : renderChip({ label: 'No SHALL or MUST', tone: 'orange' })}
+        ${item.scenarios.length ? renderChip({ label: `${item.scenarios.length} scenario${item.scenarios.length === 1 ? '' : 's'}`, tone: many ? 'orange' : '' }) : ''}
       </header>
       ${statement ? `<p class="spec-statement spec-prose">${statement}</p>` : ''}
       ${item.scenarios.length ? `<ol class="spec-scenarios">${item.scenarios.map((s, n) => `<li class="spec-scenario${s.given ? ' spec-scenario--given' : ''}"><span class="spec-sid" aria-hidden="true">S${n + 1}</span>${s.given ? `<span class="spec-label spec-label--given">Given</span><span class="spec-given spec-prose">${inlineMarkdown(s.given)}</span>` : ''}<span class="spec-label spec-label--when">When</span><span class="spec-when spec-prose">${inlineMarkdown(s.when)}</span><span class="spec-label spec-label--then">Then</span><span class="spec-then spec-prose">${inlineMarkdown(s.then)}</span></li>`).join('')}</ol>` : ''}
@@ -152,7 +152,7 @@ export class SpecificationView {
     const { issues } = this.spec;
     return `<section class="spec-check" aria-label="Format check">
       <h2 class="spec-heading">Format check</h2>
-      ${issues.length ? `<ul>${issues.map((issue) => `<li class="spec-pill spec-pill--warn">${esc(issue)}</li>`).join('')}</ul>` : '<span class="spec-pill spec-pill--ok">Follows the specification structure</span>'}
+      ${issues.length ? `<ul>${issues.map((issue) => renderChip({ label: issue, tone: 'orange', tag: 'li' })).join('')}</ul>` : renderChip({ label: 'Follows the specification structure', tone: 'green' })}
     </section>`;
   }
 

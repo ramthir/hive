@@ -1,4 +1,5 @@
 import { escapeHtml as esc } from '../html.js';
+import { renderChip } from '../components/chips.js';
 import { parseUtcDate } from '../relative-time.js';
 import { parseDiff, renderDiff } from './diff.js';
 import { kindIcon, timeOfDay, dayLabel } from './history-list.js';
@@ -14,16 +15,19 @@ export function diffCounts(text) {
 /** "3 of 47". */
 export const positionLabel = (info) => (info?.total ? `${info.index} of ${info.total}` : '');
 
+// The old value is a red chip (struck through), the new one green; a missing value is a quiet italic one.
+const TONE = { old: 'red', new: 'green' };
+const unset = (label) => renderChip({ label, className: 'hive-prop-chip unset' });
 const chip = (value, cls) => (value === null || value === undefined
-  ? `<span class="hive-prop-chip unset">not set</span>`
-  : `<span class="hive-prop-chip ${cls}">${esc(value)}</span>`);
+  ? unset('not set')
+  : renderChip({ label: String(value), tone: TONE[cls], className: `hive-prop-chip ${cls}` }));
 
 /** The frontmatter keys that changed: `status  IN_PROGRESS → DONE`. Bookkeeping (`updated`) is one dimmed line. '' if none. */
 export function renderProperties(changes) {
   if (!changes?.length) return '';
   const rows = changes.map((change) => (change.minor
     ? `<div class="hive-prop-row minor"><span class="key">${esc(change.key)}</span><span class="note">${esc(change.old ?? 'not set')} → ${esc(change.new ?? 'removed')} · bookkeeping</span></div>`
-    : `<div class="hive-prop-row"><span class="key">${esc(change.key)}</span>${change.old === null ? '' : chip(change.old, 'old')}${change.old === null ? '' : '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>'}${change.new === null ? '<span class="hive-prop-chip unset">removed</span>' : chip(change.new, 'new')}</div>`));
+    : `<div class="hive-prop-row"><span class="key">${esc(change.key)}</span>${change.old === null ? '' : chip(change.old, 'old')}${change.old === null ? '' : '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i>'}${change.new === null ? unset('removed') : chip(change.new, 'new')}</div>`));
   return `<section class="hive-vd-section" aria-labelledby="vd-props"><h3 id="vd-props">Properties</h3><div class="hive-prop-card">${rows.join('')}</div></section>`;
 }
 

@@ -1387,12 +1387,12 @@ def test_a_tag_changed_by_the_properties_drawer_updates_the_footer_tags(page, se
     git(notes_dir, "commit", "-qm", "bare")
     page.goto(f"{server}/notes/bare")
     expect(page.locator("app-header .task-priority--must")).to_have_text("Must")  # the tag is read as the priority, not shown twice
-    expect(page.locator("app-header .spec-pill").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
+    expect(page.locator("app-header .header-chip").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
     page.click("#note-properties-btn")
     pick_field(page.locator(".notes-properties-drawer"), "priority", "Important")
     page.locator('.notes-properties-drawer [data-action="save"]').click()
     expect(page.locator("app-header .task-priority--important")).to_have_text("Important")
-    expect(page.locator("app-header .spec-pill").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
+    expect(page.locator("app-header .header-chip").filter(has=page.locator(".fa-tag"))).to_have_text(["work"])
     assert "priority: important" in (notes_dir / "bare.md").read_text()
     assert page.errors == []
 
@@ -2350,8 +2350,8 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(ticket).to_have_text("APIM-66")  # opens the Jira task, as the board's ticket chip does
     expect(ticket).to_have_attribute("href", "https://socialedge.atlassian.net/browse/APIM-66")
     expect(ticket).to_have_attribute("target", "_blank")
-    expect(page.locator("app-header .spec-pill").filter(has_text="Auth")).to_have_count(1)
-    expect(page.locator("app-header .spec-pill").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
+    expect(page.locator("app-header .header-chip").filter(has_text="Auth")).to_have_count(1)
+    expect(page.locator("app-header .header-chip").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
     expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
     keywords = page.locator(".requirement-keyword")
     expect(keywords).to_have_text(["MUST", "SHALL"])
@@ -3003,7 +3003,7 @@ def test_meeting_series_shows_latest_minutes_and_participants(page, server, note
     expect(page.locator(".minutes-archive .minutes-list-title")).to_have_text(
         ["Wednesday, November 18, 2026", "Wednesday, July 8, 2026", "Wednesday, June 3, 2026"]
     )
-    expect(page.locator(".minutes-archive .minutes-action-pill--pending")).to_have_text(["1 pending"])
+    expect(page.locator(".minutes-archive .minutes-action-pill.header-chip--orange")).to_have_text(["1 pending"])
     expect(page.locator(".minutes-archive .minutes-list-ago").first).not_to_be_empty()
     expect(page.locator(".minutes-list-subtitle")).to_have_count(0)  # "Weekly" is the series name on every row
     expect(page.locator("#log-time-btn")).to_be_visible()

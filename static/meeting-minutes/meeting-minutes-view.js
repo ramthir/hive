@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from '/static/html.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
+import { renderChip } from '/static/components/chips.js';
 import { api } from '/static/notes/api.js';
 import { showToast } from '/static/toast.js';
 import { readPagePath } from '/static/notes/read-pages.js';
@@ -283,8 +284,8 @@ export class MeetingMinutesView {
       const { pending, total } = actions;
       badge.hidden = false;
       badge.innerHTML = pending > 0
-        ? `<span class="minutes-action-pill minutes-action-pill--pending" title="${pending} pending of ${total} action items">${pending} pending</span>`
-        : `<span class="minutes-action-pill minutes-action-pill--done" title="All ${total} action items done"><i class="fa-solid fa-check" aria-hidden="true"></i> All done</span>`;
+        ? renderChip({ label: `${pending} pending`, tone: 'orange', title: `${pending} pending of ${total} action items`, className: 'minutes-action-pill' })
+        : renderChip({ label: 'All done', icon: 'fa-solid fa-check', tone: 'green', title: `All ${total} action items done`, className: 'minutes-action-pill' });
     }
   }
 
