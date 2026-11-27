@@ -740,18 +740,15 @@ def test_library_is_its_own_app_with_only_its_three_links(page, server):
     expect(page.locator("app-sidebar .nav-link", has_text="Media Library")).to_have_count(0)
 
 
-def test_sidebar_has_dashboard_notes_tasks_time_chat_and_the_hardcoded_user(page, server):
+def test_sidebar_lists_hive_pages_and_the_hardcoded_user(page, server):
     page.goto(f"{server}/notes/alpha")
     links = page.locator("app-sidebar .nav-link")
-    expect(links).to_have_count(5)
-    expect(links.first).to_have_text("Dashboard")
+    expect(links).to_have_text([
+        "Dashboard", "Notes", "Tasks", "Time Entries", "Chat",
+    ])
     notes = links.nth(1)
-    expect(notes).to_have_text("Notes")
     expect(notes).to_have_class("nav-link active")
     expect(notes).to_have_attribute("aria-current", "page")
-    expect(links.nth(2)).to_have_text("Tasks")  # right under Notes
-    expect(links.nth(3)).to_have_text("Time Entries")
-    expect(links.nth(4)).to_have_text("Chat")
     expect(page.locator("app-sidebar .sidebar-profile-name")).to_have_text("Ramesh Thiruchelvam")
     expect(page.locator("app-sidebar .sidebar-profile-avatar")).to_have_text("RT")  # initials of the first two names
     # The user sits at the bottom of the sidebar, below the navigation.
@@ -3214,3 +3211,41 @@ def test_a_link_clicked_before_wiki_links_resolve_still_opens_the_read_page_dire
     expect(trail.get_by_role("link", name="Weekly")).to_have_attribute("href", "/meetings/weekly")
     trail.get_by_role("link", name="Weekly").click()
     page.wait_for_url("**/meetings/weekly")
+
+
+def test_limark_sidebar_opens_both_usage_reports(page, server):
+    from datetime import datetime, timezone
+
+    from tests.limark.test_aws_report import snapshot as aws_snapshot
+    from tests.limark.test_openai_report import snapshot as openai_snapshot
+    from src.infrastructure.limark.aws_report import AWSReport
+    from src.infrastructure.limark.openai_report import OpenAIReport
+    import json
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        aws_path = Path(tmp) / "aws.json"
+        aws_path.write_text(json.dumps(aws_snapshot()))
+        openai_path = Path(tmp) / "openai.json"
+        openai_path.write_text(json.dumps(openai_snapshot()))
+        aws = AWSReport(aws_path).view("2026-10", now=datetime(2026, 10, 3, tzinfo=timezone.utc), dashboard=True)
+        openai = OpenAIReport(openai_path).view("2026-09", now=datetime(2026, 9, 3, tzinfo=timezone.utc), dashboard=True)
+    page.route("**/api/limark/aws?*", lambda route: route.fulfill(json=aws))
+    page.route("**/api/limark/openai?*", lambda route: route.fulfill(json=openai))
+    page.goto(server + "/limark?month=2026-10")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Limark")
+    expect(page.locator("app-sidebar .logo-text")).to_have_text("Limark")
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["AWS Usage", "OpenAI Usage"])
+    expect(page.get_by_role("link", name="AWS Usage")).to_have_attribute("aria-current", "page")
+    icon = page.get_by_role("link", name="OpenAI Usage").locator("img")
+    expect(icon).to_have_attribute("src", "/static/vendor/fontawesome/openai.svg")
+    expect(icon).to_have_js_property("complete", True)
+    assert icon.evaluate("image => image.naturalWidth") > 0
+    expect(page.get_by_role("table", name="Service costs")).to_be_visible()
+    page.get_by_role("link", name="OpenAI Usage").click()
+    expect(page.get_by_role("link", name="OpenAI Usage")).to_have_attribute("aria-current", "page")
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["AWS Usage", "OpenAI Usage"])
+    expect(page.locator("app-header")).to_have_attribute("heading", "OpenAI API Usage")
+    expect(page.get_by_text("gpt-test", exact=True)).to_be_visible()
+    assert page.errors == []

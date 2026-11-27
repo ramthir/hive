@@ -3,7 +3,7 @@ import { escapeHtml } from './html.js';
  * App Sidebar Web Component (light DOM, styled by sidebar.css like Pandora's).
  * A left sidebar that can be collapsed (Ctrl/Cmd+\ or B). Hive is a desktop app: there is no mobile layout.
  *
- * Hive's version is deliberately small: five navigation items (the container Dashboard, Notes, the Tasks board, Time entries and Chat). The Media Library page is a separate app (`<app-shell app="iptv">`): its sidebar is headed Media Library and has only Movies, Series and Television. Both end with a hardcoded user at the bottom
+ * Hive's version is deliberately small: navigation items for Dashboard, Notes, Tasks, Time Entries and Chat. The Media Library page is a separate app (`<app-shell app="iptv">`): its sidebar is headed Media Library and has only Movies, Series and Television. Both end with a hardcoded user at the bottom
  * (there is no sign-in yet).
  */
 
@@ -16,15 +16,18 @@ const NAVIGATION_ITEMS = Object.freeze([
   { href: '/tasks', label: 'Tasks', icon: 'fa-solid fa-list-check', activePaths: ['/tasks'] },
   { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
   { href: '/chat', label: 'Chat', icon: 'fa-solid fa-comments', activePaths: ['/chat'] },
+  { href: '/limark/aws', label: 'AWS Usage', icon: 'fa-brands fa-aws', activePaths: ['/limark', '/limark/aws'], app: 'limark' },
+  { href: '/limark/openai', label: 'OpenAI Usage', iconSrc: '/static/vendor/fontawesome/openai.svg', activePaths: ['/limark/openai'], app: 'limark' },
   // The Media Library app (IPTV from a provider): one page (/iptv), the kind in ?type= (movies is the default). Shown only in the sidebar of `app="iptv"` pages.
   { href: '/iptv', label: 'Movies', icon: 'fa-solid fa-film', app: 'iptv', iptvType: 'vod' },
   { href: '/iptv?type=series', label: 'Series', icon: 'fa-solid fa-clapperboard', app: 'iptv', iptvType: 'series' },
   { href: '/iptv?type=live', label: 'Television', icon: 'fa-solid fa-tv', app: 'iptv', iptvType: 'live' },
 ]);
 
-// The apps a sidebar can be: the notes app and the Media Library. Each has its own heading, home and items.
+// Each app has its own heading, home and navigation items.
 const APPS = Object.freeze({
   hive: { title: 'Note Hive', home: '/notes', icon: 'fa-solid fa-circle-nodes', label: 'Note Hive Home' },
+  limark: { title: 'Limark', home: '/limark', icon: 'fa-solid fa-chart-column', label: 'Limark Home' },
   iptv: { title: 'Media Library', home: '/iptv', icon: 'fa-solid fa-photo-film', label: 'Media Library Home' },
 });
 
@@ -121,7 +124,7 @@ class AppSidebar extends HTMLElement {
     this.querySelectorAll('.nav-link').forEach((link) => {
       const href = link.getAttribute('href');
       const item = NAVIGATION_ITEMS.find((candidate) => candidate.href === href);
-      const byPath = item?.iptvType ? onIptv(item, window.location) : Boolean(item?.activePaths.some((p) => path === p || path.startsWith(`${p}/`)));
+      const byPath = item?.iptvType ? onIptv(item, window.location) : Boolean(item?.activePaths.some((p) => path === p || (this.app !== 'limark' && path.startsWith(`${p}/`))));
       const active = declared ? declared === href : byPath;
       link.classList.toggle('active', active);
       if (active) link.setAttribute('aria-current', 'page');
@@ -156,7 +159,9 @@ class AppSidebar extends HTMLElement {
         <div class="sidebar-nav" id="sidebar-nav">
           ${items.map((item) => `
             <a href="${escapeHtml(item.href)}" class="nav-link" title="${escapeHtml(item.label)}">
-              <i class="${escapeHtml(item.icon)}" aria-hidden="true"></i>
+              ${item.iconSrc
+                ? `<img class="nav-link-icon" src="${escapeHtml(item.iconSrc)}" alt="">`
+                : `<i class="${escapeHtml(item.icon)}" aria-hidden="true"></i>`}
               <span>${escapeHtml(item.label)}</span>
             </a>`).join('')}
         </div>

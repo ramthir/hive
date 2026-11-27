@@ -145,6 +145,13 @@ app-sidebar {
   color: var(--color-dimmed3);
   transition: color 0.15s ease;
 }
+.nav-link-icon {
+  width: 1.5rem;
+  height: 1rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: invert(1);
+}
 .nav-link:hover {
   color: var(--color-state-hover-text);
   background: var(--color-state-hover-bg);

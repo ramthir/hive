@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""OpenAI reporting cache. Standard library only; no inference requests are made."""
+import argparse
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+import fcntl
+import hashlib
+import json
+import os
+import shlex
+from pathlib import Path
+import sqlite3
+import tempfile
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+DAY = 86400
+METRICS = ('input_tokens', 'input_cached_tokens', 'output_tokens', 'num_model_requests')
+DATASETS = {'costs': ('costs', ('project_id', 'line_item'), 180),
+            'usage': ('usage/completions', ('project_id', 'model'), 31)}
+
+
+def utc_day(value):
+    return datetime.fromtimestamp(value, timezone.utc).date().isoformat()
+
+
+def stamp(value):
+    return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).timestamp()
+
+
+def iso(value):
+    return datetime.fromtimestamp(value, timezone.utc).isoformat()
+
+
+def atomic_json(path, value):
+    path = Path(path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix='.' + path.name, dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as output:
+            json.dump(value, output, indent=2, allow_nan=False)
+            output.write('\n')
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+class Client:
+    def __init__(self, key, organization='', opener=urlopen):
+        self.key, self.organization, self.opener = key, organization, opener
+        self.calls = 0
+
+    def get(self, endpoint, params):
+        if not self.key:
+            raise ValueError('OPENAI_ADMIN_KEY is required for sync')
+        headers = {'Authorization': 'Bearer ' + self.key}
+        if self.organization:
+            headers['OpenAI-Organization'] = self.organization
+        request = Request('https://api.openai.com/v1/organization/' + endpoint + '?' + urlencode(params), headers=headers)
+        self.calls += 1
+        try:
+            with self.opener(request, timeout=60) as response:
+                result = json.load(response)
+        except HTTPError as error:
+            # Do not expose headers, credentials or arbitrary upstream bodies.
+            raise ValueError(f'OpenAI {endpoint}: HTTP {error.code}; check admin access or retry later') from None
+        except (URLError, TimeoutError, json.JSONDecodeError) as error:
+            raise ValueError(f'OpenAI {endpoint}: request failed ({type(error).__name__})') from None
+        if not isinstance(result, dict) or not isinstance(result.get('data'), list) or result.get('error'):
+            raise ValueError(f'OpenAI {endpoint}: invalid response')
+        return result
+
+    def pages(self, endpoint, params, projects=False):
+        items, seen = [], set()
+        while True:
+            result = self.get(endpoint, params)
+            items.extend(result['data'])
+            if not result.get('has_more'):
+                return items
+            cursor = result.get('last_id' if projects else 'next_page')
+            if not isinstance(cursor, str) or not cursor or cursor in seen:
+                raise ValueError(f'OpenAI {endpoint}: invalid pagination cursor')
+            seen.add(cursor)
+            params = [p for p in params if p[0] not in ('after', 'page')]
+            params.append(('after' if projects else 'page', cursor))
+
+
+def project_record(dataset, record):
+    validate_record(dataset, record)
+    if dataset == 'costs':
+        return {'project_id': record.get('project_id'), 'line_item': record.get('line_item'),
+                'amount': {'value': record['amount']['value'], 'currency': record['amount']['currency']}}
+    return {'project_id': record.get('project_id'), 'model': record.get('model'),
+            **{metric: record.get(metric, 0) for metric in METRICS}}
+
+
+def project_identities(projects):
+    if not isinstance(projects, list) or any(not isinstance(p, dict) or not isinstance(p.get('id'), str)
+            or not isinstance(p.get('name'), str) for p in projects):
+        raise ValueError('Invalid projects response')
+    return [{'id': p['id'], 'name': p['name']} for p in projects]
+
+
+class Cache:
+    def __init__(self, path, account):
+        path = Path(path).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # The lock spans freshness check, requests and commit, avoiding duplicate fetches.
+        self.lock = open(str(path) + '.lock', 'a')
+        os.chmod(str(path) + '.lock', 0o600)
+        fcntl.flock(self.lock, fcntl.LOCK_EX)
+        self.db = sqlite3.connect(path)
+        os.chmod(path, 0o600)
+        self.account = account
+        self.db.executescript('''
+            CREATE TABLE IF NOT EXISTS days (
+                account TEXT, dataset TEXT, day TEXT, fetched REAL, records TEXT,
+                PRIMARY KEY(account,dataset,day));
+            CREATE TABLE IF NOT EXISTS projects (
+                account TEXT PRIMARY KEY, fetched REAL, records TEXT);
+        ''')
+        try:
+            self._normalize_legacy()
+        except Exception:
+            self.close()
+            raise
+
+    def _normalize_legacy(self):
+        pending = []
+        for dataset, day, raw in self.db.execute('SELECT dataset,day,records FROM days WHERE account=?', (self.account,)):
+            records = json.loads(raw)
+            if not isinstance(records, list) or dataset not in DATASETS:
+                raise ValueError('Invalid cached dataset')
+            projected = [project_record(dataset, record) for record in records]
+            if projected != records:
+                pending.append((json.dumps(projected), self.account, dataset, day))
+        row = self.db.execute('SELECT records FROM projects WHERE account=?', (self.account,)).fetchone()
+        identities = project_identities(json.loads(row[0])) if row else None
+        with self.db:
+            self.db.executemany('UPDATE days SET records=? WHERE account=? AND dataset=? AND day=?', pending)
+            if row and identities != json.loads(row[0]):
+                self.db.execute('UPDATE projects SET records=? WHERE account=?', (json.dumps(identities), self.account))
+
+    def close(self):
+        self.db.close()
+        self.lock.close()
+
+    def days(self, dataset, start, end):
+        return {d: (f, json.loads(r)) for d, f, r in self.db.execute(
+            'SELECT day,fetched,records FROM days WHERE account=? AND dataset=? AND day>=? AND day<?',
+            (self.account, dataset, start, end))}
+
+    def projects(self):
+        row = self.db.execute('SELECT fetched,records FROM projects WHERE account=?', (self.account,)).fetchone()
+        return (row[0], json.loads(row[1])) if row else (0, [])
+
+    def sync(self, client, start, end, datasets, now, ttl=DAY, force=False):
+        pending = []
+        # Collect everything first. No partial dataset or project update is committed.
+        for dataset in datasets:
+            existing = self.days(dataset, start, end)
+            missing = [d for d in dates(start, end) if force or d not in existing or now - existing[d][0] >= ttl]
+            endpoint, groups, limit = DATASETS[dataset]
+            for first, last in ranges(missing):
+                params = [('start_time', int(stamp(first))), ('end_time', int(stamp(last))),
+                          ('bucket_width', '1d'), ('limit', limit)] + [('group_by', g) for g in groups]
+                buckets = client.pages(endpoint, params)
+                records = {d: [] for d in dates(first, last)}
+                seen = set()
+                for bucket in buckets:
+                    if not isinstance(bucket, dict) or not isinstance(bucket.get('results'), list):
+                        raise ValueError('Invalid daily bucket')
+                    day = utc_day(bucket['start_time'])
+                    if day not in records or day in seen:
+                        raise ValueError('Unexpected or duplicate daily bucket')
+                    seen.add(day)
+                    records[day] = [project_record(dataset, record) for record in bucket['results']]
+                pending.extend((self.account, dataset, d, now, json.dumps(r)) for d, r in records.items())
+        fetched, projects = self.projects()
+        if force or not fetched or now - fetched >= ttl:
+            projects = client.pages('projects', [('limit', 100), ('include_archived', 'true')], projects=True)
+            projects = project_identities(projects)
+            fetched = now
+        with self.db:
+            self.db.executemany('INSERT OR REPLACE INTO days VALUES (?,?,?,?,?)', pending)
+            self.db.execute('INSERT OR REPLACE INTO projects VALUES (?,?,?)',
+                            (self.account, fetched, json.dumps(projects)))
+
+    def snapshot(self, start, end, datasets, now, ttl=DAY):
+        projects = self.projects()[1]
+        coverage, records = {}, {}
+        for dataset in datasets:
+            days = self.days(dataset, start, end)
+            missing = [d for d in dates(start, end) if d not in days]
+            expired = [d for d, (f, _) in days.items() if now - f >= ttl]
+            coverage[dataset] = {'missing_days': missing, 'stale_days': sorted(expired),
+                                 'last_success_at': iso(min(f for f, _ in days.values())) if days else None}
+            records[dataset] = [dict(r, date=d) for d, (_, rows) in sorted(days.items()) for r in rows]
+        return {'schema_version': 1, 'generated_at': iso(now), 'start': start, 'end': end,
+                'timezone': 'UTC', 'usage_scope': 'completions', 'projects': projects,
+                'coverage': coverage, **records}
+
+
+def validate_record(dataset, record):
+    if not isinstance(record, dict):
+        raise ValueError('Invalid record')
+    if record.get('project_id') is not None and not isinstance(record['project_id'], str):
+        raise ValueError('Invalid project identity')
+    if dataset == 'costs':
+        amount = record.get('amount', {})
+        try:
+            value = Decimal(str(amount['value']))
+        except (KeyError, TypeError, ArithmeticError):
+            raise ValueError('Invalid cost amount') from None
+        if not value.is_finite() or not isinstance(amount.get('currency'), str):
+            raise ValueError('Invalid cost amount or currency')
+        if record.get('line_item') is not None and not isinstance(record['line_item'], str):
+            raise ValueError('Invalid billing line item')
+    else:
+        if record.get('model') is not None and not isinstance(record['model'], str):
+            raise ValueError('Invalid usage model')
+        for metric in METRICS:
+            value = record.get(metric, 0)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError('Invalid usage metric')
+
+
+def dates(start, end):
+    current, stop = date.fromisoformat(start), date.fromisoformat(end)
+    while current < stop:
+        yield current.isoformat()
+        current += timedelta(days=1)
+
+
+def ranges(days):
+    if not days:
+        return
+    first = previous = date.fromisoformat(days[0])
+    for item in days[1:]:
+        current = date.fromisoformat(item)
+        if current != previous + timedelta(days=1):
+            yield first.isoformat(), (previous + timedelta(days=1)).isoformat()
+            first = current
+        previous = current
+    yield first.isoformat(), (previous + timedelta(days=1)).isoformat()
+
+
+def load_credentials(path):
+    """Read the two OpenAI settings from the existing config.env format."""
+
+    try:
+        lines = Path(path).expanduser().read_text().splitlines()
+    except FileNotFoundError:
+        return
+    allowed = {"OPENAI_ADMIN_KEY", "OPENAI_ORG_ID"}
+    for line in lines:
+        name, _, raw = line.strip().removeprefix("export ").partition("=")
+        if name.strip() in allowed and name.strip() not in os.environ:
+            try:
+                values = shlex.split(raw, comments=True)
+            except ValueError:
+                raise ValueError(f"Invalid setting for {name.strip()}") from None
+            if len(values) != 1:
+                raise ValueError(f"Invalid setting for {name.strip()}")
+            os.environ[name.strip()] = values[0]
+
+
+def main():
+    state = Path(os.environ.get("HIVE_STATE_DIR") or "~/.local/state/hive").expanduser() / "limark"
+    parser = argparse.ArgumentParser(description="Publish OpenAI organization costs and completion usage.")
+    parser.add_argument("--start", type=date.fromisoformat, help="First UTC day to collect")
+    parser.add_argument("--output", default=os.environ.get("LIMARK_OPENAI_REPORT") or state / "openai.json")
+    parser.add_argument("--cache", default=state / "openai.sqlite3")
+    parser.add_argument("--config", default="~/.config/openai/config.env")
+    parser.add_argument("--refresh", action="store_true", help="Refresh dates even when cached")
+    args = parser.parse_args()
+    try:
+        load_credentials(args.config)
+        key = os.environ.get("OPENAI_ADMIN_KEY")
+        if not key:
+            raise ValueError("OPENAI_ADMIN_KEY is required")
+        org = os.environ.get("OPENAI_ORG_ID", "")
+        today = datetime.now(timezone.utc).date()
+        scope = hashlib.sha256((org + "\0" + key).encode()).hexdigest()
+        cache = Cache(args.cache, scope)
+        try:
+            earliest, = cache.db.execute("SELECT MIN(day) FROM days WHERE account=?", (scope,)).fetchone()
+            start = args.start or (date.fromisoformat(earliest) if earliest else today.replace(day=1))
+            if start > today:
+                raise ValueError("--start cannot be in the future")
+            end = (today + timedelta(days=1)).isoformat()
+            now = time.time()
+            client = Client(key, org)
+            cache.sync(client, start.isoformat(), end, DATASETS, now, force=args.refresh)
+            snapshot = cache.snapshot(start.isoformat(), end, DATASETS, now)
+            if any(item["missing_days"] for item in snapshot["coverage"].values()):
+                raise ValueError("Incomplete coverage")
+            atomic_json(args.output, snapshot)
+        finally:
+            cache.close()
+    except (ValueError, OSError, sqlite3.Error, KeyError, TypeError) as error:
+        parser.exit(1, f"OpenAI sync: {error}\n")
+
+
+if __name__ == "__main__":
+    main()

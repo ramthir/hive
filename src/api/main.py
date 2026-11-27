@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.localhost import LocalhostOnly
-from src.api.routes import agents, chat as chat_routes, diagrams, events, iptv as iptv_routes, notes, system
+from src.api.routes import agents, chat as chat_routes, diagrams, events, iptv as iptv_routes, limark, notes, system
 from src.api.routes import colab as colab_routes
 from src.application.agents.quota import AgentQuota
 from src.application.agents.refresh import RefreshSchedule
@@ -209,6 +209,7 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     app.include_router(chat_routes.router, prefix="/api")
     app.include_router(iptv_routes.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
+    app.include_router(limark.usage_routes(state_dir() / "limark"), prefix="/api/limark")
 
     @app.get("/api/metrics")
     def get_metrics() -> dict:
@@ -230,6 +231,12 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
 
     for prefix in ("tables", "timelines", "specifications", "tasks", "meeting-minutes", "meetings"):
         app.add_api_route(f"/{prefix}/{{slug}}", note_view_page, methods=["GET"], include_in_schema=False)
+
+    @app.get("/limark", include_in_schema=False)
+    @app.get("/limark/aws", include_in_schema=False)
+    @app.get("/limark/openai", include_in_schema=False)
+    def limark_page() -> FileResponse:
+        return FileResponse(static / "limark.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/dashboard", include_in_schema=False)
     @app.get("/dashboard/agents", include_in_schema=False)
