@@ -79,5 +79,15 @@ export function readPagePath(note) {
 
 /** Select a Note View by URL, independently of the note's type precedence. */
 export function noteViewForPath(pathname) {
+  if (pathname === '/limark/employees') {
+    const table = READ_PAGES.find(({ type }) => type === 'table');
+    return {
+      ...table,
+      path: pathname,
+      app: 'limark',
+      fixedSlug: 'limark-employees',
+      matches: (note) => note.slug === 'limark-employees',
+    };
+  }
   return READ_PAGES.find(({ path }) => pathname.startsWith(`${path}/`));
 }

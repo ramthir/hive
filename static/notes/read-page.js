@@ -21,12 +21,12 @@ import { NoteChatDock } from '/static/notes/note-chat.js';
 
 const notePath = (slug, query = '') => `/notes/${encodeURIComponent(slug)}${query}`;
 
-export function defineReadPage({ type, path, matches, View, viewOptions = () => ({}), onSaved = () => {} }) {
+export function defineReadPage({ type, path, fixedSlug, matches, View, viewOptions = () => ({}), onSaved = () => {} }) {
   const pathPrefix = new RegExp(`^${path}/?`);
 
   class ReadPage extends HTMLElement {
     connectedCallback() {
-      this.slug = decodeURIComponent(window.location.pathname.replace(pathPrefix, '').split('/')[0] || '');
+      this.slug = fixedSlug ?? decodeURIComponent(window.location.pathname.replace(pathPrefix, '').split('/')[0] || '');
       this.chat = new NoteChatDock(this, {
         note: () => this.note,
         onFinished: (detail) => this.chatFinished(detail),

@@ -15,8 +15,14 @@ function loadStyles(href) {
 }
 
 const view = noteViewForPath(window.location.pathname);
+if (view?.app) {
+  const shell = document.querySelector('app-shell');
+  shell.setAttribute('app', view.app);
+  shell.setAttribute('active-href', view.path);
+}
+const shellReady = import('/static/shell.js');
 if (view) {
-  Promise.all([view.load(), ...view.styles.map(loadStyles)])
+  Promise.all([view.load(), shellReady, ...view.styles.map(loadStyles)])
     .then(([{ default: registration }]) => defineReadPage({ ...view, ...registration }))
     .catch((error) => {
       console.error('Failed to load note view:', error);

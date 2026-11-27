@@ -8,6 +8,7 @@
 }
 
 .notes-table-card { width: 100%; }
+.table-note-link { text-decoration: underline; }
 .table-stats-grid { grid-template-columns: repeat(var(--stats-count, 4), minmax(0, 1fr)); }
 .notes-table-pagination { display: block; }
 .notes-table-pagination[hidden] { display: none; }

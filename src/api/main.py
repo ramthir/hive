@@ -232,6 +232,10 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     for prefix in ("tables", "timelines", "specifications", "tasks", "meeting-minutes", "meetings"):
         app.add_api_route(f"/{prefix}/{{slug}}", note_view_page, methods=["GET"], include_in_schema=False)
 
+    @app.get("/limark/employees", include_in_schema=False)
+    def limark_employees_page() -> FileResponse:
+        return note_view_page("limark-employees")
+
     @app.get("/limark", include_in_schema=False)
     @app.get("/limark/aws", include_in_schema=False)
     @app.get("/limark/openai", include_in_schema=False)

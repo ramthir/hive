@@ -3248,7 +3248,7 @@ def test_limark_sidebar_opens_both_usage_reports(page, server):
         return image.naturalWidth > 0 && matches;
     }""")
     expect(page.locator("app-sidebar .logo-text")).to_have_text("Limark")
-    expect(page.locator("app-sidebar .nav-link")).to_have_text(["AWS Usage", "OpenAI Usage"])
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "AWS Usage", "OpenAI Usage"])
     expect(page.get_by_role("link", name="AWS Usage")).to_have_attribute("aria-current", "page")
     icon = page.get_by_role("link", name="OpenAI Usage").locator("img")
     expect(icon).to_have_attribute("src", "/static/vendor/fontawesome/openai.svg")
@@ -3257,7 +3257,25 @@ def test_limark_sidebar_opens_both_usage_reports(page, server):
     expect(page.get_by_role("table", name="Service costs")).to_be_visible()
     page.get_by_role("link", name="OpenAI Usage").click()
     expect(page.get_by_role("link", name="OpenAI Usage")).to_have_attribute("aria-current", "page")
-    expect(page.locator("app-sidebar .nav-link")).to_have_text(["AWS Usage", "OpenAI Usage"])
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "AWS Usage", "OpenAI Usage"])
     expect(page.locator("app-header")).to_have_attribute("heading", "OpenAI API Usage")
     expect(page.get_by_text("gpt-test", exact=True)).to_be_visible()
+    assert page.errors == []
+
+def test_limark_employees_shows_the_reference_note_as_a_table(page, server, notes_dir):
+    (notes_dir / "ann-lee.md").write_text("---\ntitle: Ann Lee\ntype: contact\n---\n\n# Ann Lee\n")
+    (notes_dir / "limark-employees.md").write_text(
+        "---\ntitle: Limark Employees\ntype: reference\n---\n\n# Limark Employees\n\n"
+        "| Employee | Role |\n| --- | --- |\n| [[Ann Lee]] | Designer |\n")
+    page.goto(f"{server}/limark")
+    page.get_by_role("link", name="Employees", exact=True).click()
+    page.wait_for_url("**/limark/employees")
+    expect(page.get_by_role("link", name="Employees", exact=True)).to_have_attribute("aria-current", "page")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Limark Employees")
+    employee_link = page.locator("app-table tbody").get_by_role("link", name="Ann Lee")
+    expect(employee_link).to_have_attribute("href", "/notes/ann-lee")
+    expect(employee_link).to_have_class("table-note-link")
+    expect(employee_link).to_have_css("text-decoration-line", "underline")
+    page.get_by_role("button", name="Edit note").click()
+    page.wait_for_url("**/notes/limark-employees?mode=edit")
     assert page.errors == []
