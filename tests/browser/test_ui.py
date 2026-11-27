@@ -3248,7 +3248,7 @@ def test_limark_sidebar_opens_both_usage_reports(page, server):
         return image.naturalWidth > 0 && matches;
     }""")
     expect(page.locator("app-sidebar .logo-text")).to_have_text("Limark")
-    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "AWS Usage", "OpenAI Usage"])
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "Laptop Inventory", "AWS Usage", "OpenAI Usage"])
     expect(page.get_by_role("link", name="AWS Usage")).to_have_attribute("aria-current", "page")
     icon = page.get_by_role("link", name="OpenAI Usage").locator("img")
     expect(icon).to_have_attribute("src", "/static/vendor/fontawesome/openai.svg")
@@ -3257,7 +3257,7 @@ def test_limark_sidebar_opens_both_usage_reports(page, server):
     expect(page.get_by_role("table", name="Service costs")).to_be_visible()
     page.get_by_role("link", name="OpenAI Usage").click()
     expect(page.get_by_role("link", name="OpenAI Usage")).to_have_attribute("aria-current", "page")
-    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "AWS Usage", "OpenAI Usage"])
+    expect(page.locator("app-sidebar .nav-link")).to_have_text(["Employees", "Laptop Inventory", "AWS Usage", "OpenAI Usage"])
     expect(page.locator("app-header")).to_have_attribute("heading", "OpenAI API Usage")
     expect(page.get_by_text("gpt-test", exact=True)).to_be_visible()
     assert page.errors == []
@@ -3278,4 +3278,18 @@ def test_limark_employees_shows_the_reference_note_as_a_table(page, server, note
     expect(employee_link).to_have_css("text-decoration-line", "underline")
     page.get_by_role("button", name="Edit note").click()
     page.wait_for_url("**/notes/limark-employees?mode=edit")
+    assert page.errors == []
+
+def test_limark_laptop_inventory_uses_its_note_and_sidebar(page, server, notes_dir):
+    (notes_dir / "limark-laptop-inventory.md").write_text(
+        "---\ntitle: Limark Laptop Inventory\ntype: reference\n---\n\n# Limark Laptop Inventory\n\n"
+        "| Laptop | Status |\n| --- | --- |\n| Test laptop | Available |\n")
+    page.goto(f"{server}/limark")
+    page.get_by_role("link", name="Laptop Inventory", exact=True).click()
+    page.wait_for_url("**/limark/laptop-inventory")
+    expect(page.locator("app-sidebar .nav-link").nth(1)).to_have_attribute("aria-current", "page")
+    expect(page.locator("app-header")).to_have_attribute("heading", "Limark Laptop Inventory")
+    expect(page.locator("app-table tbody").get_by_text("Test laptop")).to_be_visible()
+    page.get_by_role("button", name="Edit note").click()
+    page.wait_for_url("**/notes/limark-laptop-inventory?mode=edit")
     assert page.errors == []

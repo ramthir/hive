@@ -77,16 +77,22 @@ export function readPagePath(note) {
   return page ? `${page.path}/${encodeURIComponent(note.slug)}` : '';
 }
 
+const LIMARK_TABLE_NOTES = new Map([
+  ['/limark/employees', 'limark-employees'],
+  ['/limark/laptop-inventory', 'limark-laptop-inventory'],
+]);
+
 /** Select a Note View by URL, independently of the note's type precedence. */
 export function noteViewForPath(pathname) {
-  if (pathname === '/limark/employees') {
+  const fixedSlug = LIMARK_TABLE_NOTES.get(pathname);
+  if (fixedSlug) {
     const table = READ_PAGES.find(({ type }) => type === 'table');
     return {
       ...table,
       path: pathname,
       app: 'limark',
-      fixedSlug: 'limark-employees',
-      matches: (note) => note.slug === 'limark-employees',
+      fixedSlug,
+      matches: (note) => note.slug === fixedSlug,
     };
   }
   return READ_PAGES.find(({ path }) => pathname.startsWith(`${path}/`));

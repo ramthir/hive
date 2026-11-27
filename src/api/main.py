@@ -226,15 +226,13 @@ def create_app(notes_dir: str | Path | None = None, watch: bool | None = None,
     def tasks_page() -> FileResponse:
         return FileResponse(static / "tasks.html", headers={"Cache-Control": "no-cache"})
 
-    def note_view_page(slug: str) -> FileResponse:
+    @app.get("/limark/employees", include_in_schema=False)
+    @app.get("/limark/laptop-inventory", include_in_schema=False)
+    def note_view_page() -> FileResponse:
         return FileResponse(static / "note-view.html", headers={"Cache-Control": "no-cache"})
 
     for prefix in ("tables", "timelines", "specifications", "tasks", "meeting-minutes", "meetings"):
         app.add_api_route(f"/{prefix}/{{slug}}", note_view_page, methods=["GET"], include_in_schema=False)
-
-    @app.get("/limark/employees", include_in_schema=False)
-    def limark_employees_page() -> FileResponse:
-        return note_view_page("limark-employees")
 
     @app.get("/limark", include_in_schema=False)
     @app.get("/limark/aws", include_in_schema=False)

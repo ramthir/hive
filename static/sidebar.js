@@ -17,6 +17,7 @@ const NAVIGATION_ITEMS = Object.freeze([
   { href: '/time-entries', label: 'Time Entries', icon: 'fa-solid fa-clock', activePaths: ['/time-entries'] },
   { href: '/chat', label: 'Chat', icon: 'fa-solid fa-comments', activePaths: ['/chat'] },
   { href: '/limark/employees', label: 'Employees', icon: 'fa-solid fa-users', activePaths: ['/limark/employees'], app: 'limark' },
+  { href: '/limark/laptop-inventory', label: 'Laptop Inventory', icon: 'fa-solid fa-laptop', activePaths: ['/limark/laptop-inventory'], app: 'limark' },
   { href: '/limark/aws', label: 'AWS Usage', icon: 'fa-brands fa-aws', activePaths: ['/limark', '/limark/aws'], app: 'limark' },
   { href: '/limark/openai', label: 'OpenAI Usage', iconSrc: '/static/vendor/fontawesome/openai.svg', activePaths: ['/limark/openai'], app: 'limark' },
   // The Media Library app (IPTV from a provider): one page (/iptv), the kind in ?type= (movies is the default). Shown only in the sidebar of `app="iptv"` pages.

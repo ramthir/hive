@@ -159,7 +159,7 @@ The chat and the commit messages can also use Claude Code's CLI (`src/infrastruc
 
 ## Limark billing dashboards
 
-`/limark` opens the AWS report. Limark has its own sidebar with AWS Usage at `/limark/aws` Employees at `/limark/employees`, and OpenAI Usage at `/limark/openai`. The Employees page uses the shared table view on the `limark-employees.md` note and links its wiki links and pencil back to Notes. The pages read `GET /api/limark/aws` and `GET /api/limark/openai` for the selected UTC month. Hive reads snapshots from `$HIVE_STATE_DIR/limark` (default `~/.local/state/hive/limark`). Keep billing snapshots outside `static` and the notes vault, and serve Hive on loopback for local access.
+`/limark` opens the AWS report. Limark has its own sidebar with Employees at `/limark/employees`, Laptop Inventory at `/limark/laptop-inventory`, AWS Usage at `/limark/aws`, and OpenAI Usage at `/limark/openai`. Employees and Laptop Inventory use the shared table view on `limark-employees.md` and `limark-laptop-inventory.md`. Their wiki links and pencils open Notes. The pages read `GET /api/limark/aws` and `GET /api/limark/openai` for the selected UTC month. Hive reads snapshots from `$HIVE_STATE_DIR/limark` (default `~/.local/state/hive/limark`). Keep billing snapshots outside `static` and the notes vault, and serve Hive on loopback for local access.
 
 Install the standalone collectors after updating Hive:
 
