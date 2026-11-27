@@ -85,9 +85,6 @@
   background: color-mix(in srgb, var(--color-blue) 12%, transparent);
   font-size: 0.8125rem;
 }
-/* An owner written as a wiki link looks like a plain-text owner, hovered or not. */
-.minutes-section--actions .spec-prose .minutes-action-owner a.notes-wikilink[href],
-.minutes-section--actions .spec-prose .minutes-action-owner a.notes-wikilink[href]:hover { color: inherit; text-decoration: none; }
 
 
 .minutes-list { margin: 0; padding: 0; list-style: none; }

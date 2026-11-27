@@ -155,12 +155,5 @@
 .task-section--related > .spec-prose > ul > li a {
   font-size: 0.9375rem;
   font-weight: 600;
-  text-decoration: none;
 }
-.task-section .spec-prose a.task-reference-link { text-decoration: none; }
-.task-reference-link:is(:hover, :focus-visible) .task-reference-title,
-.task-section--related > .spec-prose > ul > li a:not(.task-reference-link):is(:hover, :focus-visible) {
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-}
-.task-reference-icon { color: var(--color-dimmed1); margin-inline-end: var(--space-1); }
+.task-reference-icon { display: inline-block; color: var(--color-dimmed1); margin-inline-end: var(--space-1); }

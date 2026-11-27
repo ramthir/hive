@@ -20,10 +20,33 @@
 .notes-tag-chip:hover, .notes-tag-chip:focus-visible { color: var(--color-text); border-color: var(--color-accent, var(--color-blue)); outline: none; }
 .notes-tags-input:focus { outline: none; border-color: var(--color-accent, var(--color-blue)); }
 
-/* Backlinks reuse the preview's own h2 / list styling so they read like a note's "Related" section. */
-.notes-backlinks a, .notes-wikilink { color: var(--color-accent, var(--color-blue)); text-decoration: none; cursor: pointer; }
-.notes-wikilink.unresolved { color: var(--color-red); border-bottom: 1px dashed currentColor; }
-.notes-backlinks .unresolved-list a { color: var(--color-red); }
+/* Reader links share an underline. Links with icons underline their label only. */
+.notes-wikilink,
+.spec-prose a[href]:not(:where(.notes-wikilink)) {
+  color: var(--color-blue);
+  overflow-wrap: anywhere;
+}
+.notes-wikilink:not(:has(> .note-link-label)),
+a > .note-link-label,
+.spec-prose a[href]:not(:where(.notes-wikilink, :has(> .note-link-label))) {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+a:has(> .note-link-label) {
+  text-decoration: none;
+}
+a.notes-wikilink:focus-visible,
+.spec-prose a[href]:not(:where(.notes-wikilink)):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.notes-wikilink.unresolved {
+  color: var(--color-dimmed3);
+}
+.notes-wikilink.unresolved,
+.notes-wikilink.unresolved > .note-link-label {
+  text-decoration-style: dashed;
+}
 
 .hive-version-list { position: relative; display: grid; gap: .15rem; max-height: 60vh; overflow: auto; }
 /* The rail runs from the first circle to the last: history.js sets --rail-top and --rail-height in px (the list scrolls, so

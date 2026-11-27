@@ -24,9 +24,8 @@ function prependReferenceIcon(link, iconClass, label) {
     icon.setAttribute('aria-hidden', 'true');
   }
   const title = document.createElement('span');
-  title.className = 'task-reference-title';
+  title.className = 'note-link-label';
   title.append(...link.childNodes);
-  link.classList.add('task-reference-link');
   link.append(icon, ' ', title);
 }
 

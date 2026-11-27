@@ -1,5 +1,5 @@
 /* Table notes: the first markdown table of a `type: table` note as a filterable, sortable table.
-   Host frame, page bottom clearance, workspace padding and wiki-link chips come from layout.css and preview.css. */
+   Host frame, page bottom clearance and workspace padding come from layout.css. */
 
 .notes-table-workspace {
   display: flex;
@@ -8,7 +8,6 @@
 }
 
 .notes-table-card { width: 100%; }
-.table-note-link { text-decoration: underline; }
 .table-stats-grid { grid-template-columns: repeat(var(--stats-count, 4), minmax(0, 1fr)); }
 .notes-table-pagination { display: block; }
 .notes-table-pagination[hidden] { display: none; }

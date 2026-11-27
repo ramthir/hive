@@ -643,7 +643,7 @@ class NotesApp extends HTMLElement {
       container.className = data.backlinks.length || missing.length ? 'notes-backlinks' : '';
       container.innerHTML = `
         ${data.backlinks.length ? `<h2>Referenced</h2><ul>${data.backlinks.map(link).join('')}</ul>` : ''}
-        ${missing.length ? `<h2>Broken links</h2><ul class="unresolved-list">${missing.map((target) => `<li><a href="#" data-create="${esc(target)}">${esc(target)}</a></li>`).join('')}</ul>` : ''}`;
+        ${missing.length ? `<h2>Broken links</h2><ul class="unresolved-list">${missing.map((target) => `<li><a class="notes-wikilink unresolved" href="#" data-create="${esc(target)}">${esc(target)}</a></li>`).join('')}</ul>` : ''}`;
       container.querySelectorAll('[data-create]').forEach((a) => a.addEventListener('click', (event) => {
         event.preventDefault();
         this.promptCreateNoteFromWikilink(a.dataset.create);

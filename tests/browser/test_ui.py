@@ -213,11 +213,15 @@ def test_view_note_resolves_links_and_backlinks(page, server):
     expect(missing).to_have_class("notes-wikilink unresolved")
     expect(missing).to_have_css("text-decoration-style", "dashed")
     expect(page.locator(".notes-copy-code-btn")).to_have_count(1)
-    expect(page.locator("#notes-backlinks")).to_contain_text("Broken links")
+    broken_backlink = page.locator("#notes-backlinks").get_by_role("link", name="Nope")
+    expect(broken_backlink).to_have_css("text-decoration-style", "dashed")
+    good_color = good.evaluate("link => getComputedStyle(link).color")
     good.click()
     page.wait_for_url("**/notes/beta")
     expect(page.locator("app-header")).to_have_attribute("heading", "Beta Note")  # beta has no heading on disk: its title is shown as one
-    expect(page.locator("#notes-backlinks")).to_contain_text("Alpha")
+    backlink = page.locator("#notes-backlinks").get_by_role("link", name="Alpha")
+    expect(backlink).to_have_css("text-decoration-line", "underline")
+    expect(backlink).to_have_css("color", good_color)
     assert page.errors == []
 
 
@@ -1090,6 +1094,9 @@ def test_table_note_filters_sorts_links_and_saves_rows(page, server, notes_dir):
     expect(cards.nth(1)).to_contain_text("1")
     expect(page.locator(".notes-table-filter")).to_have_count(1)
     expect(rows.nth(0).locator("a.notes-wikilink")).to_have_attribute("href", "/notes/ann-lee")
+    link = rows.nth(0).locator("a.notes-wikilink")
+    expect(link).to_have_css("text-decoration-line", "underline")
+    expect(link).to_have_css("border-top-width", "0px")
 
     expect(page.locator(".header-search--filter .header-search-key")).to_have_text("/")
     page.keyboard.press("/")  # the hint's key focuses the filter
@@ -1115,6 +1122,7 @@ def test_table_note_filters_sorts_links_and_saves_rows(page, server, notes_dir):
     expect(rows).to_have_count(3)
 
     page.locator("app-table tbody tr", has_text="Lenovo").click()
+    expect(page.locator("[name=col_0] .combobox-input")).to_be_focused()
     page.fill("[name=col_1]", "Dell")
     page.click("[data-save]")
     wait_for_commits(notes_dir, commits + 2)
@@ -2399,13 +2407,18 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(linked_task).to_have_css("font-size", "15px")
     expect(linked_task).to_have_css("font-weight", "600")
     linked_task.focus()
-    expect(linked_task.locator(".task-reference-title")).to_have_css("text-decoration-line", "underline")
     expect(linked_task).to_have_css("text-decoration-line", "none")
+    expect(linked_task.locator(".note-link-label")).to_have_css("text-decoration-line", "underline")
     expect(linked_task.locator(".fa-list-check")).to_have_css("text-decoration-line", "none")
     expect(related.get_by_role("link", name="Related Project", exact=True).locator(".fa-hammer")).to_be_visible()
-    expect(related.get_by_role("link", name="Jira APIM-116").locator(".fa-jira")).to_be_visible()
+    jira = related.get_by_role("link", name="Jira APIM-116")
+    expect(jira.locator(".fa-jira")).to_be_visible()
+    expect(jira).to_have_css("text-decoration-line", "none")
+    expect(jira.locator(".note-link-label")).to_have_css("text-decoration-line", "underline")
     expect(related.get_by_role("link", name="Notion Setup guide").locator(".fa-book")).to_be_visible()
-    expect(related.get_by_role("link", name="Other")).to_have_text("Other")
+    other = related.get_by_role("link", name="Other", exact=True)
+    expect(other).to_have_text("Other")
+    expect(other).to_have_css("text-decoration-line", "underline")
     expect(page.locator(".task-section--verified")).to_contain_text("Checked by hand.")
     expect(page.locator(".task-step")).to_have_count(2)  # a numbered Plan is drawn as steps
     expect(page.locator(".task-step-name")).to_have_text(["Reproduce", "Fix the cookie"])
@@ -2939,9 +2952,9 @@ def test_meeting_minutes_show_wiki_link_owners_as_the_same_chip_as_plain_owners(
         assert linked.evaluate(f"e => getComputedStyle(e)['{prop}']") == plain.evaluate(f"e => getComputedStyle(e)['{prop}']")
     link = owners.nth(0).locator("a")
     assert link.evaluate("e => getComputedStyle(e).color") == plain.evaluate("e => getComputedStyle(e).color")
-    assert link.evaluate("e => getComputedStyle(e).textDecorationLine") == "none"
+    expect(link).to_have_css("text-decoration-line", "underline")
     link.hover()
-    assert link.evaluate("e => getComputedStyle(e).textDecorationLine") == "none"
+    expect(link).to_have_css("text-decoration-line", "underline")
     expect(page.locator(".minutes-section--actions li").nth(3).locator(".minutes-action-owner")).to_have_count(0)
     link.click()
     page.wait_for_url("**/devin-chandrapala")
@@ -3274,7 +3287,7 @@ def test_limark_employees_shows_the_reference_note_as_a_table(page, server, note
     expect(page.locator("app-header")).to_have_attribute("heading", "Limark Employees")
     employee_link = page.locator("app-table tbody").get_by_role("link", name="Ann Lee")
     expect(employee_link).to_have_attribute("href", "/notes/ann-lee")
-    expect(employee_link).to_have_class("table-note-link")
+    expect(employee_link).to_have_class("notes-wikilink")
     expect(employee_link).to_have_css("text-decoration-line", "underline")
     page.get_by_role("button", name="Edit note").click()
     page.wait_for_url("**/notes/limark-employees?mode=edit")

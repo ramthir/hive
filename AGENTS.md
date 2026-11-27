@@ -62,6 +62,8 @@ Shared helpers, one copy each: HTML escaping is `escapeHtml` (`static/html.js`; 
 
 ## Note Views
 
+Wiki links in rendered notes, tables, chat and backlinks use `.notes-wikilink` in `static/hive.css`. Resolved links are blue and underlined. Unresolved links have a muted, dashed underline.
+
 Dedicated Note Views share `static/note-view.html`. The ordered registry in `static/notes/read-pages.js` matches note types, builds links, and loads the renderer and styles for each route. To add a view, register its matcher, path, styles, and renderer module there, and add its URL prefix in `src/api/main.py`. Renderer modules supply `View` and can provide `viewOptions(app)` for actions and `onSaved(app, saved)` for property changes. The shared page handles loading, live updates, copy, delete, properties, history, chat, and the pencil link.
 
 Compose sectioned views with the card, prose wrapper, and checklist bar in `static/notes/note-view-sections.js` and the outline and Markdown surface in `static/notes/read-view.js`. Use the same section IDs in cards and outline entries. Each view owns its Markdown parsing and specialized interactions.

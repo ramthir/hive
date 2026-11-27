@@ -98,8 +98,6 @@ export class TableView {
 
   bind() {
     const { host, table, pagination } = this;
-    const plainLinks = host.closest('app-shell[app="limark"]') !== null;
-    const linkClass = plainLinks ? 'table-note-link' : 'notes-wikilink';
     table.setColumns(this.parsed.columns.map((col) => ({
       key: col.key,
       label: col.label,
@@ -109,8 +107,8 @@ export class TableView {
         if (seg.type !== 'wikilink') return esc(seg.text);
         const slug = this.slugs.get(seg.target);
         return slug
-          ? `<a class="${linkClass}" data-slug="${esc(slug)}" href="/notes/${esc(encodeURIComponent(slug))}">${esc(seg.label)}</a>`
-          : plainLinks ? esc(seg.label) : `<span class="notes-wikilink unresolved">${esc(seg.label)}</span>`;
+          ? `<a class="notes-wikilink" data-slug="${esc(slug)}" href="/notes/${esc(encodeURIComponent(slug))}">${esc(seg.label)}</a>`
+          : `<span class="notes-wikilink unresolved">${esc(seg.label)}</span>`;
       }).join(''),
     })));
     table.addEventListener('sort-change', (event) => {
