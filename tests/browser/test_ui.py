@@ -3235,6 +3235,18 @@ def test_limark_sidebar_opens_both_usage_reports(page, server):
     page.route("**/api/limark/openai?*", lambda route: route.fulfill(json=openai))
     page.goto(server + "/limark?month=2026-10")
     expect(page.locator("app-header")).to_have_attribute("heading", "Limark")
+    logo = page.get_by_role("link", name="Limark Home").locator("img")
+    expect(logo).to_have_attribute("src", "/static/limark/logo.svg")
+    expect(logo).to_have_js_property("complete", True)
+    assert logo.evaluate("""image => {
+        const accent = getComputedStyle(image).getPropertyValue('--color-accent1').trim();
+        const sample = document.createElement('span');
+        sample.style.color = accent;
+        image.after(sample);
+        const matches = getComputedStyle(image).backgroundColor === getComputedStyle(sample).color;
+        sample.remove();
+        return image.naturalWidth > 0 && matches;
+    }""")
     expect(page.locator("app-sidebar .logo-text")).to_have_text("Limark")
     expect(page.locator("app-sidebar .nav-link")).to_have_text(["AWS Usage", "OpenAI Usage"])
     expect(page.get_by_role("link", name="AWS Usage")).to_have_attribute("aria-current", "page")

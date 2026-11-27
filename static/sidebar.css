@@ -43,6 +43,12 @@ app-sidebar {
   color: var(--color-accent1);
   flex-shrink: 0;
 }
+.logo-image {
+  display: block;
+  flex-shrink: 0;
+  background: var(--color-accent1);
+  border-radius: var(--radius-sm);
+}
 .logo-text {
   font-size: 1rem;
   font-weight: 600;

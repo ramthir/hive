@@ -27,7 +27,7 @@ const NAVIGATION_ITEMS = Object.freeze([
 // Each app has its own heading, home and navigation items.
 const APPS = Object.freeze({
   hive: { title: 'Note Hive', home: '/notes', icon: 'fa-solid fa-circle-nodes', label: 'Note Hive Home' },
-  limark: { title: 'Limark', home: '/limark', icon: 'fa-solid fa-chart-column', label: 'Limark Home' },
+  limark: { title: 'Limark', home: '/limark', logoSrc: '/static/limark/logo.svg', label: 'Limark Home' },
   iptv: { title: 'Media Library', home: '/iptv', icon: 'fa-solid fa-photo-film', label: 'Media Library Home' },
 });
 
@@ -149,7 +149,9 @@ class AppSidebar extends HTMLElement {
       <nav class="app-sidebar" aria-label="Main Navigation">
         <div class="sidebar-header">
           <a href="${app.home}" class="logo" aria-label="${app.label}">
-            <i class="${app.icon}" aria-hidden="true"></i>
+            ${app.logoSrc
+              ? `<img class="logo-image" src="${app.logoSrc}" width="24" height="24" alt="">`
+              : `<i class="${app.icon}" aria-hidden="true"></i>`}
             <span class="logo-text">${app.title}</span>
           </a>
           <button class="desktop-collapse-btn" type="button" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar-nav" title="Collapse sidebar (Ctrl+\\)">
