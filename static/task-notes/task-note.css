@@ -137,3 +137,30 @@
 .task-step-name { margin: 0 0 var(--space-1); font-size: 0.9375rem; font-weight: 600; color: var(--color-text); }
 .task-step-text { color: var(--color-dimmed1); line-height: 1.6; }
 .task-step-text p { margin-bottom: var(--space-2); }
+
+
+.task-section--related > .spec-prose > ul {
+  padding-inline: var(--space-3);
+  list-style: none;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.task-section--related > .spec-prose > ul > li {
+  display: list-item;
+  padding-block: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.task-section--related > .spec-prose > ul > li + li { border-top: 1px solid var(--color-border); }
+.task-section--related > .spec-prose > ul > li a {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.task-section .spec-prose a.task-reference-link { text-decoration: none; }
+.task-reference-link:is(:hover, :focus-visible) .task-reference-title,
+.task-section--related > .spec-prose > ul > li a:not(.task-reference-link):is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.task-reference-icon { color: var(--color-dimmed1); margin-inline-end: var(--space-1); }

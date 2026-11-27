@@ -2344,10 +2344,12 @@ def test_read_pages_show_references_as_a_list(page, server, notes_dir, note_type
 
 
 def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the_editor(page, server, notes_dir):
+    (notes_dir / "related-task.md").write_text("---\ntitle: Related Task\ntype: task\n---\n# Related Task\n")
+    (notes_dir / "related-project.md").write_text("---\ntitle: Related Project\ntype: project\n---\n# Related Project\n")
     (notes_dir / "fix-login.md").write_text(
         "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
         "# Fix login\n\nSafari users cannot sign in. The fix MUST preserve sessions.\n\n## Acceptance Criteria\n\n- [x] The service SHALL set the cookie\n- [ ] Works on Safari with `MUST` in an example\n\n"
-        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n\n## Summary\n\nRestore login on Safari.\n\nEstimated 1–2 days\n")
+        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Related Task]]\n- [[Related Project]]\n- [APIM-116](https://example.atlassian.net/browse/APIM-116)\n- [Setup guide](https://app.notion.com/p/setup)\n- [Other](https://notion.com.example.org/setup)\n\n## Summary\n\nRestore login on Safari.\n\nEstimated 1–2 days\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "task")
 
@@ -2392,7 +2394,21 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)
     expect(page.locator(".task-section--criteria")).to_have_count(1)  # Acceptance Criteria is drawn as rows
     expect(page.locator(".task-section--criteria li")).to_have_count(2)
-    expect(page.locator(".task-section--related li")).to_have_count(2)  # Related is a plain list of notes, not chips
+    related = page.locator(".task-section--related")
+    expect(related.locator("li")).to_have_count(5)
+    linked_task = related.get_by_role("link", name="Related Task", exact=True)
+    expect(linked_task).to_have_attribute("href", "/tasks/related-task")
+    expect(linked_task.locator(".fa-list-check")).to_be_visible()
+    expect(linked_task).to_have_css("font-size", "15px")
+    expect(linked_task).to_have_css("font-weight", "600")
+    linked_task.focus()
+    expect(linked_task.locator(".task-reference-title")).to_have_css("text-decoration-line", "underline")
+    expect(linked_task).to_have_css("text-decoration-line", "none")
+    expect(linked_task.locator(".fa-list-check")).to_have_css("text-decoration-line", "none")
+    expect(related.get_by_role("link", name="Related Project", exact=True).locator(".fa-hammer")).to_be_visible()
+    expect(related.get_by_role("link", name="Jira APIM-116").locator(".fa-jira")).to_be_visible()
+    expect(related.get_by_role("link", name="Notion Setup guide").locator(".fa-book")).to_be_visible()
+    expect(related.get_by_role("link", name="Other")).to_have_text("Other")
     expect(page.locator(".task-section--verified")).to_contain_text("Checked by hand.")
     expect(page.locator(".task-step")).to_have_count(2)  # a numbered Plan is drawn as steps
     expect(page.locator(".task-step-name")).to_have_text(["Reproduce", "Fix the cookie"])

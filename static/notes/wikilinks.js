@@ -5,7 +5,7 @@ import { openDialog, dialogHeader } from '/static/notes/dialogs.js';
 import { readPagePath } from '/static/notes/read-pages.js';
 
 /** Resolve all `.notes-wikilink` elements under `root` against `/api/resolve`. */
-export async function decorateWikilinks(root) {
+export async function decorateWikilinks(root, onResolved) {
   const links = [...root.querySelectorAll('.notes-wikilink')];
   const targets = [...new Set(links.map((link) => link.dataset.target).filter((target) => target && !target.startsWith('#')))];
   for (const link of links) if (link.dataset.target?.startsWith('#')) link.classList.remove('unresolved');
@@ -30,6 +30,7 @@ export async function decorateWikilinks(root) {
     link.dataset.path = readPagePath({ slug: hit.slug, types: hit.types }) || `/notes/${encodeURIComponent(hit.slug)}`;
     link.setAttribute('href', link.dataset.path);
     if (link.dataset.autoLabel === 'true') link.textContent = hit.title;
+    onResolved?.(link, hit);
   }
 }
 

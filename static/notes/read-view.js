@@ -124,10 +124,10 @@ export class ReadMarkdownSurface {
     });
   }
 
-  decorate(root, note) {
+  decorate(root, note, { onWikilinkResolved } = {}) {
     if (!root) return;
     this.note = note;
-    decorateWikilinks(root);
+    decorateWikilinks(root, onWikilinkResolved);
     this.diagrams.decorate(root, { editing: false });
     this.diagrams.loadEmbeds(root);
     setupCodeBlockActions(root);

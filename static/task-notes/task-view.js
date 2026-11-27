@@ -1,5 +1,6 @@
 import { highlightRequirementKeywords, renderChecklistBar, renderOpenQuestionsSection, renderScopeSection, renderSectionCard, renderSectionProse } from '/static/notes/note-view-sections.js';
 import { escapeHtml as esc } from '/static/html.js';
+import { noteTypeIcon } from '/static/type-icons.js';
 import { renderHeaderChips } from '/static/components/page-header.js';
 import { TASK_STATUS_TONE, renderChip } from '/static/components/chips.js';
 import {
@@ -9,6 +10,47 @@ import { COLUMNS, taskChips } from '/static/tasks/card.js';
 import { parseTask, planSteps, taskViewSections } from '/static/task-notes/task-note.js';
 
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', criteria: ' task-section--criteria', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
+
+const REFERENCE_LINK = ':is(.task-section--related, .task-section--refs) > .spec-prose > ul > li a[href]';
+
+function prependReferenceIcon(link, iconClass, label) {
+  const icon = document.createElement('span');
+  icon.className = `task-reference-icon ${iconClass}`;
+  if (label) {
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-label', label);
+    icon.title = label;
+  } else {
+    icon.setAttribute('aria-hidden', 'true');
+  }
+  const title = document.createElement('span');
+  title.className = 'task-reference-title';
+  title.append(...link.childNodes);
+  link.classList.add('task-reference-link');
+  link.append(icon, ' ', title);
+}
+
+function decorateRelatedNote(link, { types }) {
+  if (link.matches(REFERENCE_LINK)) prependReferenceIcon(link, `fa-solid fa-${noteTypeIcon(types)}`);
+}
+
+function decorateReferenceLinks(root) {
+  for (const link of root.querySelectorAll(REFERENCE_LINK)) {
+    const url = URL.parse(link.getAttribute('href'));
+    if (!url || !['http:', 'https:'].includes(url.protocol)) continue;
+    let provider;
+    let iconClass;
+    if (url.hostname.endsWith('.atlassian.net') && url.pathname.startsWith('/browse/')) {
+      provider = 'Jira';
+      iconClass = 'fa-brands fa-jira';
+    } else if (/(^|\.)(notion\.so|notion\.com|notion\.site)$/.test(url.hostname)) {
+      provider = 'Notion';
+      iconClass = 'fa-solid fa-book';
+    } else continue;
+
+    prependReferenceIcon(link, iconClass, provider);
+  }
+}
 
 /** The read view of a task note: chips for what the board knows (status, priority, project, ticket, week, time), the progress of
     its checklists and a card per section. */
@@ -59,7 +101,8 @@ export class TaskView {
     this.surface.wireOutline(host);
     const root = host.querySelector('#spec-main');
     for (const prose of root?.querySelectorAll('.spec-prose') ?? []) highlightRequirementKeywords(prose);
-    this.surface.decorate(root, note);
+    decorateReferenceLinks(root);
+    this.surface.decorate(root, note, { onWikilinkResolved: decorateRelatedNote });
   }
 
   // "1 of 8 done" with a thin bar: a chip of the header, since it says where the task stands like the status does.
