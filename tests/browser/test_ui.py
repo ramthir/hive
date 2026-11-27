@@ -2249,7 +2249,7 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
         "# Spine — Users\n\n## Objective\n\nPeople can sign in with a `password`.\n\n## Requirements\n\n"
         "### Sign in\n\nThe system SHALL let a user sign in and MUST verify the `password`.\n\n"
         "- valid `password` -> a `session` starts\n- wrong password -> sign in is refused\n\n"
-        "### Sign out\n\nA user can sign out.\n\n## Open Questions\n\n- Single sign-on?\n")
+        "### Sign out\n\nA user can sign out.\n\n## Open Questions\n\nConfirm these before launch.\n\n- Single sign-on?\n  - Check the `identity-provider` contract.\n- Who owns the rollout?\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "specification")
 
@@ -2260,6 +2260,19 @@ def test_specification_note_opens_as_requirements_and_the_pencil_returns_to_the_
     assert page.locator("app-header #search-notes-btn").bounding_box()["width"] < 360  # shorter so the header chips have room
     expect(page.locator("app-header .spec-status")).to_have_text("Active")  # the chips sit in the header, under the heading
     expect(page.locator(".spec-objective code")).to_have_text("password")
+    questions = page.locator(".spec-section--questions")
+    expect(questions.locator(".spec-heading")).to_have_text("Open Questions")
+    expect(questions.locator(".spec-prose > p")).to_have_text("Confirm these before launch.")
+    question_list = questions.locator(".spec-prose > ul")
+    expect(question_list).to_have_css("border-top-width", "1px")
+    rows = question_list.locator(":scope > li")
+    expect(rows).to_have_count(2)
+    expect(rows.first).to_have_css("font-weight", "600")
+    detail = rows.first.locator("ul > li")
+    expect(detail).to_have_css("font-weight", "400")
+    expect(detail.locator("code")).to_have_text("identity-provider")
+    expect(rows.last).to_have_css("border-top-width", "1px")
+    expect(page.locator(".spec-outline a[href='#spec-open-questions'] .spec-count")).to_have_text("2")
     cards = page.locator(".spec-req")
     expect(cards).to_have_count(2)
     expect(cards.nth(0).locator(".spec-scenario")).to_have_count(2)
@@ -2374,6 +2387,9 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator(".spec-outline a[href='#task-s1'] .spec-count")).to_have_text("2")  # steps are counted in the outline
     expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
     expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    rows = page.locator(".spec-section--questions .spec-prose > ul > li")
+    expect(rows).to_have_text(["Which browsers?", "Remember me?"])
+    expect(rows.last).to_have_css("border-top-width", "1px")
     page.click("#note-chat-btn")  # the chat docks beside the workspace and the page makes room for it
     expect(page.locator("note-view-app")).to_have_class(re.compile("chat-docked"))
     pane, dock, header = (page.locator(s).bounding_box() for s in (".spec-workspace", ".notes-chat-dock", "app-header"))

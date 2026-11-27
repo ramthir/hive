@@ -50,7 +50,6 @@
   margin-inline-start: 0.35em;
   font: 900 0.7em 'Font Awesome 6 Free';
 }
-.spec-section--questions .spec-prose { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
 .spec-empty { margin: 0; color: var(--color-dimmed3); }
 
 /* Lists and subheadings in the prose of a section (the note preview's list styles are scoped to its own pane). */
@@ -108,16 +107,42 @@
 }
 .spec-section--refs .spec-prose code { background: transparent; border: 0; padding: 0; font-size: 0.78rem; color: var(--color-dimmed1); }
 
-/* Open Questions: the same list shape, with a question mark for the marker. */
-.spec-section--questions .spec-prose ul { list-style: none; padding-left: 0; margin: 0; }
-.spec-section--questions .spec-prose li { position: relative; padding-left: 1.4rem; }
-.spec-section--questions .spec-prose li::before {
-  content: '\f128';
-  position: absolute;
-  left: 0;
-  top: 0.4em;
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  font-size: 0.7rem;
-  color: var(--color-orange);
+/* Open Questions: give each top-level bullet a row and keep supporting Markdown inside it. */
+.spec-section--questions .spec-prose > ul {
+  list-style: none;
+  padding-inline: var(--space-3);
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
+.spec-section--questions .spec-prose > ul > li {
+  position: relative;
+  display: list-item;
+  padding: var(--space-3) 0 var(--space-3) 1.75rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.spec-section--questions .spec-prose > ul > li + li { border-top: 1px solid var(--color-border); }
+.spec-section--questions .spec-prose > ul > li::before {
+  content: '\f128' / '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: var(--space-3);
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-orange) 12%, transparent);
+  color: var(--color-orange);
+  font: 900 0.65rem 'Font Awesome 6 Free';
+}
+.spec-section--questions .spec-prose > ul > li > :is(p ~ p, ul, ol, blockquote, pre) {
+  margin-block: var(--space-2) 0;
+  font-weight: 400;
+}
+.spec-section--questions .spec-prose > ul > li > ul {
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+.spec-section--questions .spec-prose > ul > li > :is(ul, ol) li { display: list-item; }
