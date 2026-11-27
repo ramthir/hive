@@ -2347,7 +2347,7 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     (notes_dir / "fix-login.md").write_text(
         "---\ntitle: Fix login\ntype: task\nstatus: IN_PROGRESS\npriority: must\nproject: CreatorIQ\nticket: APIM-66\ntags: [Auth, must]\nupdated: 2026-03-03\n---\n\n"
         "# Fix login\n\nSafari users cannot sign in. The fix MUST preserve sessions.\n\n## Acceptance Criteria\n\n- [x] The service SHALL set the cookie\n- [ ] Works on Safari with `MUST` in an example\n\n"
-        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n")
+        "## Plan\n\n1. **Reproduce.** Use Safari 17.\n2. **Fix the cookie.** Set SameSite.\n\n### Example\n\n```yaml\ncookie:\n  same_site: lax\n```\n\n## Verification\n\nChecked by hand.\n\n## Open Questions\n\n- Which browsers?\n- Remember me?\n\n## Related\n\n- [[Alpha]]\n- [[Beta]]\n\n## Summary\n\nRestore login on Safari.\n\nEstimated 1–2 days\n")
     git(notes_dir, "add", "-A")
     git(notes_dir, "commit", "-qm", "task")
 
@@ -2365,14 +2365,30 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(ticket).to_have_attribute("target", "_blank")
     expect(page.locator("app-header .header-chip").filter(has_text="Auth")).to_have_count(1)
     expect(page.locator("app-header .header-chip").filter(has_text=re.compile("^must$"))).to_have_count(0)  # the priority tag is the priority chip
-    expect(page.locator(".task-lead")).to_contain_text("Safari users cannot sign in.")
+    lead = page.locator("#task-lead .task-lead")
+    expect(lead).to_contain_text("Safari users cannot sign in.")
+    expect(lead).to_have_css("font-size", "17px")
+    expect(lead).to_have_css("font-weight", "500")
+    expect(lead).to_have_css("border-left-width", "0px")
+    summary = page.locator("#task-s5")
+    expect(summary.locator("h2")).to_have_text("Summary")
+    expect(page.locator("#spec-main > section[id^='task-s']").first).to_have_attribute("id", "task-s5")
+    expect(page.locator(".spec-outline a[href='#task-s5']")).to_have_text("Summary")
+    summary_body = summary.locator(".spec-prose")
+    expect(summary_body).to_have_css("border-top-width", "1px")
+    expect(summary_body.locator(":scope > p")).to_have_text(["Restore login on Safari.", "Estimated 1–2 days"])
+    expect(summary_body.locator(":scope > p").first).to_have_css("font-weight", "400")
+    assert lead.evaluate("""async (el) => {
+        const [font] = await document.fonts.load('500 17px Inter');
+        return font?.status === 'loaded' && getComputedStyle(el).fontFamily.startsWith('Inter,');
+    }""")
     keywords = page.locator(".requirement-keyword")
     expect(keywords).to_have_text(["MUST", "SHALL"])
     expect(keywords.first).to_have_css("font-weight", "700")
     expect(keywords.first).to_have_css("background-color", "rgba(0, 0, 0, 0)")
     expect(page.locator(".task-section--criteria code")).to_have_text("MUST")
     expect(page.locator("app-header .task-progress")).to_have_text("1 of 2 done")  # a chip of the header, not a row above the content
-    expect(page.locator(".task-section")).to_have_count(5)
+    expect(page.locator(".task-section")).to_have_count(6)
     expect(page.locator(".task-section--checks input[type=checkbox]")).to_have_count(2)
     expect(page.locator(".task-section--criteria")).to_have_count(1)  # Acceptance Criteria is drawn as rows
     expect(page.locator(".task-section--criteria li")).to_have_count(2)
@@ -2387,6 +2403,12 @@ def test_task_note_opens_as_sections_with_progress_and_the_pencil_returns_to_the
     expect(page.locator(".spec-outline a[href='#task-s1'] .spec-count")).to_have_text("2")  # steps are counted in the outline
     expect(page.locator(".spec-outline a[href='#task-s2']")).to_have_text("Verification")
     expect(page.locator(".spec-outline a[href='#task-s3'] .spec-count")).to_have_text("2")  # open questions are counted in the outline
+    expect(page.locator(".spec-outline a:is([href='#task-s2'], [href='#task-s3']) > span:first-child")).to_have_text(
+        ["Open Questions", "Verification"]
+    )
+    expect(page.locator("#spec-main > :is(#task-s2, #task-s3) > h2")).to_have_text(
+        ["Open Questions", "Verification"]
+    )
     rows = page.locator(".spec-section--questions .spec-prose > ul > li")
     expect(rows).to_have_text(["Which browsers?", "Remember me?"])
     expect(rows.last).to_have_css("border-top-width", "1px")

@@ -44,7 +44,7 @@ test('parseTask reads the lead, the sections in file order and counts items outs
   const task = t.parseTask(NOTE);
   assert.equal(task.lead, 'Users on Safari cannot sign in.');
   assert.deepEqual(task.sections.map((s) => s.name), ['Why', '🔍 Tasks', 'Verification']);
-  assert.deepEqual(task.sections.map((s) => s.kind), ['', '', 'verified']);
+  assert.deepEqual(task.sections.map((s) => s.kind), ['why', '', 'verified']);
   assert.deepEqual([task.sections[1].done, task.sections[1].total], [1, 3]);
   assert.deepEqual(task.progress, { done: 1, total: 3 });
   assert.match(task.sections[1].body, /## Not a heading/); // inside a fence: still the section's text
@@ -117,4 +117,21 @@ test('a Plan with no numbered list has no steps, and the outline counts the step
   assert.deepEqual(t.planSteps('Just a paragraph.\n\n- a bullet'), { before: 'Just a paragraph.\n\n- a bullet', steps: [], after: '' });
   assert.equal(t.parseTask('# T\n\n## Plan\n\n1. **A.** x\n2. **B.** y\n').sections[0].steps, 2);
   assert.equal(t.sectionKind('Plan'), 'plan');
+});
+
+test('the task view orders standard headings and preserves custom slots and existing anchors', () => {
+  const source = [
+    'References', 'Acceptance Criteria', 'Extra Notes', 'Scope', 'Why',
+    'Open Questions', 'Plan', 'Background', 'Findings',
+  ];
+  const { sections } = t.parseTask(source.map((name) => `## ${name}\n\nContent.`).join('\n\n'));
+  const ordered = t.taskViewSections(sections);
+  assert.deepEqual(ordered.map(({ name }) => name), [
+    'Why', 'Background', 'Extra Notes', 'Scope', 'Plan', 'Acceptance Criteria',
+    'Open Questions', 'Findings', 'References',
+  ]);
+  assert.deepEqual(ordered.map(({ id }) => id), [
+    'task-s4', 'task-s7', 'task-s2', 'task-s3', 'task-s6', 'task-s1',
+    'task-s5', 'task-s8', 'task-s0',
+  ]);
 });

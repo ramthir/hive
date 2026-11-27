@@ -2,7 +2,7 @@ import { bulletCount, countChecklist, lines, splitSections, trimBlank, unwrapWik
 
 /* A task note (`type: task`) is read as a short lead, then one card per `##` section, with an outline and a progress count
    for the `- [ ]` / `- [x]` items. The vault's tasks are free-form (Why, What Changes, Acceptance Criteria, Plan, Verification,
-   or just a checklist), so nothing here expects a structure: sections are shown in file order and the markdown stays the
+   or just a checklist), so nothing here expects a structure: the Markdown stays the
    only source (nothing is written back). DOM-free. */
 
 export const isTaskNote = (note) => (note?.types || []).some((type) => String(type).toLowerCase() === 'task');
@@ -11,6 +11,10 @@ export const isTaskNote = (note) => (note?.types || []).some((type) => String(ty
 const plainName = (name) => String(name || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 const KINDS = {
+  summary: 'summary',
+  why: 'why',
+  background: 'background',
+  findings: 'findings',
   'open questions': 'questions',
   'out of scope': 'out',
   plan: 'plan',
@@ -26,7 +30,7 @@ const KINDS = {
   references: 'refs',
 };
 
-/** How a section is drawn: `plan`, `scope`, `criteria`, `questions`, `out`, `verified`, `related`, `refs` or '' (plain). */
+/** Classify standard headings for ordering and rendering. Custom headings return an empty string. */
 export const sectionKind = (name) => KINDS[plainName(name)] || '';
 
 /** `{lead, sections: [{name, kind, body, done, total, questions, steps}], progress}` from the note's text (the `# Title` line excluded). */
@@ -43,6 +47,24 @@ export function parseTask(content) {
     };
   });
   return { lead, sections: out, progress: countChecklist(String(content || '')) };
+}
+
+const SECTION_ORDER = new Map([
+  ['summary', -1], ['why', 0], ['background', 1], ['scope', 2], ['out', 2], ['plan', 3],
+  ['criteria', 4], ['questions', 5], ['findings', 6], ['verified', 6],
+  ['related', 7], ['refs', 7],
+]);
+
+/** Order standard sections for display, leaving custom sections in their original slots. */
+export function taskViewSections(sections) {
+  const entries = sections.map((section, index) => ({
+    ...section,
+    id: `task-s${index}`,
+    order: SECTION_ORDER.get(section.kind),
+  }));
+  const standard = entries.filter(({ order }) => order !== undefined).sort((a, b) => a.order - b.order);
+  let next = 0;
+  return entries.map((entry) => entry.order === undefined ? entry : standard[next++]);
 }
 
 /** Tags worth a chip: not the status words a column already says, not a priority, not the project's own name. */

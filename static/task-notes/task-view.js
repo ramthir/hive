@@ -6,7 +6,7 @@ import {
   ReadMarkdownSurface, renderOutline, renderReadPageShell, wireReadPageShell,
 } from '/static/notes/read-view.js';
 import { COLUMNS, taskChips } from '/static/tasks/card.js';
-import { parseTask, planSteps } from '/static/task-notes/task-note.js';
+import { parseTask, planSteps, taskViewSections } from '/static/task-notes/task-note.js';
 
 const SECTION_CLASS = { related: ' task-section--related', plan: ' task-section--plan', criteria: ' task-section--criteria', out: ' spec-section--out', refs: ' spec-section--refs task-section--refs', verified: ' task-section--verified' };
 
@@ -27,6 +27,7 @@ export class TaskView {
     const { host } = this;
     this.note = note;
     this.task = parseTask(note.content);
+    this.sections = taskViewSections(this.task.sections);
     const status = COLUMNS.find((column) => column.value === note.task_status);
     // The board card's chips (shared, `taskChips`) after the status and checklist progress; the time logged is in the footer.
     const chips = renderHeaderChips([
@@ -78,8 +79,11 @@ export class TaskView {
 
   outline() {
     const entries = [];
-    if (this.task.lead) entries.push({ id: 'task-lead', label: 'Summary', count: 0 });
-    this.task.sections.forEach((section, index) => entries.push({ id: `task-s${index}`, label: section.name, count: section.questions || section.steps || section.total }));
+    if (this.task.lead) {
+      const label = this.sections.some(({ kind }) => kind === 'summary') ? 'Introduction' : 'Summary';
+      entries.push({ id: 'task-lead', label });
+    }
+    this.sections.forEach((section) => entries.push({ id: section.id, label: section.name, count: section.questions || section.steps || section.total }));
     if (entries.length < 2) return '<nav class="spec-outline" aria-hidden="true"></nav>';
     return renderOutline(entries, { ariaLabel: 'Task sections' });
   }
@@ -102,11 +106,11 @@ export class TaskView {
       id: 'task-lead',
       bodyHtml: renderSectionProse(this.markdown(task.lead), 'task-lead'),
     }));
-    task.sections.forEach((section, index) => {
+    this.sections.forEach((section) => {
       const { done, total, kind, body } = section;
       const headingHtml = total ? renderChip({ label: `${done} of ${total}`, tone: done === total ? 'green' : '' }) : '';
       const card = {
-        id: `task-s${index}`,
+        id: section.id,
         title: section.name,
         className: `task-section${total ? ' task-section--checks' : ''}${SECTION_CLASS[kind] || ''}`,
         headingHtml,
